@@ -11,6 +11,7 @@ import {
   MapPin
 } from 'lucide-react';
 import TopoBackground from '@/components/TopoBackground';
+import MtbRiderBackground from '@/components/MtbRiderBackground';
 import SectionHeading from '@/components/SectionHeading';
 import RouteCard from '@/components/RouteCard';
 import { routes, sectors } from '@/data/routes';
@@ -19,13 +20,9 @@ export default function Home() {
   return (
     <div className="relative min-h-screen overflow-x-hidden">
       {/* --- HERO SECTION --- */}
-      <section className="relative h-[90vh] flex items-center justify-center overflow-hidden">
-        <TopoBackground />
-        {/* Placeholder for Video/Image */}
-        <div className="absolute inset-0 z-0">
-          <div className="absolute inset-0 bg-slate-950/60 z-10"></div>
-          <div className="w-full h-full bg-[url('https://images.unsplash.com/photo-1544198365-f5d60b6d8190?auto=format&fit=crop&q=80&w=2070')] bg-cover bg-center"></div>
-        </div>
+      <section className="relative h-screen flex items-center justify-center overflow-hidden">
+        <MtbRiderBackground />
+        <div className="absolute inset-0 bg-slate-950/30 z-[1]"></div>
 
         <div className="relative z-20 text-center px-6 max-w-5xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-500 text-xs font-bold uppercase tracking-widest mb-8">
