@@ -4,7 +4,8 @@ import {
   Map, 
   ArrowRight,
   MountainIcon,
-  Bike
+  Bike,
+  ChevronRight
 } from 'lucide-react';
 import TopoBackground from '@/components/TopoBackground';
 import SectionHeading from '@/components/SectionHeading';
