@@ -55,6 +55,7 @@ export const sectors: Sector[] = [
     longDescription: "El río Bergantes es una punta de lanza de la cuenca del Ebro en el Norte de Castellón. Sus fuentes están en las muelas de Fusters (Morella), y va cobrando vigor aguas abajo de Morella. Es a partir de este momento donde ha excavado la tierra contundentemente, con predominio de la orografía en forma de grandes muelas, dando pie a fantásticos Top Tracks, caracterizados por los tramos altos llanos y abiertos a excelentes vistas panorámicas, y por el pronunciado desnivel de los tramos descendentes. Esta configuración ofrece un alto interés para la práctica del enduro mtb, ya que combina pedaleo y descensos ya con cierta complejidad. En este sector se encuentra la Fábrica de Giner, Punto de Acogida del Centre BTT de Els Ports. También tenemos la localidad de Forcall, un bonito pueblo con diferentes servicios turísticos que puede tomarse como inicio de gran cantidad de rutas BTT.",
     terrain: "Mixto: muelas y valles",
     dominantDifficulty: "roja",
+    image: "https://images.unsplash.com/photo-1551632811-561732d1e306?auto=format&fit=crop&q=80&w=1000",
   },
   {
     id: "celumbres",
@@ -64,6 +65,7 @@ export const sectors: Sector[] = [
     longDescription: "Se abre como un abismo entre las localidades de Cinctorres, Portell de Morella y Castellfort. Reflejo de la calidad ambiental de este entorno es la figura de Paraje Natural que lo protege. Ofrece panorámicas asombrosas en un entorno de bosque rocoso muy poco humanizado y riquísimo en flora y fauna.",
     terrain: "Rocoso y boscoso",
     dominantDifficulty: "negra",
+    image: "https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&q=80&w=1000",
   },
   {
     id: "el-riu-de-les-corces",
@@ -73,6 +75,7 @@ export const sectors: Sector[] = [
     longDescription: "El tramo superior del Riu de les Corces (también conocido como Riu Cervol) es para cualquier amante del medio natural un paraíso, y para quienes buscan auténtico mtb por singletracks, un entorno perfecto. Uno de los mejores Morella Top Tracks es el 'Mundo Perdido', tal podría ser el nombre de todo el valle de este río entre Morella y Vallibona: un valle orográficamente marcado por una geología retorcida, que lo encierra profundo y sombrío, con el agua dando pie a una variedad botánica impropia de estas latitudes. En todo el valle la humanización siempre ha sido leve y muy integrada, y hoy sus escasos vestigios son armoniosas piezas del paisaje. Por aquí discurren algunas de las mejores rutas de singletrack que podréis encontrar en ninguna parte, aptas tanto para un enfoque 'all mountain' como para el enduro mtb de dificultad moderada.",
     terrain: "Singletrack profundo",
     dominantDifficulty: "roja",
+    image: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&q=80&w=1000",
   },
   {
     id: "peter-rules",
@@ -82,6 +85,7 @@ export const sectors: Sector[] = [
     longDescription: "Este sector se sitúa al nordeste de Morella, a caballo entre el precioso pueblecillo de Herbeset y el fantástico monte público de Pereroles. Resulta especialmente interesante para el mtb por varios motivos. Por una parte alberga bosques de gran calidad y muy variados. Por otra parte su orografía continuamente quebrada le aporta mucha intensidad, ya que los tramos llanos y de transición desaparecen, y todo es subir o bajar, constituyendo un escenario ideal para el auténtico enduro mtb que no renuncia a los duros pedaleos, o para el all mountain. Además la humanización de este sector nunca fue muy intensa. Para la práctica del mtb es hábil todo el año, pero especialmente constituye una buena alternativa en verano, cuando combinado con los top tracks del Riu de les Corces, aporta rutas arboladas y frescas aún en días de intensa calor.",
     terrain: "Boscoso y quebrado",
     dominantDifficulty: "azul",
+    image: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&q=80&w=1000",
   },
   {
     id: "torre-miro-xiva",
@@ -91,6 +95,7 @@ export const sectors: Sector[] = [
     longDescription: "Este es un sector precioso: un valle de orfebrería de roca y bosque, en el que se enreda un ovillo de sendas, muy variado en cuanto a requerimientos técnicos y sin llegar a dificultades extremas. Algunas de estas sendas son ciclables en ambos sentidos, no al 100% pero casi. La combinación de las sendas entre sí da para algunas rutas de mtb enduro extraordinariamente intensas. Además son senderos muy a mano como final de rutas que nos regresan de tracks más alejados, y es que está muy cerca de Morella, lo que lo habilita perfectamente para medias jornadas o días inciertos que aconsejan vías de aborto rápidas. El regreso natural del valle alcanza Morella bien desde la senda de 'Romeo' o bien desde la de 'Julieta', ambas comparten un duro pero hermoso inicio. En la parte más baja del sector se encuentra la localidad de Xiva, pedanía de Morella, que tiene bar y varios alojamientos turísticos.",
     terrain: "Roca y bosque",
     dominantDifficulty: "azul",
+    image: "https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&q=80&w=1000",
   },
 ];
 
@@ -116,7 +121,10 @@ export const routes: MTBRoute[] = [
     ebikeFriendly: true,
     trailPercent: 39,
     trackUrl: "/tracks/garumba-gigante.rar",
-    images: [],
+    images: [
+      "https://images.unsplash.com/photo-1551632811-561732d1e306?auto=format&fit=crop&q=80&w=1000",
+      "https://images.unsplash.com/photo-1544198365-f5d60b6d8190?auto=format&fit=crop&q=80&w=1000",
+    ],
     warnings: [
       "Importante tramo de porteo (15-20 min) para acceder al Balcó de Pilatos",
       "Punto de navegación confuso cerca de reja verde metálica - seguir senda paralela a pared de piedra",
@@ -147,7 +155,9 @@ export const routes: MTBRoute[] = [
     recommendedBike: ["Trail", "All-mountain"],
     ebikeFriendly: true,
     trailPercent: 60,
-    images: [],
+    images: [
+      "https://images.unsplash.com/photo-1414500922875-72f92e2bc35c?auto=format&fit=crop&q=80&w=1000",
+    ],
     warnings: [],
     waterPoints: [],
     bestSeason: ["Primavera", "Otoño"],
@@ -173,7 +183,9 @@ export const routes: MTBRoute[] = [
     recommendedBike: ["Trail", "All-mountain"],
     ebikeFriendly: true,
     trailPercent: 27,
-    images: [],
+    images: [
+      "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&q=80&w=1000",
+    ],
     warnings: [],
     waterPoints: [],
     bestSeason: ["Primavera", "Otoño"],
@@ -202,7 +214,10 @@ export const routes: MTBRoute[] = [
     ebikeFriendly: false,
     trailPercent: 70,
     trackUrl: "/tracks/coronel-perdido.rar",
-    images: [],
+    images: [
+      "https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&q=80&w=1000",
+      "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&q=80&w=1000",
+    ],
     warnings: [
       "Varios tramos de porteo obligatorio",
       "La navegación requiere atención: vías pecuarias con camino poco evidente",
@@ -234,7 +249,9 @@ export const routes: MTBRoute[] = [
     ebikeFriendly: true,
     trailPercent: 39,
     trackUrl: "/tracks/romeo-julieta.rar",
-    images: [],
+    images: [
+      "https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&q=80&w=1000",
+    ],
     warnings: [
       "Al inicio, acceder por paso entre postes de madera, no por puerta metálica",
       "Puede haber vacas negras de raza avileña (no son bravas)"
@@ -262,7 +279,9 @@ export const routes: MTBRoute[] = [
     recommendedBike: ["Enduro", "All-mountain"],
     ebikeFriendly: false,
     trailPercent: 56,
-    images: [],
+    images: [
+      "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&q=80&w=1000",
+    ],
     warnings: [
       "Paraje Natural - respetar el entorno",
       "Zona remota, llevar agua en abundancia"
@@ -290,7 +309,9 @@ export const routes: MTBRoute[] = [
     recommendedBike: ["Enduro", "All-mountain"],
     ebikeFriendly: true,
     trailPercent: 52,
-    images: [],
+    images: [
+      "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&q=80&w=1000",
+    ],
     warnings: [
       "Orografía quebrada: todo es subir o bajar"
     ],
@@ -317,7 +338,9 @@ export const routes: MTBRoute[] = [
     recommendedBike: ["Enduro", "All-mountain"],
     ebikeFriendly: false,
     trailPercent: 43,
-    images: [],
+    images: [
+      "https://images.unsplash.com/photo-1511499767150-a48a237f0083?auto=format&fit=crop&q=80&w=1000",
+    ],
     warnings: [],
     waterPoints: [],
     bestSeason: ["Primavera", "Otoño"],
@@ -342,7 +365,9 @@ export const routes: MTBRoute[] = [
     recommendedBike: ["Enduro", "All-mountain"],
     ebikeFriendly: false,
     trailPercent: 48,
-    images: [],
+    images: [
+      "https://images.unsplash.com/photo-1551632811-561732d1e306?auto=format&fit=crop&q=80&w=1000",
+    ],
     warnings: [],
     waterPoints: [],
     bestSeason: ["Primavera", "Otoño"],
@@ -367,7 +392,10 @@ export const routes: MTBRoute[] = [
     recommendedBike: ["Enduro"],
     ebikeFriendly: false,
     trailPercent: 48,
-    images: [],
+    images: [
+      "https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&q=80&w=1000",
+      "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&q=80&w=1000",
+    ],
     warnings: ["Ruta larga y exigente"],
     waterPoints: [],
     bestSeason: ["Primavera", "Otoño"],
