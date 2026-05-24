@@ -2,12 +2,10 @@ import React from 'react';
 import Link from 'next/link';
 import { MTBRoute } from '@/data/routes';
 import { 
-  MapPin, 
   Navigation, 
   Timer, 
   TrendingUp, 
   Mountain, 
-  Zap, 
   Download 
 } from 'lucide-react';
 
@@ -32,9 +30,30 @@ const DifficultyBadge = ({ difficulty }: { difficulty: string }) => {
   );
 };
 
-const RouteCard = ({ route }: RouteCardProps) => {
+const StatusBadge = ({ status }: { status: MTBRoute['status'] }) => {
+  const configs: Record<string, { label: string; color: string }> = {
+    publicada: { label: 'Disponible', color: 'bg-green-500 text-white' },
+    'pendiente-datos': { label: 'Pendiente', color: 'bg-orange-500 text-white' },
+    'cerrada-temporalmente': { label: 'Cerrada', color: 'bg-red-600 text-white' },
+  };
+
+  const config = configs[status] || configs.pendiente-datos;
+
   return (
-    <div className="group relative bg-slate-900/50 border border-white/5 rounded-xl overflow-hidden hover:border-orange-500/50 transition-all duration-300 flex flex-col h-full">
+    <span className={`text-[9px] uppercase tracking-tighter font-black px-1.5 py-0.5 rounded ${config.color}`}>
+      {config.label}
+    </span>
+  );
+};
+
+const RouteCard = ({ route }: RouteCardProps) => {
+  const isClosed = route.status === 'cerrada-temporalmente';
+  const isPending = route.status === 'pendiente-datos';
+
+  return (
+    <div className={`group relative bg-slate-900/50 border rounded-xl overflow-hidden transition-all duration-300 flex flex-col h-full ${
+      isClosed ? 'border-red-900/50 opacity-80' : isPending ? 'border-orange-900/30' : 'border-white/5 hover:border-orange-500/50 hover:shadow-xl hover:shadow-orange-500/5'
+    }`}>
       {/* Image Container */}
       <div className="relative h-48 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950 to-transparent z-10" />
@@ -50,9 +69,13 @@ const RouteCard = ({ route }: RouteCardProps) => {
           <DifficultyBadge difficulty={route.physicalDifficulty} />
         </div>
 
+        <div className="absolute top-3 right-3 z-20">
+          <StatusBadge status={route.status} />
+        </div>
+
         <div className="absolute bottom-3 left-3 z-20">
           <div className="flex items-center gap-1 text-xs font-medium text-slate-300 bg-black/40 backdrop-blur-sm px-2 py-1 rounded">
-            <MapPin className="w-3 h-3" />
+            <Navigation className="w-3 h-3" />
             {route.sector}
           </div>
         </div>
@@ -96,7 +119,7 @@ const RouteCard = ({ route }: RouteCardProps) => {
             DETALLES
           </Link>
           <button 
-            disabled={route.status === "pendiente-datos"}
+            disabled={isClosed || isPending || !route.trackUrl}
             className="p-2 bg-slate-800 text-white rounded-lg hover:bg-orange-500 transition-colors disabled:opacity-30"
             title="Descargar GPX"
           >
@@ -109,3 +132,4 @@ const RouteCard = ({ route }: RouteCardProps) => {
 };
 
 export default RouteCard;
+
