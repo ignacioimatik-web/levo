@@ -1,19 +1,12 @@
-import { Metadata } from 'next';
+import { MetadataRoute } from 'next';
 import { routes } from '@/data/routes';
 
-export default function sitemap(): Promise<Metadata[]> {
-  const baseUrl = 'https://ignacioimatik-web.github.io/levo'; // Adjust to actual domain if needed
+export default function sitemap(): MetadataRoute.Sitemap {
+  const baseUrl = 'https://ignacioimatik-web.github.io/levo';
 
   const staticRoutes = [
-    '',
-    '/rutas',
-    '/sectores',
-    '/top-tracks',
-    '/travesias',
-    '/planifica',
-    '/morella',
-    '/seguridad',
-    '/contacto',
+    '', '/rutas', '/sectores', '/top-tracks', '/travesias',
+    '/planifica', '/morella', '/seguridad', '/contacto',
   ].map((route) => ({
     url: `${baseUrl}${route}`,
     lastModified: new Date(),
@@ -28,5 +21,5 @@ export default function sitemap(): Promise<Metadata[]> {
     priority: 0.6,
   }));
 
-  return Promise.resolve([...staticRoutes, ...dynamicRoutes]);
+  return [...staticRoutes, ...dynamicRoutes];
 }
