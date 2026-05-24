@@ -1,17 +1,29 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-:root {
-  --foreground-rgb: 248, 250, 252;
-  --background-start-rgb: 2, 6, 23;
-  --background-end-rgb: 15, 23, 42;
-}
+@theme {
+  --color-orange-50: #fff7ed;
+  --color-orange-100: #ffedd5;
+  --color-orange-200: #fed7aa;
+  --color-orange-300: #fdba74;
+  --color-orange-400: #fb923c;
+  --color-orange-500: #f97316;
+  --color-orange-600: #ea580c;
+  --color-orange-700: #c2410c;
+  --color-orange-800: #9a3412;
+  --color-orange-900: #7c2d12;
+  --color-orange-950: #431407;
 
-body {
-  color: rgb(var(--foreground-rgb));
-  background: rgb(var(--background-start-rgb));
-  font-family: var(--font-geist-sans);
+  --color-slate-50: #f8fafc;
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-slate-600: #475569;
+  --color-slate-700: #334155;
+  --color-slate-800: #1e293b;
+  --color-slate-900: #0f172a;
+  --color-slate-950: #020617;
 }
 
 @layer components {
