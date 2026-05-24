@@ -37,7 +37,7 @@ const StatusBadge = ({ status }: { status: MTBRoute['status'] }) => {
     'cerrada-temporalmente': { label: 'Cerrada', color: 'bg-red-600 text-white' },
   };
 
-  const config = configs[status] || configs.pendiente-datos;
+  const config = configs[status] || configs['pendiente-datos'];
 
   return (
     <span className={`text-[9px] uppercase tracking-tighter font-black px-1.5 py-0.5 rounded ${config.color}`}>
