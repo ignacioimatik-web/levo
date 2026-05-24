@@ -11,7 +11,7 @@ export default function MorellaPage() {
         <TopoBackground />
         <div className="absolute inset-0 z-0">
           <div className="absolute inset-0 bg-gradient-to-b from-slate-950 via-slate-950/90 to-slate-950 z-10"></div>
-          <div className="w-full h-full bg-[url('https://images.unsplash.com/photo-1548013146-72479768bbaa?auto=format&fit=crop&q=80&w=2070')] bg-cover bg-center"></div>
+          <div className="w-full h-full bg-[url('https://images.unsplash.com/photo-1575548393466-0df1618ba410?auto=format&fit=crop&q=80&w=2070')] bg-cover bg-center"></div>
         </div>
         <div className="relative z-20 max-w-4xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-500 text-xs font-bold uppercase tracking-widest mb-8">
