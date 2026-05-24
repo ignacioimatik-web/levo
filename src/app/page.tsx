@@ -32,7 +32,6 @@ export default function Home() {
         </video>
         <div className="absolute inset-0 bg-gradient-to-b from-slate-950/70 via-slate-950/50 to-slate-950/80 z-[1]"></div>
         <MtbRiderBackground />
-        <div className="absolute inset-0 bg-slate-950/20 z-[2]"></div>
 
         <div className="relative z-20 text-center px-6 max-w-5xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-500 text-xs font-bold uppercase tracking-widest mb-8">

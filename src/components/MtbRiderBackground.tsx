@@ -12,9 +12,9 @@ export default function MtbRiderBackground() {
   }, []);
 
   return (
-    <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none" aria-hidden="true">
-      {/* Sky gradient */}
-      <div className="absolute inset-0 bg-gradient-to-b from-slate-900 via-slate-950 to-slate-950"></div>
+    <div className="absolute inset-0 z-[2] overflow-hidden pointer-events-none" aria-hidden="true">
+      {/* Sky gradient - transparent to show video behind */}
+      <div className="absolute inset-0 bg-transparent"></div>
 
       {/* Far background trees */}
       <div
