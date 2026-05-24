@@ -21,8 +21,18 @@ export default function Home() {
     <div className="relative min-h-screen overflow-x-hidden">
       {/* --- HERO SECTION --- */}
       <section className="relative h-screen flex items-center justify-center overflow-hidden">
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover z-0"
+        >
+          <source src="/videos/hero-bg.mp4" type="video/mp4" />
+        </video>
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-950/70 via-slate-950/50 to-slate-950/80 z-[1]"></div>
         <MtbRiderBackground />
-        <div className="absolute inset-0 bg-slate-950/30 z-[1]"></div>
+        <div className="absolute inset-0 bg-slate-950/20 z-[2]"></div>
 
         <div className="relative z-20 text-center px-6 max-w-5xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-500 text-xs font-bold uppercase tracking-widest mb-8">
