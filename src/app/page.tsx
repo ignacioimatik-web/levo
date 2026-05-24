@@ -7,7 +7,8 @@ import {
   Bike,
   ChevronRight,
   Calendar,
-  ShieldCheck
+  ShieldCheck,
+  MapPin
 } from 'lucide-react';
 import TopoBackground from '@/components/TopoBackground';
 import SectionHeading from '@/components/SectionHeading';
@@ -201,5 +202,6 @@ export default function Home() {
     </div>
   );
 }
+
 
 
