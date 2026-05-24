@@ -5,7 +5,8 @@ import {
   ArrowRight,
   MountainIcon,
   Bike,
-  ChevronRight
+  ChevronRight,
+  Calendar
 } from 'lucide-react';
 import TopoBackground from '@/components/TopoBackground';
 import SectionHeading from '@/components/SectionHeading';
@@ -199,3 +200,4 @@ export default function Home() {
     </div>
   );
 }
+
