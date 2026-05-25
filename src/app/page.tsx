@@ -32,12 +32,13 @@ export default function Home() {
         <div className="absolute inset-0 bg-gradient-to-b from-slate-950/70 via-slate-950/50 to-slate-950/80 z-[1]"></div>
 
         <div className="relative z-20 text-center px-6 max-w-5xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-500 text-xs font-bold uppercase tracking-widest mb-8">
-            <MountainIcon className="w-4 h-4" />
-            Morella & Els Ports
-          </div>
+          <img
+            src="/images/logo-enduro-singletracks.png"
+            alt="Enduro Singletracks"
+            className="w-full max-w-lg mx-auto mb-6 object-contain"
+          />
           <h1 className="text-5xl md:text-8xl font-black tracking-tighter text-white mb-6 leading-none">
-            MORELLA <br />
+            ENDURO <br />
             <span className="text-orange-500">SINGLETRACKS</span>
           </h1>
           <p className="text-xl md:text-3xl font-light text-slate-300 mb-12 max-w-3xl mx-auto leading-relaxed">
@@ -110,10 +111,16 @@ export default function Home() {
       <section className="py-24 px-6">
         <div className="max-w-7xl mx-auto">
           <div className="bg-gradient-to-br from-slate-900 to-slate-950 border border-white/10 rounded-3xl overflow-hidden flex flex-col md:flex-row">
-            <div className="md:w-1/2 h-64 md:h-auto relative">
-              <div className="absolute inset-0 bg-slate-800">
-                <img src="https://images.unsplash.com/photo-1551632432-0a7a845599d1?auto=format&fit=crop&q=80&w=1000" alt="Travesías" className="w-full h-full object-cover opacity-60" />
-              </div>
+            <div className="md:w-1/2 h-64 md:h-auto relative overflow-hidden">
+              <video
+                autoPlay
+                muted
+                loop
+                playsInline
+                className="absolute inset-0 w-full h-full object-cover opacity-60"
+              >
+                <source src="https://assets.mixkit.co/videos/44319/44319-720.mp4" type="video/mp4" />
+              </video>
               <div className="absolute inset-0 bg-gradient-to-r from-slate-950 to-transparent"></div>
             </div>
             <div className="md:w-1/2 p-12 flex flex-col justify-center">
