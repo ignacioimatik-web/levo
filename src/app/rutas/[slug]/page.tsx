@@ -1,7 +1,9 @@
+import { Metadata } from 'next';
 import { routes } from '@/data/routes';
 import { demoTrails } from '@/data/trails';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import RouteMapWrapper from '@/components/RouteMapWrapper';
 import { 
   Download, 
   AlertTriangle, 
@@ -13,7 +15,6 @@ import {
   Map,
   ChevronRight
 } from 'lucide-react';
-import { Metadata } from 'next';
 import TrailDifficultyBadge from '@/components/TrailDifficultyBadge';
 import { getTrailStatusLabel } from '@/lib/trail-utils';
 
@@ -32,7 +33,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   return {
-    title: route.name,
+    title: `${route.name} | E-nduro Singletracks`,
     description: `${route.summary}. Descubre los detalles técnicos, dificultad y descarga el track GPX para tu aventura de MTB en ${route.sector}.`,
     openGraph: {
       title: `${route.name} | E-nduro Singletracks`,
@@ -99,28 +100,19 @@ export default async function RouteDetailPage({ params }: PageProps) {
         </div>
       )}
 
-      {/* Hero Image Placeholder */}
-      <div className="w-full h-[400px] bg-slate-800 rounded-3xl mb-12 overflow-hidden relative shadow-2xl">
-        {["coronel-perdido", "garumba-gigante", "santets-gegants", "vuelta-garumba"].includes(slug) ? (
-          <video
-            autoPlay
-            muted
-            loop
-            playsInline
-            className="w-full h-full object-cover"
-          >
-            <source src={`/videos/${slug}.mp4`} type="video/mp4" />
-          </video>
+      {/* Hero Image / Map */}
+      <div className="w-full h-[400px] relative overflow-hidden rounded-3xl shadow-2xl border border-white/5 mb-12">
+        {route.trackUrl ? (
+          <RouteMapWrapper 
+            gpxUrl={route.trackUrl} 
+            title={route.name}
+          />
         ) : (
-          <>
-            <div className="absolute inset-0 flex items-center justify-center text-slate-500 italic">
-              Imagen de la ruta {route.name}
-            </div>
-            {route.images.length > 0 && (
-              <img src={route.images[0]} alt={route.name} className="w-full h-full object-cover opacity-80" />
-            )}
-          </>
+          <div className="w-full h-full bg-slate-800 flex items-center justify-center text-slate-500 italic">
+            Imagen de la ruta {route.name}
+          </div>
         )}
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent pointer-events-none" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
@@ -128,7 +120,7 @@ export default async function RouteDetailPage({ params }: PageProps) {
         <div className="lg:col-span-2 space-y-12">
           <section>
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
-              <span className="w-1.5 h-8 bg-orange-500 rounded-full inline-block"></span>
+              <span className="w-1.5 h-8 bg-orange-500 rounded-full inline-block" />
               Descripción
             </h2>
             <p className="text-lg text-slate-400 leading-relaxed whitespace-pre-line">
@@ -138,7 +130,7 @@ export default async function RouteDetailPage({ params }: PageProps) {
 
           <section>
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
-              <span className="w-1.5 h-8 bg-orange-500 rounded-full inline-block"></span>
+              <span className="w-1.5 h-8 bg-orange-500 rounded-full inline-block" />
               Recomendaciones
             </h2>
             <ul className="space-y-3">
@@ -157,7 +149,7 @@ export default async function RouteDetailPage({ params }: PageProps) {
 
           <section>
             <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
-              <span className="w-1.5 h-8 bg-orange-500 rounded-full inline-block"></span>
+              <span className="w-1.5 h-8 bg-orange-500 rounded-full inline-block" />
               Puntos de Interés
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -176,7 +168,7 @@ export default async function RouteDetailPage({ params }: PageProps) {
           {route.trailSlugs && route.trailSlugs.length > 0 && (
             <section>
               <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
-                <span className="w-1.5 h-8 bg-orange-500 rounded-full inline-block"></span>
+                <span className="w-1.5 h-8 bg-orange-500 rounded-full inline-block" />
                 Senderos incluidos en esta ruta
               </h2>
               <div className="space-y-3">
@@ -222,23 +214,23 @@ export default async function RouteDetailPage({ params }: PageProps) {
             <h3 className="text-lg font-bold text-white mb-6">Ficha Técnica</h3>
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <span className="text-slate-500 text-sm">Distancia</span>
+                <span className="text-slate.500 text-sm">Distancia</span>
                 <span className="font-bold text-white">{route.distanceKm ? `${route.distanceKm} km` : '--'}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-slate-500 text-sm">Desnivel (+)</span>
+                <span className="text-slate.500 text-sm">Desnivel (+)</span>
                 <span className="font-bold text-white">{route.elevationGainM ? `${route.elevationGainM} m` : '--'}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-slate-500 text-sm">Desnivel (-)</span>
+                <span className="text-slate.500 text-sm">Desnivel (-)</span>
                 <span className="font-bold text-white">{route.elevationLossM ? `${route.elevationLossM} m` : '--'}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-slate-500 text-sm">Senda</span>
+                <span className="text-slate.500 text-sm">Senda</span>
                 <span className="font-bold text-white">{route.trailPercent ? `${route.trailPercent}%` : '--'}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-slate-500 text-sm">Bici recomendada</span>
+                <span className="text-slate.500 text-sm">Bici recomendada</span>
                 <span className="font-bold text-white text-right text-xs">{route.recommendedBike.join(', ') || '--'}</span>
               </div>
             </div>
@@ -256,7 +248,7 @@ export default async function RouteDetailPage({ params }: PageProps) {
               <a
                 href={route.trackUrl || '#'}
                 download
-                className={`w-full block text-center bg-orange-500 text-white py-3 rounded-xl font-bold hover:bg-orange-600 transition-all flex items-center justify-center gap-2 ${(!route.trackUrl || isClosed || isPending) ? 'pointer-events-none opacity-30' : ''}`}
+                className={`w-full flex items-center justify-center gap-2 px-4 py-3 bg-orange-500 text-white rounded-xl font-bold text-sm hover:bg-orange-600 transition-all ${(!route.trackUrl || isClosed || isPending) ? 'pointer-events-none opacity-30' : ''}`}
               >
                 <Download className="w-4 h-4" />
                 Descargar GPX
@@ -264,7 +256,7 @@ export default async function RouteDetailPage({ params }: PageProps) {
               <a
                 href={route.trackUrl ? route.trackUrl.replace('.gpx', '.kml') : '#'}
                 download
-                className={`w-full block text-center bg-slate-800 text-white py-3 rounded-xl font-bold hover:bg-slate-700 transition-all flex items-center justify-center gap-2 ${(!route.trackUrl || isClosed || isPending) ? 'pointer-events-none opacity-30' : ''}`}
+                className={`w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-800 text-white rounded-xl font-bold text-sm hover:bg-slate-700 transition-all ${(!route.trackUrl || isClosed || isPending) ? 'pointer-events-none opacity-30' : ''}`}
               >
                 <Download className="w-4 h-4" />
                 Descargar KML

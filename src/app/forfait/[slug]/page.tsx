@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import TrailDifficultyBadge from '@/components/TrailDifficultyBadge';
 import { getTrailStatusLabel, getTrailTypeLabel } from '@/lib/trail-utils';
+import TrailDetailMapWrapper from '@/components/TrailDetailMapWrapper';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -116,17 +117,13 @@ export default async function TrailDetailPage({ params }: PageProps) {
               </p>
             </div>
 
-            {/* Map placeholder */}
+            {/* Map */}
             <div>
               <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
                 <span className="w-1.5 h-8 bg-orange-500 rounded-full inline-block" />
                 Plano del sendero
               </h2>
-              <div className="w-full h-[300px] bg-slate-900 border-2 border-dashed border-slate-700 rounded-2xl flex flex-col items-center justify-center">
-                <Map className="w-12 h-12 text-slate-700 mb-3" />
-                <p className="text-slate-500 text-sm font-bold">Mapa del sendero</p>
-                <p className="text-slate-600 text-xs mt-1">Próximamente disponible</p>
-              </div>
+              <TrailDetailMapWrapper trail={trail} />
             </div>
 
             {/* Warnings */}
@@ -192,7 +189,7 @@ export default async function TrailDetailPage({ params }: PageProps) {
                   <span className="font-bold text-red-400">{trail.elevationLossM ? `-${trail.elevationLossM} m` : '—'}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-slate-500">Duración est.</span>
+                  <span className="text-sm text-slate.500">Duración est.</span>
                   <span className="font-bold text-white">{trail.estimatedTime || '—'}</span>
                 </div>
               </div>
@@ -248,28 +245,33 @@ export default async function TrailDetailPage({ params }: PageProps) {
                 <Download className="w-5 h-5 text-orange-500" />
                 Descargas
               </h3>
-              {hasGpx ? (
-                <a href={trail.gpxFile} download className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-orange-500 text-white rounded-xl font-bold text-sm hover:bg-orange-600 transition-all mb-2">
-                  <Download className="w-4 h-4" />
-                  Descargar GPX
-                </a>
-              ) : (
-                <div className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-800 text-slate-500 rounded-xl text-sm font-medium mb-2">
-                  <Download className="w-4 h-4" />
-                  GPX pendiente
-                </div>
-              )}
-              {hasKml ? (
-                <a href={trail.kmlFile} download className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-800 text-white rounded-xl font-bold text-sm hover:bg-slate-700 transition-all">
-                  <Download className="w-4 h-4" />
-                  Descargar KML
-                </a>
-              ) : hasGpx ? (
-                <div className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-800/50 text-slate-600 rounded-xl text-sm font-medium">
-                  <Download className="w-4 h-4" />
-                  KML pendiente
-                </div>
-              ) : null}
+              <p className="text-xs text-slate-400 mb-6 leading-relaxed">
+                Descarga los archivos GPX o KML para usarlos en tu dispositivo GPS o smartphone.
+              </p>
+              <div className="space-y-3">
+                {hasGpx ? (
+                  <a href={trail.gpxFile} download className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-orange-500 text-white rounded-xl font-bold text-sm hover:bg-orange-600 transition-all mb-2">
+                    <Download className="w-4 h-4" />
+                    Descargar GPX
+                  </a>
+                ) : (
+                  <div className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-800 text-slate.500 rounded-xl text-sm font-medium mb-2">
+                    <Download className="w-4 h-4" />
+                    GPX pendiente
+                  </div>
+                )}
+                {hasKml ? (
+                  <a href={trail.kmlFile} download className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-800 text-white rounded-xl font-bold text-sm hover:bg-slate-700 transition-all">
+                    <Download className="w-4 h-4" />
+                    Descargar KML
+                  </a>
+                ) : hasGpx ? (
+                  <div className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-800/50 text-slate.500 rounded-xl text-sm font-medium">
+                    <Download className="w-4 h-4" />
+                    KML pendiente
+                  </div>
+                ) : null}
+              </div>
             </div>
 
             {/* Disclaimer */}
