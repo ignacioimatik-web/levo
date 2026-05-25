@@ -96,7 +96,7 @@ export default async function RouteDetailPage({ params }: PageProps) {
 
       {/* Hero Image Placeholder */}
       <div className="w-full h-[400px] bg-slate-800 rounded-3xl mb-12 overflow-hidden relative shadow-2xl">
-        {slug === "coronel-perdido" ? (
+        {slug === "coronel-perdido" || slug === "garumba-gigante" ? (
           <video
             autoPlay
             muted
@@ -104,7 +104,7 @@ export default async function RouteDetailPage({ params }: PageProps) {
             playsInline
             className="w-full h-full object-cover"
           >
-            <source src="/videos/coronel-perdido.mp4" type="video/mp4" />
+            <source src={`/videos/${slug}.mp4`} type="video/mp4" />
           </video>
         ) : (
           <>
