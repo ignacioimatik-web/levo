@@ -58,7 +58,17 @@ const RouteCard = ({ route }: RouteCardProps) => {
       <div className="relative h-48 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950 to-transparent z-10" />
         <div className="absolute inset-0 bg-slate-800 flex items-center justify-center text-slate-600 italic text-sm">
-          {route.images.length > 0 ? (
+          {route.slug === "coronel-perdido" ? (
+            <video
+              autoPlay
+              muted
+              loop
+              playsInline
+              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+            >
+              <source src="/videos/coronel-perdido.mp4" type="video/mp4" />
+            </video>
+          ) : route.images.length > 0 ? (
             <img src={route.images[0]} alt={route.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
           ) : (
             "Image placeholder"

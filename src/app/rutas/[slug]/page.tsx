@@ -30,7 +30,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     title: route.name,
     description: `${route.summary}. Descubre los detalles técnicos, dificultad y descarga el track GPX para tu aventura de MTB en ${route.sector}.`,
     openGraph: {
-      title: `${route.name} | Morella Singletracks`,
+      title: `${route.name} | Enduro Singletracks`,
       description: route.summary,
       type: 'article',
       images: route.images.length > 0 ? [
@@ -96,12 +96,26 @@ export default async function RouteDetailPage({ params }: PageProps) {
 
       {/* Hero Image Placeholder */}
       <div className="w-full h-[400px] bg-slate-800 rounded-3xl mb-12 overflow-hidden relative shadow-2xl">
-         <div className="absolute inset-0 flex items-center justify-center text-slate-500 italic">
-           Imagen de la ruta {route.name}
-         </div>
-         {route.images.length > 0 && (
-           <img src={route.images[0]} alt={route.name} className="w-full h-full object-cover opacity-80" />
-         )}
+        {slug === "coronel-perdido" ? (
+          <video
+            autoPlay
+            muted
+            loop
+            playsInline
+            className="w-full h-full object-cover"
+          >
+            <source src="/videos/coronel-perdido.mp4" type="video/mp4" />
+          </video>
+        ) : (
+          <>
+            <div className="absolute inset-0 flex items-center justify-center text-slate-500 italic">
+              Imagen de la ruta {route.name}
+            </div>
+            {route.images.length > 0 && (
+              <img src={route.images[0]} alt={route.name} className="w-full h-full object-cover opacity-80" />
+            )}
+          </>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
