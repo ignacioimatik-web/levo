@@ -91,6 +91,15 @@ export const demoTrails: MTBTrail[] = [
     tags: ["iniciacion", "familiar", "senda-ancha"],
     warnings: [],
     relatedRouteSlugs: [],
+    coordinates: [
+      { lat: 40.636, lng: -0.092, elevation: 958 },
+      { lat: 40.635, lng: -0.089, elevation: 962 },
+      { lat: 40.633, lng: -0.087, elevation: 960 },
+      { lat: 40.631, lng: -0.085, elevation: 955 },
+      { lat: 40.632, lng: -0.088, elevation: 952 },
+      { lat: 40.634, lng: -0.091, elevation: 956 },
+      { lat: 40.636, lng: -0.092, elevation: 958 },
+    ],
     dataStatus: "placeholder",
   },
   {
@@ -114,6 +123,15 @@ export const demoTrails: MTBTrail[] = [
     tags: ["flow", "curvas", "ritmo"],
     warnings: ["Atención en curvas con gravilla suelta"],
     relatedRouteSlugs: ["sendero-verde-demo"],
+    coordinates: [
+      { lat: 40.625, lng: -0.114, elevation: 918 },
+      { lat: 40.623, lng: -0.117, elevation: 912 },
+      { lat: 40.621, lng: -0.120, elevation: 908 },
+      { lat: 40.619, lng: -0.123, elevation: 902 },
+      { lat: 40.617, lng: -0.126, elevation: 896 },
+      { lat: 40.615, lng: -0.124, elevation: 892 },
+      { lat: 40.616, lng: -0.120, elevation: 898 },
+    ],
     dataStatus: "placeholder",
   },
   {
@@ -137,6 +155,14 @@ export const demoTrails: MTBTrail[] = [
     tags: ["descenso", "tecnico", "raices", "roca"],
     warnings: ["Terreno irregular", "Peligro de caídas"],
     relatedRouteSlugs: ["senda-azul-demo"],
+    coordinates: [
+      { lat: 40.613, lng: -0.151, elevation: 1045 },
+      { lat: 40.611, lng: -0.154, elevation: 1002 },
+      { lat: 40.609, lng: -0.157, elevation: 955 },
+      { lat: 40.607, lng: -0.159, elevation: 908 },
+      { lat: 40.605, lng: -0.161, elevation: 860 },
+      { lat: 40.604, lng: -0.163, elevation: 835 },
+    ],
     dataStatus: "placeholder",
   },
   {
@@ -160,6 +186,13 @@ export const demoTrails: MTBTrail[] = [
     tags: ["extremo", "saltos", "exposicion"],
     warnings: ["Solo expertos", "Terreno expuesto", "No recomendado en mojado"],
     relatedRouteSlugs: ["bajada-roja-demo"],
+    coordinates: [
+      { lat: 40.612, lng: -0.148, elevation: 1098 },
+      { lat: 40.610, lng: -0.151, elevation: 1040 },
+      { lat: 40.608, lng: -0.155, elevation: 975 },
+      { lat: 40.605, lng: -0.158, elevation: 905 },
+      { lat: 40.603, lng: -0.161, elevation: 840 },
+    ],
     dataStatus: "placeholder",
   },
   {
@@ -183,6 +216,13 @@ export const demoTrails: MTBTrail[] = [
     tags: ["enlace", "pista", "conexion"],
     warnings: ["Comparte camino con vehículos autorizados"],
     relatedRouteSlugs: ["sendero-verde-demo", "senda-azul-demo"],
+    coordinates: [
+      { lat: 40.635, lng: -0.088, elevation: 960 },
+      { lat: 40.632, lng: -0.093, elevation: 948 },
+      { lat: 40.629, lng: -0.098, elevation: 935 },
+      { lat: 40.626, lng: -0.104, elevation: 922 },
+      { lat: 40.623, lng: -0.110, elevation: 915 },
+    ],
     dataStatus: "placeholder",
   },
   {
@@ -206,6 +246,14 @@ export const demoTrails: MTBTrail[] = [
     tags: ["subida", "rampas", "tecnico", "fisico"],
     warnings: ["Rampas exigentes", "Zonas de piedra suelta"],
     relatedRouteSlugs: ["senda-azul-demo"],
+    coordinates: [
+      { lat: 40.613, lng: -0.126, elevation: 890 },
+      { lat: 40.615, lng: -0.123, elevation: 910 },
+      { lat: 40.617, lng: -0.121, elevation: 932 },
+      { lat: 40.620, lng: -0.119, elevation: 950 },
+      { lat: 40.622, lng: -0.117, elevation: 968 },
+      { lat: 40.624, lng: -0.115, elevation: 982 },
+    ],
     dataStatus: "placeholder",
   },
   {
@@ -229,6 +277,16 @@ export const demoTrails: MTBTrail[] = [
     tags: ["travesia", "conexion", "larga-duracion"],
     warnings: ["Llevar agua suficiente", "Sin cobertura en algunos tramos", "Consultar estado estacional"],
     relatedRouteSlugs: ["sendero-verde-demo", "senda-azul-demo", "enlace-norte-demo"],
+    coordinates: [
+      { lat: 40.636, lng: -0.090, elevation: 960 },
+      { lat: 40.633, lng: -0.096, elevation: 945 },
+      { lat: 40.629, lng: -0.104, elevation: 928 },
+      { lat: 40.625, lng: -0.112, elevation: 912 },
+      { lat: 40.620, lng: -0.120, elevation: 905 },
+      { lat: 40.616, lng: -0.130, elevation: 890 },
+      { lat: 40.612, lng: -0.140, elevation: 875 },
+      { lat: 40.608, lng: -0.150, elevation: 858 },
+    ],
     dataStatus: "placeholder",
   },
   {
@@ -252,6 +310,16 @@ export const demoTrails: MTBTrail[] = [
     tags: ["historico", "sin-clasificar", "pendiente"],
     warnings: ["Sendero no evaluado", "Posible vegetación", "Llevar GPS y mapa"],
     relatedRouteSlugs: [],
+    coordinates: [
+      { lat: 40.639, lng: -0.090, elevation: 955 },
+      { lat: 40.637, lng: -0.086, elevation: 960 },
+      { lat: 40.634, lng: -0.084, elevation: 952 },
+      { lat: 40.632, lng: -0.087, elevation: 946 },
+      { lat: 40.633, lng: -0.091, elevation: 948 },
+      { lat: 40.635, lng: -0.093, elevation: 950 },
+      { lat: 40.637, lng: -0.092, elevation: 953 },
+      { lat: 40.639, lng: -0.090, elevation: 955 },
+    ],
     dataStatus: "placeholder",
   },
   /* GPX real — parsed from public/tracks/garumba-gigante.gpx (498 trackpoints) */

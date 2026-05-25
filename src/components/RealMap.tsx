@@ -1,43 +1,36 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Polyline, CircleMarker, useMap, Tooltip } from 'react-leaflet';
+import { MapContainer, TileLayer, Polyline, useMap, Tooltip } from 'react-leaflet';
 import type { LatLngExpression } from 'leaflet';
 import { MTBTrail, TrailDifficulty } from '@/data/trails';
 import { getTrailDifficultyLabel } from '@/lib/trail-utils';
 import 'leaflet/dist/leaflet.css';
 
-const DIFFICULTY_STYLES: Record<TrailDifficulty, { color: string; weight: number; opacity: number }> = {
-  green: { color: '#22c55e', weight: 4, opacity: 0.85 },
-  blue: { color: '#60a5fa', weight: 4, opacity: 0.85 },
-  red: { color: '#f87171', weight: 4, opacity: 0.85 },
-  black: { color: '#cbd5e1', weight: 4, opacity: 0.85 },
-  'double-black': { color: '#f1f5f9', weight: 4, opacity: 0.85 },
-  unclassified: { color: '#64748b', weight: 3, opacity: 0.5 },
+const DIFFICULTY_BASE: Record<TrailDifficulty, { weight: number; opacity: number }> = {
+  green: { weight: 4, opacity: 0.85 },
+  blue: { weight: 4, opacity: 0.85 },
+  red: { weight: 4, opacity: 0.85 },
+  black: { weight: 4, opacity: 0.85 },
+  'double-black': { weight: 4, opacity: 0.85 },
+  unclassified: { weight: 3, opacity: 0.55 },
 };
 
-const DIFFICULTY_HOVER: Record<TrailDifficulty, { weight: number; opacity: number }> = {
-  green: { weight: 7, opacity: 1 },
-  blue: { weight: 7, opacity: 1 },
-  red: { weight: 7, opacity: 1 },
-  black: { weight: 7, opacity: 1 },
-  'double-black': { weight: 7, opacity: 1 },
-  unclassified: { weight: 5, opacity: 0.8 },
+const DIFFICULTY_HOVER: Record<TrailDifficulty, number> = {
+  green: 7, blue: 7, red: 7, black: 7, 'double-black': 7, unclassified: 5,
 };
 
-const DIFFICULTY_SELECTED: Record<TrailDifficulty, { weight: number; opacity: number }> = {
-  green: { weight: 8, opacity: 1 },
-  blue: { weight: 8, opacity: 1 },
-  red: { weight: 8, opacity: 1 },
-  black: { weight: 8, opacity: 1 },
-  'double-black': { weight: 8, opacity: 1 },
-  unclassified: { weight: 6, opacity: 0.9 },
+const DIFFICULTY_SELECTED: Record<TrailDifficulty, number> = {
+  green: 8, blue: 8, red: 8, black: 8, 'double-black': 8, unclassified: 6,
 };
 
-const SECTOR_POSITIONS: Record<string, [number, number]> = {
-  'Sector Demo A': [40.632, -0.088],
-  'Sector Demo B': [40.620, -0.120],
-  'Sector Demo C': [40.608, -0.155],
+const DIFFICULTY_COLORS: Record<TrailDifficulty, string> = {
+  green: '#22c55e',
+  blue: '#60a5fa',
+  red: '#f87171',
+  black: '#cbd5e1',
+  'double-black': '#f1f5f9',
+  unclassified: '#64748b',
 };
 
 const DEFAULT_CENTER: [number, number] = [40.622, -0.125];
@@ -61,8 +54,8 @@ function getBounds(trails: MTBTrail[]): [[number, number], [number, number]] | n
   return [[minLat, minLng], [maxLat, maxLng]];
 }
 
-function hasRealCoordinates(trail: MTBTrail): boolean {
-  return !!(trail.coordinates && trail.coordinates.length > 0);
+function hasCoords(trail: MTBTrail): boolean {
+  return !!(trail.coordinates && trail.coordinates.length > 1);
 }
 
 function DifficultyLegend() {
@@ -73,7 +66,7 @@ function DifficultyLegend() {
       <div className="space-y-1">
         {difficulties.map(d => (
           <div key={d} className="flex items-center gap-2">
-            <span className="inline-block w-4 h-0.5 rounded-full" style={{ backgroundColor: DIFFICULTY_STYLES[d].color }} />
+            <span className="inline-block w-4 h-0.5 rounded-full" style={{ backgroundColor: DIFFICULTY_COLORS[d] }} />
             <span className="text-[10px] text-slate-400 font-bold">{getTrailDifficultyLabel(d)}</span>
           </div>
         ))}
@@ -93,9 +86,9 @@ function MapController({ selectedTrailId, trails }: {
   useEffect(() => {
     if (selectedTrailId && selectedTrailId !== prevSelected.current) {
       const trail = trails.find(t => t.id === selectedTrailId);
-      if (trail && hasRealCoordinates(trail)) {
+      if (trail && hasCoords(trail)) {
         const coords = toLatLng(trail);
-        if (coords.length > 0) {
+        if (coords.length > 1) {
           map.flyToBounds(coords as unknown as [[number, number], [number, number]], {
             padding: [60, 60],
             maxZoom: 15,
@@ -109,9 +102,9 @@ function MapController({ selectedTrailId, trails }: {
 
   useEffect(() => {
     if (initialFitDone.current) return;
-    const coordsTrails = trails.filter(hasRealCoordinates);
-    if (coordsTrails.length === 0) return;
-    const bounds = getBounds(coordsTrails);
+    const withCoords = trails.filter(hasCoords);
+    if (withCoords.length === 0) return;
+    const bounds = getBounds(withCoords);
     if (bounds) {
       map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
       initialFitDone.current = true;
@@ -130,13 +123,15 @@ function TrailPolyline({ trail, isHovered, isSelected, onMouseEnter, onMouseLeav
   onClick: () => void;
 }) {
   const coords = toLatLng(trail);
-  if (coords.length === 0) return null;
+  if (coords.length < 2) return null;
 
-  const base = DIFFICULTY_STYLES[trail.difficulty];
-  const hover = DIFFICULTY_HOVER[trail.difficulty];
-  const selected = DIFFICULTY_SELECTED[trail.difficulty];
-  const active = isSelected ? selected : isHovered ? hover : base;
-
+  const color = DIFFICULTY_COLORS[trail.difficulty];
+  const base = DIFFICULTY_BASE[trail.difficulty];
+  const weight = isSelected ? DIFFICULTY_SELECTED[trail.difficulty]
+    : isHovered ? DIFFICULTY_HOVER[trail.difficulty]
+    : base.weight;
+  const opacity = isSelected ? 1 : isHovered ? 1 : base.opacity;
+  const isPlaceholder = trail.dataStatus === 'placeholder';
   const isDouble = trail.difficulty === 'double-black';
 
   return (
@@ -145,9 +140,9 @@ function TrailPolyline({ trail, isHovered, isSelected, onMouseEnter, onMouseLeav
         <Polyline
           positions={coords}
           pathOptions={{
-            color: base.color,
-            weight: active.weight + 3,
-            opacity: 0.2,
+            color,
+            weight: weight + 3,
+            opacity: 0.15,
             lineCap: 'round',
             lineJoin: 'round',
           }}
@@ -156,18 +151,30 @@ function TrailPolyline({ trail, isHovered, isSelected, onMouseEnter, onMouseLeav
       <Polyline
         positions={coords}
         pathOptions={{
-          color: base.color,
-          weight: active.weight,
-          opacity: active.opacity,
+          color,
+          weight,
+          opacity,
           lineCap: 'round',
           lineJoin: 'round',
+          dashArray: isPlaceholder ? (isSelected || isHovered ? undefined : '6 4') : undefined,
         }}
         eventHandlers={{
           mouseover: onMouseEnter,
           mouseout: onMouseLeave,
           click: onClick,
         }}
-      />
+      >
+        <Tooltip
+          direction="top"
+          offset={[0, -8]}
+          className="bg-slate-900 border border-white/10 text-white text-xs font-bold px-2 py-1 rounded-lg shadow-xl"
+        >
+          {trail.name}
+          {isPlaceholder && (
+            <span className="block text-[9px] text-amber-400/70 font-medium">Datos demo</span>
+          )}
+        </Tooltip>
+      </Polyline>
     </>
   );
 }
@@ -207,53 +214,17 @@ export default function RealMap({ trails, selectedTrailId, onTrailSelect }: Real
           trails={trails}
         />
 
-        {trails.map(trail => {
-          if (hasRealCoordinates(trail)) {
-            return (
-              <TrailPolyline
-                key={trail.id}
-                trail={trail}
-                isHovered={hoveredId === trail.id}
-                isSelected={selectedTrailId === trail.id}
-                onMouseEnter={() => setHoveredId(trail.id)}
-                onMouseLeave={() => setHoveredId(null)}
-                onClick={() => handleSelect(trail.id)}
-              />
-            );
-          }
-
-          const pos = SECTOR_POSITIONS[trail.sector] ?? DEFAULT_CENTER;
-          const isSelected = selectedTrailId === trail.id;
-          const isHovered = hoveredId === trail.id;
-          const isActive = isSelected || isHovered;
-
-          return (
-            <CircleMarker
-              key={trail.id}
-              center={pos}
-              radius={isActive ? 10 : 7}
-              pathOptions={{
-                color: DIFFICULTY_STYLES[trail.difficulty].color,
-                fillColor: DIFFICULTY_STYLES[trail.difficulty].color,
-                fillOpacity: isActive ? 0.9 : 0.5,
-                weight: isActive ? 3 : 2,
-                opacity: isActive ? 1 : 0.7,
-              }}
-              eventHandlers={{
-                mouseover: () => setHoveredId(trail.id),
-                mouseout: () => setHoveredId(null),
-                click: () => handleSelect(trail.id),
-              }}
-            >
-              <Tooltip direction="top" offset={[0, -8]} className="text-xs font-bold">
-                {trail.name}
-                <span className="block text-[10px] text-slate-400 font-normal">
-                  {trail.dataStatus === 'placeholder' ? 'Datos demo — GPX pendiente' : ''}
-                </span>
-              </Tooltip>
-            </CircleMarker>
-          );
-        })}
+        {trails.map(trail => (
+          <TrailPolyline
+            key={trail.id}
+            trail={trail}
+            isHovered={hoveredId === trail.id}
+            isSelected={selectedTrailId === trail.id}
+            onMouseEnter={() => setHoveredId(trail.id)}
+            onMouseLeave={() => setHoveredId(null)}
+            onClick={() => handleSelect(trail.id)}
+          />
+        ))}
       </MapContainer>
 
       <DifficultyLegend />
