@@ -186,14 +186,18 @@ export default function Home() {
       <section className="py-24 px-6 relative overflow-hidden">
         <TopoBackground />
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center gap-16">
-          <div className="md:w-1/2 relative">
+          <div className="md:w-1/2 relative overflow-hidden rounded-3xl shadow-2xl">
             <div className="absolute -top-4 -left-4 w-24 h-24 bg-orange-500/20 rounded-full blur-3xl"></div>
             <div className="absolute -bottom-4 -right-4 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl"></div>
-            <img 
-              src="https://images.unsplash.com/photo-1548013146-72479768bbaa?auto=format&fit=crop&q=80&w=1000" 
-              alt="Morella" 
-              className="rounded-3xl shadow-2xl relative z-10"
-            />
+            <video
+              autoPlay
+              muted
+              loop
+              playsInline
+              className="w-full h-full object-cover relative z-10 rounded-3xl"
+            >
+              <source src="/videos/morella-dron.mp4" type="video/mp4" />
+            </video>
           </div>
           <div className="md:w-1/2">
             <div className="flex items-center gap-2 text-orange-500 mb-4">
