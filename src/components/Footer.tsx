@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Mountain, Share2 } from 'lucide-react';
+import { Share2 } from 'lucide-react';
 
 const Footer = () => {
   return (
@@ -7,9 +7,13 @@ const Footer = () => {
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
         <div className="col-span-1 md:col-span-1">
           <div className="flex items-center gap-2 mb-6">
-            <Mountain className="w-5 h-5 text-orange-500" />
+            <img
+              src="/images/logo-enduro-singletracks.png"
+              alt="Enduro Singletracks"
+              className="h-6 w-auto"
+            />
             <span className="text-white font-black tracking-tighter uppercase">
-              Morella <span className="text-orange-500">Singletracks</span>
+              Enduro <span className="text-orange-500">Singletracks</span>
             </span>
           </div>
           <p className="text-sm leading-relaxed text-slate-500">
@@ -55,7 +59,7 @@ const Footer = () => {
       </div>
 
       <div className="max-w-7xl mx-auto pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-4 text-xs">
-        <p>© {new Date().getFullYear()} Morella Singletracks. Todos los derechos reservados.</p>
+        <p>© {new Date().getFullYear()} Enduro Singletracks. Todos los derechos reservados.</p>
         <div className="flex gap-6">
           <Link href="/seguridad" className="hover:text-white">Aviso Legal</Link>
           <Link href="/contacto" className="hover:text-white">Privacidad</Link>

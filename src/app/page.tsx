@@ -3,7 +3,6 @@ import Link from 'next/link';
 import { 
   Map, 
   ArrowRight,
-  MountainIcon,
   Bike,
   ChevronRight,
   Calendar,

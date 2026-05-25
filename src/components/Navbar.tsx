@@ -1,14 +1,18 @@
 import Link from 'next/link';
-import { Mountain, Menu } from 'lucide-react';
+import { Menu } from 'lucide-react';
 
 const Navbar = () => {
   return (
     <nav className="bg-slate-950/80 backdrop-blur-md border-b border-white/5 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 group">
-          <Mountain className="w-6 h-6 text-orange-500 group-hover:scale-110 transition-transform" />
+          <img
+            src="/images/logo-enduro-singletracks.png"
+            alt="Enduro Singletracks"
+            className="h-8 w-auto group-hover:scale-110 transition-transform"
+          />
           <span className="text-lg font-black tracking-tighter text-white uppercase">
-            Morella <span className="text-orange-500">Singletracks</span>
+            Enduro <span className="text-orange-500">Singletracks</span>
           </span>
         </Link>
 

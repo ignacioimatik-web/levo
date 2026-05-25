@@ -22,7 +22,7 @@ export default function QuienesSomosPage() {
             ¿Quiénes <span className="text-orange-500">Somos</span>?
           </h1>
           <p className="text-xl md:text-2xl text-slate-300 max-w-3xl mx-auto leading-relaxed">
-            Morella Singletracks surge de la necesidad que tenemos los que vivimos y practicamos mtb en Morella de compartir, gestionar y dar a conocer las rutas que hemos creado a base de pedalear por estos parajes.
+            Enduro Singletracks surge de la necesidad que tenemos los que vivimos y practicamos mtb en Morella de compartir, gestionar y dar a conocer las rutas que hemos creado a base de pedalear por estos parajes.
           </p>
         </div>
       </section>
