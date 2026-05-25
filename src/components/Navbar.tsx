@@ -8,11 +8,11 @@ const Navbar = () => {
         <Link href="/" className="flex items-center gap-2 group">
           <img
             src="/images/logo-enduro-singletracks.png"
-            alt="Enduro Singletracks"
+            alt="E-nduro Singletracks"
             className="h-8 w-auto group-hover:scale-110 transition-transform"
           />
           <span className="text-lg font-black tracking-tighter text-white uppercase">
-            Enduro <span className="text-orange-500">Singletracks</span>
+            E-nduro <span className="text-orange-500">Singletracks</span>
           </span>
         </Link>
 

@@ -33,7 +33,7 @@ export default function Home() {
         <div className="relative z-20 text-center px-6 max-w-5xl">
           <img
             src="/images/logo-enduro-singletracks.png"
-            alt="Enduro Singletracks"
+            alt="E-nduro Singletracks"
             className="w-full max-w-lg mx-auto mb-6 object-contain"
           />
           <h1 className="text-5xl md:text-8xl font-black tracking-tighter text-white mb-6 leading-none">

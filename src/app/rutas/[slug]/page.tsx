@@ -30,7 +30,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     title: route.name,
     description: `${route.summary}. Descubre los detalles técnicos, dificultad y descarga el track GPX para tu aventura de MTB en ${route.sector}.`,
     openGraph: {
-      title: `${route.name} | Enduro Singletracks`,
+      title: `${route.name} | E-nduro Singletracks`,
       description: route.summary,
       type: 'article',
       images: route.images.length > 0 ? [

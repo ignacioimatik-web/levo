@@ -26,7 +26,7 @@ export default function TopTracksPage() {
             Top <span className="text-orange-500">Tracks</span>
           </h1>
           <p className="text-xl text-slate-300 max-w-3xl mx-auto leading-relaxed">
-            Los tramos técnicos, las bajadas más emocionantes y los singletracks más emblemáticos de Enduro Singletracks.
+            Los tramos técnicos, las bajadas más emocionantes y los singletracks más emblemáticos de E-nduro Singletracks.
           </p>
         </div>
       </section>
