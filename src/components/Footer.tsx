@@ -28,6 +28,7 @@ const Footer = () => {
             <li><Link href="/sectores" className="hover:text-orange-500 transition-colors">Sectores</Link></li>
             <li><Link href="/top-tracks" className="hover:text-orange-500 transition-colors">Top Tracks</Link></li>
             <li><Link href="/travesias" className="hover:text-orange-500 transition-colors">Travesías</Link></li>
+            <li><Link href="/forfait" className="hover:text-orange-500 transition-colors">Forfait MTB</Link></li>
           </ul>
         </div>
 

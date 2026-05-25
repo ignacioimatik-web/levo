@@ -28,12 +28,41 @@
 
 @layer components {
   .topo-pattern {
-    background-image: radial-gradient(circle at 2px 2px, rgba(255,255,255,0.05) 1px, transparent 0);
+    background-image: radial-gradient(circle at 2px 2px, rgba(255,255,255,0.04) 1px, transparent 0);
     background-size: 40px 40px;
+  }
+
+  .topo-pattern-subtle {
+    background-image:
+      radial-gradient(circle at 2px 2px, rgba(255,255,255,0.03) 1px, transparent 0),
+      radial-gradient(circle at 20px 20px, rgba(255,255,255,0.015) 1px, transparent 0);
+    background-size: 40px 40px, 80px 80px;
+  }
+
+  .contour-line {
+    background-image:
+      repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 20px,
+        rgba(255,255,255,0.015) 20px,
+        rgba(255,255,255,0.015) 21px
+      ),
+      repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent 35px,
+        rgba(255,255,255,0.01) 35px,
+        rgba(255,255,255,0.01) 36px
+      );
   }
 
   .glass-card {
     @apply bg-slate-900/40 backdrop-blur-md border border-white/10 shadow-xl;
+  }
+
+  .glass-card-strong {
+    @apply bg-slate-900/70 backdrop-blur-md border border-white/10 shadow-lg;
   }
 
   .technical-border {
@@ -42,6 +71,18 @@
 
   .heading-gradient {
     @apply bg-clip-text text-transparent bg-gradient-to-b from-white to-slate-400;
+  }
+
+  .heading-gradient-strong {
+    @apply bg-clip-text text-transparent bg-gradient-to-b from-white via-white to-slate-300;
+  }
+
+  .trail-card-hover {
+    @apply transition-all duration-300;
+  }
+
+  .trail-card-hover:hover {
+    @apply -translate-y-0.5 shadow-xl shadow-black/20;
   }
 }
 

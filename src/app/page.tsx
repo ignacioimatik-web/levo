@@ -7,7 +7,8 @@ import {
   ChevronRight,
   Calendar,
   ShieldCheck,
-  MapPin
+  MapPin,
+  Mountain
 } from 'lucide-react';
 import TopoBackground from '@/components/TopoBackground';
 import SectionHeading from '@/components/SectionHeading';
@@ -34,7 +35,7 @@ export default function Home() {
           <img
             src="/images/logo-enduro-singletracks.png"
             alt="E-nduro Singletracks"
-            className="w-full max-w-lg mx-auto mb-6 object-contain"
+            className="w-full max-w-3xl mx-auto mb-2 object-contain"
           />
           <h1 className="text-5xl md:text-8xl font-black tracking-tighter text-white mb-6 leading-none">
             E-NDURO <br />
@@ -175,6 +176,34 @@ export default function Home() {
               </div>
               <Link href="/seguridad" className="mt-8 inline-flex items-center gap-2 text-sm font-bold text-orange-500 hover:text-orange-400 transition-colors">
                 Leer consejos de seguridad <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* --- FORFAIT MTB SECTION --- */}
+      <section className="py-24 px-6 bg-slate-950/50">
+        <div className="max-w-7xl mx-auto">
+          <div className="bg-gradient-to-br from-slate-900 to-slate-950 border border-white/10 rounded-3xl overflow-hidden flex flex-col md:flex-row">
+            <div className="md:w-1/2 h-64 md:h-auto relative overflow-hidden bg-slate-900">
+              <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 to-transparent"></div>
+              <TopoBackground />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Mountain className="w-24 h-24 text-orange-500/20" />
+              </div>
+            </div>
+            <div className="md:w-1/2 p-12 flex flex-col justify-center">
+              <div className="flex items-center gap-2 text-orange-500 mb-4">
+                <Map className="w-5 h-5" />
+                <span className="text-xs font-bold uppercase tracking-widest">Forfait MTB</span>
+              </div>
+              <h2 className="text-3xl md:text-4xl font-bold heading-gradient-strong mb-6">Plano de senderos</h2>
+              <p className="text-slate-400 text-lg mb-8">
+                Todos los senderos de Morella Singletracks organizados como un plano de pistas: por sectores, niveles, estado y tipo de recorrido.
+              </p>
+              <Link href="/forfait" className="text-white font-bold flex items-center gap-2 hover:text-orange-500 transition-colors">
+                Explorar forfait <ArrowRight className="w-5 h-5" />
               </Link>
             </div>
           </div>

@@ -43,6 +43,7 @@ export interface MTBRoute {
   bestSeason: string[];
   tags: string[];
   relatedRoutes: string[];
+  trailSlugs?: string[];
   status: "publicada" | "pendiente-datos" | "cerrada-temporalmente";
 }
 
@@ -134,6 +135,7 @@ export const routes: MTBRoute[] = [
     waterPoints: ["Forcall (mitad de ruta)"],
     bestSeason: ["Primavera", "Otoño"],
     tags: ["Bergantes", "Enduro", "Panorámicas", "Porteo"],
+    trailSlugs: ["enlace-norte-demo", "subida-tecnica-demo"],
     relatedRoutes: ["vuelta-garumba", "santets-gegants"],
     status: "publicada",
   },
@@ -228,6 +230,7 @@ export const routes: MTBRoute[] = [
     waterPoints: ["Vallibona", "Fuentes varias después de Vallibona"],
     bestSeason: ["Primavera", "Otoño"],
     tags: ["Enduro", "Montaña", "Porteo", "Singletrack", "Mundo Perdido"],
+    trailSlugs: ["bajada-roja-demo", "linea-negra-demo", "travesia-demo"],
     relatedRoutes: ["medio-perdido", "todo-perdido"],
     status: "publicada",
   },

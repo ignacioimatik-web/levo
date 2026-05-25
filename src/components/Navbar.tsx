@@ -21,6 +21,7 @@ const Navbar = () => {
           <Link href="/sectores" className="text-slate-400 hover:text-orange-500 transition-colors">Sectores</Link>
           <Link href="/top-tracks" className="text-slate-400 hover:text-orange-500 transition-colors">Top Tracks</Link>
           <Link href="/travesias" className="text-slate-400 hover:text-orange-500 transition-colors">Travesías</Link>
+          <Link href="/forfait" className="text-slate-400 hover:text-orange-500 transition-colors">Forfait</Link>
           <Link href="/planifica" className="text-slate-400 hover:text-orange-500 transition-colors">Planifica</Link>
           <Link href="/morella" className="text-slate-400 hover:text-orange-500 transition-colors">Morella</Link>
           <Link href="/quienes-somos" className="text-slate-400 hover:text-orange-500 transition-colors">Quiénes Somos</Link>

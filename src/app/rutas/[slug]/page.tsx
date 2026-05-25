@@ -1,4 +1,5 @@
 import { routes } from '@/data/routes';
+import { demoTrails } from '@/data/trails';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { 
@@ -8,9 +9,13 @@ import {
   Navigation, 
   TrendingUp, 
   Timer, 
-  Mountain
+  Mountain,
+  Map,
+  ChevronRight
 } from 'lucide-react';
 import { Metadata } from 'next';
+import TrailDifficultyBadge from '@/components/TrailDifficultyBadge';
+import { getTrailStatusLabel } from '@/lib/trail-utils';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -167,6 +172,48 @@ export default async function RouteDetailPage({ params }: PageProps) {
               )}
             </div>
           </section>
+
+          {route.trailSlugs && route.trailSlugs.length > 0 && (
+            <section>
+              <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
+                <span className="w-1.5 h-8 bg-orange-500 rounded-full inline-block"></span>
+                Senderos incluidos en esta ruta
+              </h2>
+              <div className="space-y-3">
+                {route.trailSlugs.map(slug => {
+                  const trail = demoTrails.find(t => t.slug === slug);
+                  if (!trail) return null;
+                  const statusCfg = getTrailStatusLabel(trail.status);
+                  return (
+                    <div key={trail.id} className="bg-slate-900/50 border border-white/5 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="text-white font-bold text-sm truncate">{trail.name}</h4>
+                          {trail.dataStatus === "placeholder" && (
+                            <span className="text-[8px] text-amber-400/70 font-bold uppercase tracking-wider bg-amber-500/10 px-1.5 py-0.5 rounded flex-shrink-0">Demo</span>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 mt-1">
+                          <TrailDifficultyBadge difficulty={trail.difficulty} />
+                          <span className="text-[10px] text-slate-500">{trail.sector}</span>
+                          <span className="text-[10px] text-slate-600">·</span>
+                          <span className={`text-[10px] font-medium ${statusCfg.colorClass}`}>{statusCfg.label}</span>
+                        </div>
+                      </div>
+                      <Link
+                        href="/forfait"
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:text-orange-400 hover:border-orange-500/30 text-[11px] font-bold uppercase tracking-wider transition-all flex-shrink-0"
+                      >
+                        <Map className="w-3.5 h-3.5" />
+                        Ver en forfait
+                        <ChevronRight className="w-3 h-3" />
+                      </Link>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
         </div>
 
         {/* Sidebar: Stats & Downloads */}
