@@ -58,7 +58,7 @@ const RouteCard = ({ route }: RouteCardProps) => {
       <div className="relative h-48 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950 to-transparent z-10" />
         <div className="absolute inset-0 bg-slate-800 flex items-center justify-center text-slate-600 italic text-sm">
-          {route.slug === "coronel-perdido" || route.slug === "garumba-gigante" ? (
+          {route.slug === "coronel-perdido" || route.slug === "garumba-gigante" || route.slug === "santets-gegants" ? (
             <video
               autoPlay
               muted
