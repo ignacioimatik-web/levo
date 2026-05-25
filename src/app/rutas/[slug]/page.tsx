@@ -96,7 +96,7 @@ export default async function RouteDetailPage({ params }: PageProps) {
 
       {/* Hero Image Placeholder */}
       <div className="w-full h-[400px] bg-slate-800 rounded-3xl mb-12 overflow-hidden relative shadow-2xl">
-        {slug === "coronel-perdido" || slug === "garumba-gigante" || slug === "santets-gegants" ? (
+        {["coronel-perdido", "garumba-gigante", "santets-gegants", "vuelta-garumba"].includes(slug) ? (
           <video
             autoPlay
             muted
