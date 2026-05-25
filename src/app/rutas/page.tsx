@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import SectionHeading from '@/components/SectionHeading';
 import RouteFilter from '@/components/RouteFilter';
 
@@ -9,7 +10,9 @@ export default function RutasPage() {
         subtitle="Explora nuestra selección de rutas de MTB y Enduro en Morella. Filtra por sector, dificultad o distancia."
       />
 
-      <RouteFilter />
+      <Suspense fallback={<div className="py-20 text-center text-slate-500">Cargando rutas...</div>}>
+        <RouteFilter />
+      </Suspense>
     </div>
   );
 }

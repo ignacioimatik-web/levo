@@ -1,13 +1,16 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { routes, MTBRoute, RouteDifficulty, RouteType } from '@/data/routes';
 import RouteCard from './RouteCard';
 import { Filter, Search, RotateCcw } from 'lucide-react';
 
 export default function RouteFilter() {
+  const searchParams = useSearchParams();
+  const initialSector = searchParams.get('sector') || 'all';
   const [search, setSearch] = useState('');
-  const [sector, setSector] = useState('all');
+  const [sector, setSector] = useState(initialSector);
   const [difficulty, setDifficulty] = useState('all');
   const [type, setType] = useState('all');
 
