@@ -206,20 +206,22 @@ export default async function RouteDetailPage({ params }: PageProps) {
               Descarga los archivos GPX o KML para usarlos en tu dispositivo GPS o smartphone.
             </p>
             <div className="space-y-3">
-              <button 
-                disabled={isClosed || isPending || !route.trackUrl}
-                className="w-full bg-orange-500 text-white py-3 rounded-xl font-bold hover:bg-orange-600 transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              <a
+                href={route.trackUrl || '#'}
+                download
+                className={`w-full block text-center bg-orange-500 text-white py-3 rounded-xl font-bold hover:bg-orange-600 transition-all flex items-center justify-center gap-2 ${(!route.trackUrl || isClosed || isPending) ? 'pointer-events-none opacity-30' : ''}`}
               >
                 <Download className="w-4 h-4" />
                 Descargar GPX
-              </button>
-              <button 
-                disabled={isClosed || isPending || !route.trackUrl}
-                className="w-full bg-slate-800 text-white py-3 rounded-xl font-bold hover:bg-slate-700 transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              </a>
+              <a
+                href={route.trackUrl ? route.trackUrl.replace('.gpx', '.kml') : '#'}
+                download
+                className={`w-full block text-center bg-slate-800 text-white py-3 rounded-xl font-bold hover:bg-slate-700 transition-all flex items-center justify-center gap-2 ${(!route.trackUrl || isClosed || isPending) ? 'pointer-events-none opacity-30' : ''}`}
               >
                 <Download className="w-4 h-4" />
                 Descargar KML
-              </button>
+              </a>
             </div>
           </div>
 

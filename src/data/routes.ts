@@ -120,7 +120,7 @@ export const routes: MTBRoute[] = [
     recommendedBike: ["Enduro", "All-mountain"],
     ebikeFriendly: true,
     trailPercent: 39,
-    trackUrl: "/tracks/garumba-gigante.rar",
+    trackUrl: "/tracks/garumba-gigante.gpx",
     images: [
       "https://images.unsplash.com/photo-1544198365-f5d60b6d8190?auto=format&fit=crop&q=80&w=1000",
       "https://images.unsplash.com/photo-1604677657548-4ced0c4f40c6?auto=format&fit=crop&q=80&w=1000",

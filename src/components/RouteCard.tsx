@@ -128,13 +128,14 @@ const RouteCard = ({ route }: RouteCardProps) => {
           >
             DETALLES
           </Link>
-          <button 
-            disabled={isClosed || isPending || !route.trackUrl}
-            className="p-2 bg-slate-800 text-white rounded-lg hover:bg-orange-500 transition-colors disabled:opacity-30"
+          <a
+            href={route.trackUrl || '#'}
+            download
+            className={`p-2 bg-slate-800 text-white rounded-lg hover:bg-orange-500 transition-colors disabled:opacity-30 ${(!route.trackUrl || isClosed || isPending) ? 'pointer-events-none opacity-30' : ''}`}
             title="Descargar GPX"
           >
             <Download className="w-4 h-4" />
-          </button>
+          </a>
         </div>
       </div>
     </div>
