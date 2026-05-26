@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import type { KeyboardEventHandler, MouseEventHandler, ReactNode } from 'react';
-import { CloudRain, Mountain, Wind, AlertTriangle, Gauge, ChevronDown } from 'lucide-react';
+import { CloudRain, Mountain, Wind, AlertTriangle, Gauge } from 'lucide-react';
 import type { RouteStatusPayload } from '@/lib/route-status';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -13,12 +13,6 @@ function hasEtaMinutes(segment: unknown): segment is { etaMinutes: { trail: numb
   if (!segment || typeof segment !== 'object') return false;
   const s = segment as { etaMinutes?: { trail?: number; enduro?: number; ebike?: number } };
   return !!s.etaMinutes && typeof s.etaMinutes.trail === 'number' && typeof s.etaMinutes.enduro === 'number' && typeof s.etaMinutes.ebike === 'number';
-}
-
-function hasRisk(segment: unknown): segment is { risk: { level: 'low' | 'medium' | 'high'; reason: string } } {
-  if (!segment || typeof segment !== 'object') return false;
-  const s = segment as { risk?: { level?: string; reason?: string } };
-  return !!s.risk && typeof s.risk.reason === 'string' && (s.risk.level === 'low' || s.risk.level === 'medium' || s.risk.level === 'high');
 }
 
 function weatherEtaFactor(weather: RouteStatusPayload['weatherNow']): number {
@@ -47,7 +41,6 @@ export default function TrailNowInsights({
   const [loading, setLoading] = useState(true);
   const [bikeMode, setBikeMode] = useState<BikeMode>('trail');
   const [tempSource, setTempSource] = useState<TempSourceMode>('estimated');
-  const [riskOpen, setRiskOpen] = useState(false);
   const [focusedSegmentKey, setFocusedSegmentKey] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [now, setNow] = useState(new Date());
@@ -287,7 +280,16 @@ export default function TrailNowInsights({
       <div>
         <h3 className="text-white font-bold mb-3">Segmentos relevantes del track</h3>
         <div className="space-y-3">
-          {data.profile.segments.slice(0, 10).map((s) => {
+          {data.profile.segments
+            .slice()
+            .sort((a, b) => {
+              const scoreA = a.distanceKm * (1 + Math.abs(a.avgSlopePct) / 8);
+              const scoreB = b.distanceKm * (1 + Math.abs(b.avgSlopePct) / 8);
+              return scoreB - scoreA;
+            })
+            .slice(0, 5)
+            .sort((a, b) => a.startKm - b.startKm)
+            .map((s) => {
             const typeColor = s.type === 'climb' ? 'bg-black text-white border-black/40' : s.type === 'descent' ? 'bg-red-500/20 text-red-300 border-red-500/40' : 'bg-amber-500/20 text-amber-300 border-amber-500/40';
             const typeLabel = s.type === 'climb' ? 'Subida' : s.type === 'descent' ? 'Bajada' : 'Transición';
             const arrow = s.type === 'climb' ? '\u2197' : s.type === 'descent' ? '\u2198' : '\u2192';
@@ -401,38 +403,7 @@ export default function TrailNowInsights({
         </div>
       </div>
 
-      <div className="bg-slate-900/60 border border-white/5 rounded-xl p-4">
-        <button
-          onClick={() => setRiskOpen((v) => !v)}
-          className="w-full flex items-center justify-between gap-3"
-          aria-expanded={riskOpen}
-          aria-controls="risk-panel-content"
-        >
-          <h3 className="text-white font-bold">Riesgo por tramo</h3>
-          <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${riskOpen ? 'rotate-180' : ''}`} />
-        </button>
-        {!riskOpen && (
-          <p className="mt-2 text-xs text-slate-500">Panel plegado. Pulsa para ver el detalle de riesgo por segmentos.</p>
-        )}
-        {riskOpen && (
-          <div id="risk-panel-content" className="mt-3 space-y-2">
-            {data.profile.segments.slice(0, 12).map((s) => {
-              const level = hasRisk(s) ? s.risk.level : 'low';
-              const label = level === 'high' ? 'Alto' : level === 'medium' ? 'Medio' : 'Bajo';
-              const cls = level === 'high' ? 'text-red-300 border-red-500/30 bg-red-500/10' : level === 'medium' ? 'text-amber-300 border-amber-500/30 bg-amber-500/10' : 'text-green-300 border-green-500/30 bg-green-500/10';
-              return (
-                <div key={`risk-${s.id}`} className="flex items-center justify-between gap-3 bg-slate-950/40 border border-white/5 rounded-lg p-3">
-                  <div>
-                    <p className="text-sm text-white font-semibold">{s.label}</p>
-                    <p className="text-xs text-slate-400">km {s.startKm}-{s.endKm} · {s.avgSlopePct}% · {s.type === 'descent' ? 'bajada' : s.type === 'climb' ? 'subida' : 'transicion'}{hasRisk(s) ? ` · ${s.risk.reason}` : ''}</p>
-                  </div>
-                  <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded border ${cls}`}>{label}</span>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+
 
       {data.routeNowRecommendation?.thirds && data.routeNowRecommendation.thirds.length > 0 && (
         <div className="bg-slate-900/60 border border-white/5 rounded-xl p-4">
