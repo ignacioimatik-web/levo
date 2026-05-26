@@ -310,56 +310,6 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
       {/* PESTAÑA TRACKS */}
       {activeTab === 'tracks' && (
           <>
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-500" />
-              <input
-                type="text"
-                placeholder="Buscar track..."
-                value={filters.busqueda}
-                onChange={e => setFilters(f => ({ ...f, busqueda: e.target.value }))}
-                className="w-full bg-slate-900 border border-white/5 rounded-lg pl-7 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-orange-500/40"
-              />
-            </div>
-
-            <div className="flex flex-wrap gap-1">
-              <button
-                onClick={() => setFilters(f => ({ ...f, soloAbiertos: !f.soloAbiertos }))}
-                className={`px-2 py-1 rounded text-[9px] font-bold transition-colors ${
-                  filters.soloAbiertos ? 'bg-green-500/20 text-green-400 border border-green-500/40' : 'bg-slate-800/50 text-slate-500 border border-white/5'
-                }`}
-              >
-                Solo abiertos
-              </button>
-              <button
-                onClick={() => setFilters(f => ({ ...f, soloEbike: !f.soloEbike }))}
-                className={`px-2 py-1 rounded text-[9px] font-bold transition-colors ${
-                  filters.soloEbike ? 'bg-orange-500/20 text-orange-400 border border-orange-500/40' : 'bg-slate-800/50 text-slate-500 border border-white/5'
-                }`}
-              >
-                E-bike
-              </button>
-              <select
-                value=""
-                onChange={e => {
-                  if (!e.target.value) return;
-                  setFilters(f => ({
-                    ...f,
-                    dificultad: f.dificultad.includes(e.target.value as DificultadMTB)
-                      ? f.dificultad.filter(d => d !== e.target.value)
-                      : [...f.dificultad, e.target.value as DificultadMTB],
-                  }));
-                }}
-                className="px-2 py-1 rounded text-[9px] font-bold bg-slate-800/50 text-slate-400 border border-white/5"
-              >
-                <option value="">Dificultad</option>
-                <option value="verde">Verde</option>
-                <option value="azul">Azul</option>
-                <option value="rojo">Rojo</option>
-                <option value="negro">Negro</option>
-                <option value="doble-negro">Doble negro</option>
-              </select>
-            </div>
-
             {/* SECTOR SECTIONS */}
             <div className="space-y-1">
               {sectors.map(sector => {
@@ -547,16 +497,74 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
       <div className="flex flex-row h-full">
         {/* PANEL LATERAL IZQUIERDO — ancho fijo, scroll propio */}
         {sidebarOpen && (
-          <div className="hidden lg:flex w-[380px] xl:w-[420px] flex-shrink-0 bg-slate-950 border-r border-white/5 overflow-y-auto flex-col">
-            <div className="p-4 space-y-4 flex-1">
-              {/* TABS */}
-              <div className="flex items-center gap-4 border-b border-white/5 pb-3">
-                <button onClick={() => setActiveTab('tracks')} className={`text-xs font-bold uppercase tracking-widest ${activeTab === 'tracks' ? 'text-orange-500' : 'text-slate-500'}`}>Tracks</button>
-                <button onClick={() => setActiveTab('ruta')} className={`text-xs font-bold uppercase tracking-widest ${activeTab === 'ruta' ? 'text-orange-500' : 'text-slate-500'}`}>Ruta</button>
-                <button onClick={() => setActiveTab('status')} className={`text-xs font-bold uppercase tracking-widest ${activeTab === 'status' ? 'text-orange-500' : 'text-slate-500'}`}>Estado</button>
+          <div className="hidden lg:flex w-[380px] xl:w-[420px] flex-shrink-0 bg-slate-950 border-r border-white/5 flex-col">
+            {/* STICKY TOP: tabs + search/filters */}
+            <div className="sticky top-0 z-20 bg-slate-950 border-b border-white/5">
+              <div className="px-4 pt-3 pb-0">
+                <div className="flex items-center gap-4 pb-3">
+                  <button onClick={() => setActiveTab('tracks')} className={`text-xs font-bold uppercase tracking-widest ${activeTab === 'tracks' ? 'text-orange-500' : 'text-slate-500'}`}>Tracks</button>
+                  <button onClick={() => setActiveTab('ruta')} className={`text-xs font-bold uppercase tracking-widest ${activeTab === 'ruta' ? 'text-orange-500' : 'text-slate-500'}`}>Ruta</button>
+                  <button onClick={() => setActiveTab('status')} className={`text-xs font-bold uppercase tracking-widest ${activeTab === 'status' ? 'text-orange-500' : 'text-slate-500'}`}>Estado</button>
+                </div>
               </div>
 
-              {/* CONTENIDO DE PESTAÑAS */}
+              {activeTab === 'tracks' && (
+                <div className="px-4 pb-3 space-y-1.5">
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-500" />
+                    <input
+                      type="text"
+                      placeholder="Buscar track..."
+                      value={filters.busqueda}
+                      onChange={e => setFilters(f => ({ ...f, busqueda: e.target.value }))}
+                      className="w-full bg-slate-900 border border-white/5 rounded-lg pl-7 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-orange-500/40"
+                    />
+                  </div>
+
+                  <div className="flex flex-wrap gap-1">
+                    <button
+                      onClick={() => setFilters(f => ({ ...f, soloAbiertos: !f.soloAbiertos }))}
+                      className={`px-2 py-1 rounded text-[9px] font-bold transition-colors ${
+                        filters.soloAbiertos ? 'bg-green-500/20 text-green-400 border border-green-500/40' : 'bg-slate-800/50 text-slate-500 border border-white/5'
+                      }`}
+                    >
+                      Solo abiertos
+                    </button>
+                    <button
+                      onClick={() => setFilters(f => ({ ...f, soloEbike: !f.soloEbike }))}
+                      className={`px-2 py-1 rounded text-[9px] font-bold transition-colors ${
+                        filters.soloEbike ? 'bg-orange-500/20 text-orange-400 border border-orange-500/40' : 'bg-slate-800/50 text-slate-500 border border-white/5'
+                      }`}
+                    >
+                      E-bike
+                    </button>
+                    <select
+                      value=""
+                      onChange={e => {
+                        if (!e.target.value) return;
+                        setFilters(f => ({
+                          ...f,
+                          dificultad: f.dificultad.includes(e.target.value as DificultadMTB)
+                            ? f.dificultad.filter(d => d !== e.target.value)
+                            : [...f.dificultad, e.target.value as DificultadMTB],
+                        }));
+                      }}
+                      className="px-2 py-1 rounded text-[9px] font-bold bg-slate-800/50 text-slate-400 border border-white/5"
+                    >
+                      <option value="">Dificultad</option>
+                      <option value="verde">Verde</option>
+                      <option value="azul">Azul</option>
+                      <option value="rojo">Rojo</option>
+                      <option value="negro">Negro</option>
+                      <option value="doble-negro">Doble negro</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* SCROLLABLE BODY */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {sidebarContent}
 
               {/* ADVERTENCIA / DISCLAIMER */}
