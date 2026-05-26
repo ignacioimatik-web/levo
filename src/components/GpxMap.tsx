@@ -168,7 +168,7 @@ export default function GpxMap({ coordinates, gpxUrl, title, fallbackMessage, fo
         {segmentOverlays?.map((seg, idx) => {
           const slice = segmentSlice(trackCoords, seg.startKm, seg.endKm);
           if (!slice) return null;
-          const color = seg.type === 'climb' ? '#22c55e' : seg.type === 'descent' ? '#ef4444' : '#f59e0b';
+          const color = seg.type === 'climb' ? '#000000' : seg.type === 'descent' ? '#ef4444' : '#f59e0b';
           return (
             <Polyline
               key={`seg-${idx}`}

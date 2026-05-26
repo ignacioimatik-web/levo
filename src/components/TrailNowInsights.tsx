@@ -6,7 +6,7 @@ import { CloudRain, Mountain, Wind, AlertTriangle, Gauge, ChevronDown } from 'lu
 import type { RouteStatusPayload } from '@/lib/route-status';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useRouter } from 'next/navigation';
+import SegmentMiniMap from '@/components/SegmentMiniMap';
 
 function hasEtaMinutes(segment: unknown): segment is { etaMinutes: { trail: number; enduro: number; ebike: number } } {
   if (!segment || typeof segment !== 'object') return false;
@@ -47,8 +47,16 @@ export default function TrailNowInsights({
   const [bikeMode, setBikeMode] = useState<BikeMode>('trail');
   const [tempSource, setTempSource] = useState<TempSourceMode>('estimated');
   const [riskOpen, setRiskOpen] = useState(false);
+  const [focusedSegmentKey, setFocusedSegmentKey] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    setMounted(true);
+    setNow(new Date());
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
   const sp = useSearchParams();
-  const router = useRouter();
 
   useEffect(() => {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Madrid';
@@ -80,14 +88,6 @@ export default function TrailNowInsights({
     return p;
   }, [sp]);
 
-  const buildShowHref = (type: 'climb' | 'descent' | 'flat') => {
-    const next = { ...activeOverlayTypes, [type]: !activeOverlayTypes[type] };
-    const show = ['climb', 'descent', 'flat'].filter((t) => next[t as keyof typeof next]);
-    const p = new URLSearchParams(baseParams.toString());
-    p.set('show', show.join(','));
-    return `/forfait/${slug}?${p.toString()}#trail-map`;
-  };
-
   const buildCenterHref = (startKm: number, endKm: number) => {
     const p = new URLSearchParams(baseParams.toString());
     const show = ['climb', 'descent', 'flat'].filter((t) => activeOverlayTypes[t as keyof typeof activeOverlayTypes]);
@@ -95,65 +95,6 @@ export default function TrailNowInsights({
     p.set('segStart', String(startKm));
     p.set('segEnd', String(endKm));
     return `/forfait/${slug}?${p.toString()}#trail-map`;
-  };
-
-  const savePreset = () => {
-    const payload = {
-      bikeMode,
-      overlays: activeOverlayTypes,
-      savedAt: new Date().toISOString(),
-    };
-    localStorage.setItem(`forfait-preset-${slug}`, JSON.stringify(payload));
-  };
-
-  const saveGlobalPreset = () => {
-    const payload = {
-      bikeMode,
-      overlays: activeOverlayTypes,
-      scope: 'global',
-      savedAt: new Date().toISOString(),
-    };
-    localStorage.setItem('forfait-preset-global', JSON.stringify(payload));
-  };
-
-  const loadPreset = () => {
-    const raw = localStorage.getItem(`forfait-preset-${slug}`);
-    if (!raw) return;
-    try {
-      const p = JSON.parse(raw) as {
-        bikeMode?: BikeMode;
-        overlays?: { climb?: boolean; descent?: boolean; flat?: boolean };
-      };
-      if (p.bikeMode) setBikeMode(p.bikeMode);
-      if (p.overlays) {
-        const show = ['climb', 'descent', 'flat'].filter((k) => p.overlays?.[k as 'climb' | 'descent' | 'flat']);
-        const qs = new URLSearchParams(sp.toString());
-        qs.set('show', show.length ? show.join(',') : 'climb,descent,flat');
-        router.push(`/forfait/${slug}?${qs.toString()}#trail-map`);
-      }
-    } catch {
-      // ignore invalid preset
-    }
-  };
-
-  const loadGlobalPreset = () => {
-    const raw = localStorage.getItem('forfait-preset-global');
-    if (!raw) return;
-    try {
-      const p = JSON.parse(raw) as {
-        bikeMode?: BikeMode;
-        overlays?: { climb?: boolean; descent?: boolean; flat?: boolean };
-      };
-      if (p.bikeMode) setBikeMode(p.bikeMode);
-      if (p.overlays) {
-        const show = ['climb', 'descent', 'flat'].filter((k) => p.overlays?.[k as 'climb' | 'descent' | 'flat']);
-        const qs = new URLSearchParams(sp.toString());
-        qs.set('show', show.length ? show.join(',') : 'climb,descent,flat');
-        router.push(`/forfait/${slug}?${qs.toString()}#trail-map`);
-      }
-    } catch {
-      // ignore invalid global preset
-    }
   };
 
   if (loading) {
@@ -208,52 +149,9 @@ export default function TrailNowInsights({
         >
           Exportar informe (PDF)
         </button>
-        <button
-          onClick={savePreset}
-          className="px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider border bg-slate-900 border-white/10 text-slate-300 hover:bg-slate-800"
-        >
-          Guardar preset ruta
-        </button>
-        <button
-          onClick={loadPreset}
-          className="px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider border bg-slate-900 border-white/10 text-slate-300 hover:bg-slate-800"
-        >
-          Cargar preset ruta
-        </button>
-        <button
-          onClick={saveGlobalPreset}
-          className="px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider border bg-slate-900 border-white/10 text-slate-300 hover:bg-slate-800"
-        >
-          Guardar preset global
-        </button>
-        <button
-          onClick={loadGlobalPreset}
-          className="px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider border bg-slate-900 border-white/10 text-slate-300 hover:bg-slate-800"
-        >
-          Cargar preset global
-        </button>
-        <a
-          href={`/api/forfait/route-status/${slug}/segmented-gpx`}
-          className="px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider border bg-orange-500/20 border-orange-500/30 text-orange-300 hover:bg-orange-500/30"
-        >
-          GPX segmentado
-        </a>
       </div>
 
-      <div className="no-print bg-slate-900/60 border border-white/5 rounded-xl p-4">
-        <h3 className="text-white font-bold mb-3">Leyenda de segmentos en mapa</h3>
-        <div className="flex flex-wrap gap-2">
-          <Link href={buildShowHref('climb')} className={`px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider border ${activeOverlayTypes.climb ? 'bg-green-500/15 border-green-500/40 text-green-300' : 'bg-slate-800 border-white/10 text-slate-500'}`}>
-            Subidas
-          </Link>
-          <Link href={buildShowHref('descent')} className={`px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider border ${activeOverlayTypes.descent ? 'bg-red-500/15 border-red-500/40 text-red-300' : 'bg-slate-800 border-white/10 text-slate-500'}`}>
-            Bajadas
-          </Link>
-          <Link href={buildShowHref('flat')} className={`px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider border ${activeOverlayTypes.flat ? 'bg-amber-500/15 border-amber-500/40 text-amber-300' : 'bg-slate-800 border-white/10 text-slate-500'}`}>
-            Transicion
-          </Link>
-        </div>
-      </div>
+      <ContinuousProfile series={data.profile.profileSeries ?? []} slug={slug} />
 
       <div className={`rounded-xl border px-4 py-3 ${riskClass}`}>
         <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider">
@@ -263,45 +161,6 @@ export default function TrailNowInsights({
         <p className="mt-2 text-sm font-semibold">{weather?.routeNowLabel ?? 'Sin conexion meteo en este momento'}</p>
         <p className="text-xs mt-1 opacity-90">{weather?.routeNowMessage ?? 'Configura AEMET_API_KEY para activar telemetria en vivo.'}</p>
       </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-slate-900/70 border border-white/5 rounded-xl p-3">
-          <p className="text-[11px] text-slate-500">Distancia real</p>
-          <p className="text-white font-bold">{data.profile.distanceKm} km</p>
-        </div>
-        <div className="bg-slate-900/70 border border-white/5 rounded-xl p-3">
-          <p className="text-[11px] text-slate-500">Desnivel +</p>
-          <p className="text-green-400 font-bold">+{data.profile.gainM} m</p>
-          <p className="text-[11px] text-slate-500 mt-0.5">{((data.profile.gainM / (data.profile.distanceKm * 1000)) * 100).toFixed(1)}% medio</p>
-        </div>
-        <div className="bg-slate-900/70 border border-white/5 rounded-xl p-3">
-          <p className="text-[11px] text-slate-500">Altitud max</p>
-          <p className="text-white font-bold">{data.profile.maxAltitudeM} m</p>
-          {shownTemp !== undefined && (
-            <p className="text-[11px] text-slate-500 mt-0.5">
-              {tempSource === 'estimated' ? 'Temp ruta est.' : 'Temp estacion'}: {shownTemp} C
-            </p>
-          )}
-        </div>
-        <div className="bg-slate-900/70 border border-white/5 rounded-xl p-3">
-          <p className="text-[11px] text-slate-500">Desnivel -</p>
-          <p className="text-red-400 font-bold">-{data.profile.lossM} m</p>
-          <p className="text-[11px] text-slate-500 mt-0.5">{((data.profile.lossM / (data.profile.distanceKm * 1000)) * 100).toFixed(1)}% medio</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-2 gap-3">
-        <div className="bg-slate-900/70 border border-white/5 rounded-xl p-3">
-          <p className="text-[11px] text-slate-500">Pendiente pico subida</p>
-          <p className="text-orange-400 font-bold">+{data.profile.steepestClimbPct}%</p>
-        </div>
-        <div className="bg-slate-900/70 border border-white/5 rounded-xl p-3">
-          <p className="text-[11px] text-slate-500">Pendiente pico bajada</p>
-          <p className="text-orange-400 font-bold">{data.profile.steepestDescentPct}%</p>
-        </div>
-      </div>
-
-      <ContinuousProfile series={data.profile.profileSeries ?? []} slug={slug} />
 
       {weather && (
         <div className="bg-slate-900/55 border border-white/10 rounded-xl p-4 space-y-3">
@@ -361,34 +220,227 @@ export default function TrailNowInsights({
         </div>
       )}
 
+      {data.daylight && (
+        <div className="bg-slate-900/55 border border-white/10 rounded-xl p-4">
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <div className="flex items-center gap-3">
+              {mounted && (
+                <div className="bg-slate-950/80 border border-white/10 rounded-lg px-3 py-1.5 font-mono text-sm text-orange-300 font-bold tracking-wider tabular-nums">
+                  {now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                </div>
+              )}
+              <h4 className="text-xs uppercase tracking-wider text-slate-300 font-bold hidden sm:inline">Luz del dia</h4>
+            </div>
+            <span className="text-[11px] text-slate-500 font-mono tabular-nums">
+              {data.daylight.isPolarDay ? '24 h' : data.daylight.isPolarNight ? '0 h' : `${data.daylight.dayLengthHours.toFixed(1)} h`}
+            </span>
+          </div>
+
+          {!data.daylight.isPolarDay && !data.daylight.isPolarNight && (
+            <>
+              <div className="relative h-8 bg-slate-800/80 rounded-full overflow-hidden mb-3 border border-white/5">
+                <div
+                  className="absolute inset-y-1 rounded-full bg-gradient-to-r from-amber-400 via-orange-400 to-rose-500"
+                  style={{
+                    left: `${(() => { const [h,m] = data.daylight.sunrise.split(':').map(Number); return (h * 60 + m) / 1440 * 100; })()}%`,
+                    width: `${(() => { const [sh,sm] = data.daylight.sunrise.split(':').map(Number); const [eh,em] = data.daylight.sunset.split(':').map(Number); const sunriseMin = sh * 60 + sm; const sunsetMin = eh * 60 + em; return ((sunsetMin - sunriseMin) / 1440 * 100); })()}%`,
+                  }}
+                />
+                {mounted && (
+                  <div
+                    className="absolute top-0 bottom-0 w-0.5 bg-white shadow-[0_0_6px_rgba(255,255,255,0.6)] z-10 transition-all duration-1000"
+                    style={{
+                      left: `${(now.getHours() * 60 + now.getMinutes()) / 1440 * 100}%`,
+                    }}
+                  />
+                )}
+                <div className="absolute left-0 right-0 inset-y-0 flex items-center justify-between px-2 text-[9px] font-mono text-white/90">
+                  <span>{'\u{2191}'} {data.daylight.sunrise}</span>
+                  <span className="text-amber-200 font-bold text-[10px]">{'\u{2600}\u{FE0F}'}</span>
+                  <span>{'\u{2193}'} {data.daylight.sunset}</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-4 gap-2 text-[11px]">
+                <div className="bg-slate-950/60 border border-white/5 rounded-lg p-2 text-center">
+                  <p className="text-[9px] text-slate-500 uppercase tracking-wider">Ahora</p>
+                  {mounted ? (
+                    <p className="text-orange-300 font-bold text-sm mt-0.5 tabular-nums">
+                      {now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  ) : (
+                    <p className="text-slate-600 font-bold text-sm mt-0.5">--:--</p>
+                  )}
+                </div>
+                <div className="bg-slate-950/60 border border-white/5 rounded-lg p-2 text-center">
+                  <p className="text-[9px] text-slate-500 uppercase tracking-wider">Salida</p>
+                  <p className="text-slate-100 font-bold text-sm mt-0.5">{data.daylight.sunrise}</p>
+                </div>
+                <div className="bg-slate-950/60 border border-white/5 rounded-lg p-2 text-center">
+                  <p className="text-[9px] text-slate-500 uppercase tracking-wider">Ocaso</p>
+                  <p className="text-slate-100 font-bold text-sm mt-0.5">{data.daylight.sunset}</p>
+                </div>
+                <div className="bg-slate-950/60 border border-white/5 rounded-lg p-2 text-center">
+                  <p className="text-[9px] text-slate-500 uppercase tracking-wider">Fin crep.</p>
+                  <p className="text-slate-100 font-bold text-sm mt-0.5">{data.daylight.civilTwilightEnd}</p>
+                </div>
+              </div>
+
+              {data.safeDeadline && (() => {
+                const nowMin = mounted ? now.getHours() * 60 + now.getMinutes() : -1;
+                const sunsetMin = data.daylight.sunset.split(':').map(Number).reduce((h, m) => h * 60 + m);
+                const deadlineMin = data.safeDeadline !== 'No hay tiempo suficiente'
+                  ? data.safeDeadline.split(':').map(Number).reduce((h, m) => h * 60 + m)
+                  : null;
+                const expired = deadlineMin !== null && nowMin > deadlineMin;
+                const tight = deadlineMin !== null && (deadlineMin - nowMin) <= 30 && (deadlineMin - nowMin) > 0;
+                return (
+                  <div className={`mt-3 rounded-lg border p-3 flex items-center gap-3 ${
+                    expired ? 'bg-red-500/15 border-red-500/40' : tight ? 'bg-amber-500/15 border-amber-500/40' : 'bg-emerald-500/10 border-emerald-500/30'
+                  }`}>
+                    <span className="text-lg">{expired ? '\u26A0\uFE0F' : tight ? '\u23F0' : '\u23F3'}</span>
+                    <div>
+                      <p className="text-xs font-bold text-white">Hora limite de salida</p>
+                      <p className={`text-[11px] ${expired ? 'text-red-300' : tight ? 'text-amber-300' : 'text-emerald-300'}`}>
+                        {data.safeDeadline === 'No hay tiempo suficiente'
+                          ? 'La ruta no cabe antes del ocaso con margen de seguridad.'
+                          : expired
+                          ? `La hora limite (${data.safeDeadline}) ya paso. Salir implica rodar de noche o con luz crepuscular.`
+                          : tight
+                          ? `Quedan ${deadlineMin! - nowMin} min. Salida urgente para completar con luz natural.`
+                          : `Salir antes de las ${data.safeDeadline} para completar la ruta con luz natural.`}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()}
+            </>
+          )}
+
+          {(data.daylight.isPolarDay || data.daylight.isPolarNight) && (
+            <p className="text-xs text-slate-400">
+              {data.daylight.isPolarDay
+                ? 'El sol no se pone hoy. Luz disponible 24 h.'
+                : 'El sol no sale hoy. La ruta requiere iluminacion artificial.'}
+            </p>
+          )}
+        </div>
+      )}
+
       <div>
         <h3 className="text-white font-bold mb-3">Segmentos relevantes del track</h3>
-        <div className="space-y-2">
-          {data.profile.segments.slice(0, 10).map((s) => (
-            <div key={s.id} className="bg-slate-900/50 border border-white/5 rounded-lg p-3">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm text-white font-semibold">{s.label}</p>
-                <span className="text-[10px] uppercase tracking-wider text-slate-400">km {s.startKm}-{s.endKm}</span>
+        <div className="space-y-3">
+          {data.profile.segments.slice(0, 10).map((s) => {
+            const typeColor = s.type === 'climb' ? 'bg-black text-white border-black/40' : s.type === 'descent' ? 'bg-red-500/20 text-red-300 border-red-500/40' : 'bg-amber-500/20 text-amber-300 border-amber-500/40';
+            const typeLabel = s.type === 'climb' ? 'Subida' : s.type === 'descent' ? 'Bajada' : 'Transición';
+            const arrow = s.type === 'climb' ? '\u2197' : s.type === 'descent' ? '\u2198' : '\u2192';
+            const slopeAbs = Math.abs(s.avgSlopePct);
+            const slopeBarPct = Math.min(slopeAbs / 25 * 100, 100);
+            const slopeColor = s.type === 'climb' ? 'bg-green-500' : s.type === 'descent' ? 'bg-red-500' : 'bg-amber-400';
+
+            return (
+              <div key={s.id} className="bg-slate-900/50 border border-white/5 rounded-xl overflow-hidden hover:border-white/20 transition-colors">
+                <div className="p-4 pb-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${typeColor}`}>
+                          {arrow} {typeLabel}
+                        </span>
+                        <span className="text-[11px] text-slate-500 font-mono">
+                          {s.startKm.toFixed(1)}–{s.endKm.toFixed(1)} km
+                        </span>
+                        {s.relevance === 'high' && (
+                          <span className="text-[10px] text-orange-400 font-bold uppercase tracking-wider">Clave</span>
+                        )}
+                      </div>
+                      <p className="text-sm text-white font-semibold truncate">{s.label}</p>
+                      <div className="flex items-center gap-3 mt-2 text-xs text-slate-400">
+                        <span><span className="text-slate-500">Distancia </span><span className="text-slate-200 font-medium">{s.distanceKm.toFixed(2)} km</span></span>
+                        <span className="text-slate-600">|</span>
+                        <span><span className="text-slate-500">Desnivel </span><span className={s.elevationDeltaM > 0 ? 'text-green-400 font-medium' : 'text-red-400 font-medium'}>{s.elevationDeltaM > 0 ? '+' : ''}{Math.round(s.elevationDeltaM)} m</span></span>
+                        <span className="text-slate-600">|</span>
+                        <span><span className="text-slate-500">Pendiente </span><span className="text-slate-200 font-medium">{s.avgSlopePct}%</span></span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3">
+                    <div className="relative h-7 flex items-center">
+                      <div className="absolute inset-x-0 h-5 rounded bg-slate-800/60 border border-slate-700/50 overflow-hidden">
+                        <div className="absolute inset-0 bg-gradient-to-r from-red-500/20 via-slate-800 to-green-500/20" />
+                        <div className="absolute left-1/2 top-0 bottom-0 w-px bg-slate-600/60" />
+                        {[-20, -10, 10, 20].map((pct) => {
+                          const left = 50 + (pct / 25) * 50;
+                          if (left < 0 || left > 100) return null;
+                          return (
+                            <div key={pct} className="absolute top-0 bottom-0" style={{ left: `${left}%` }}>
+                              <div className="w-px h-full bg-slate-700/30" />
+                              <span className="absolute -bottom-4 left-1/2 -translate-x-1/2 text-[8px] text-slate-600">{pct > 0 ? '+' : ''}{pct}%</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div
+                        className="absolute h-7 flex items-center transition-all duration-700 ease-out"
+                        style={{
+                          left: `${50 + (s.avgSlopePct / 25) * 50}%`,
+                          transform: 'translateX(-50%)',
+                        }}
+                      >
+                        <div className="relative">
+                          <div className="w-3 h-3 rotate-45 border-2 rounded-sm animate-pulse" style={{
+                            borderColor: s.type === 'climb' ? '#22c55e' : s.type === 'descent' ? '#ef4444' : '#f59e0b',
+                            backgroundColor: `${s.type === 'climb' ? '#22c55e' : s.type === 'descent' ? '#ef4444' : '#f59e0b'}30`,
+                            boxShadow: `0 0 8px ${s.type === 'climb' ? '#22c55e' : s.type === 'descent' ? '#ef4444' : '#f59e0b'}40`,
+                          }} />
+                          <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[10px] font-bold font-mono whitespace-nowrap"
+                            style={{ color: s.type === 'climb' ? '#22c55e' : s.type === 'descent' ? '#ef4444' : '#f59e0b' }}>
+                            {s.avgSlopePct > 0 ? '+' : ''}{s.avgSlopePct}%
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {hasEtaMinutes(s) && (
+                    <div className="mt-3 flex items-center gap-1.5 text-[11px] text-slate-400">
+                      <span className="text-slate-500">ETA {bikeMode.toUpperCase()}:</span>
+                      <span className="text-white font-semibold">{Math.round(s.etaMinutes[bikeMode] * etaFactor)} min</span>
+                      <span className="text-slate-600">(base {s.etaMinutes[bikeMode]} min)</span>
+                      {s.etaMinutes[bikeMode] > 0 && (
+                        <span className={`ml-auto text-[10px] px-1.5 py-0.5 rounded ${
+                          etaFactor > 1.3 ? 'bg-red-500/10 text-red-300' : etaFactor > 1.1 ? 'bg-amber-500/10 text-amber-300' : 'bg-green-500/10 text-green-300'
+                        }`}>
+                          {etaFactor > 1.3 ? 'Clima adverso' : etaFactor > 1.1 ? 'Clima regular' : 'Clima favorable'}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      onClick={() => setFocusedSegmentKey(focusedSegmentKey === s.id ? null : s.id)}
+                      className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-lg bg-orange-500/15 border border-orange-500/30 text-orange-300 hover:bg-orange-500/25 transition-colors"
+                    >
+                      {focusedSegmentKey === s.id ? 'Ocultar perfil' : 'Ver perfil del tramo'}
+                    </button>
+                  </div>
+                </div>
+                {focusedSegmentKey === s.id && data.profile && (
+                  <div className="border-t border-white/5 px-4 pb-4 pt-3">
+                    <SegmentMiniMap
+                      profileSeries={data.profile.profileSeries ?? []}
+                      totalKm={data.profile.distanceKm}
+                      startKm={s.startKm}
+                      endKm={s.endKm}
+                      type={s.type}
+                    />
+                  </div>
+                )}
               </div>
-              <p className="text-xs text-slate-400 mt-1">
-                {s.type === 'climb' ? 'Subida' : s.type === 'descent' ? 'Bajada' : 'Transicion'} · {s.distanceKm} km · {s.elevationDeltaM > 0 ? '+' : ''}{s.elevationDeltaM} m · {s.avgSlopePct}% media
-              </p>
-              {hasEtaMinutes(s) && (
-                <p className="text-[11px] text-slate-500 mt-1">
-                  ETA {bikeMode.toUpperCase()}: {Math.round(s.etaMinutes[bikeMode] * etaFactor)} min
-                  <span className="text-slate-600"> (base {s.etaMinutes[bikeMode]} min)</span>
-                </p>
-              )}
-              <div className="mt-2">
-                <Link
-                  href={buildCenterHref(s.startKm, s.endKm)}
-                  className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider px-2.5 py-1.5 rounded-md bg-orange-500/15 border border-orange-500/30 text-orange-300 hover:bg-orange-500/20 transition-colors"
-                >
-                  Centrar tramo en mapa
-                </Link>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -424,33 +476,6 @@ export default function TrailNowInsights({
           </div>
         )}
       </div>
-
-      {data.recommendedWindows && data.recommendedWindows.length > 0 && (
-        <div className="bg-slate-900/60 border border-white/5 rounded-xl p-4">
-          <h3 className="text-white font-bold mb-3">Salida recomendada hoy por franja</h3>
-          <div className="space-y-2">
-            {data.recommendedWindows.map((w) => (
-              <div key={w.slot} className="flex items-start justify-between gap-3 bg-slate-950/40 border border-white/5 rounded-lg p-3">
-                <div>
-                  <p className="text-sm text-white font-semibold capitalize">{w.slot}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">{w.reason}</p>
-                </div>
-                <span
-                  className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md ${
-                    w.riskLevel === 'red'
-                      ? 'bg-red-500/15 text-red-300 border border-red-500/30'
-                      : w.riskLevel === 'yellow'
-                      ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
-                      : 'bg-green-500/15 text-green-300 border border-green-500/30'
-                  }`}
-                >
-                  {w.label}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {data.routeNowRecommendation?.thirds && data.routeNowRecommendation.thirds.length > 0 && (
         <div className="bg-slate-900/60 border border-white/5 rounded-xl p-4">

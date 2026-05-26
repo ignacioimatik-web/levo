@@ -6,6 +6,7 @@ import { parseGPX } from '@/lib/gpx-utils';
 import { analyzeRoute } from '@/lib/route-analysis';
 import { getAemetNowForLocation } from '@/lib/aemet';
 import { assessSegmentRisk } from '@/lib/segment-risk';
+import { calcSunriseSunset, type DaylightInfo } from '@/lib/daylight';
 
 export interface RouteStatusPayload {
   ok: boolean;
@@ -14,14 +15,19 @@ export interface RouteStatusPayload {
   title?: string;
   viewerNow?: string;
   viewerTimeZone?: string;
+  points?: Array<{ lat: number; lng: number }>;
   profile?: ReturnType<typeof analyzeRoute>;
   weatherNow?: Awaited<ReturnType<typeof getAemetNowForLocation>> | { error: string; detail?: string } | null;
+  daylight?: DaylightInfo;
+  safeDeadline?: string; // latest safe departure time HH:MM
   notes?: string[];
   recommendedWindows?: Array<{
     slot: 'manana' | 'tarde' | 'noche';
+    timeRange: string;
     riskLevel: 'green' | 'yellow' | 'red';
     label: string;
     reason: string;
+    data: { temperatureC?: number; windKmh?: number; precipitationMm?: number; humidityPct?: number };
   }>;
   routeNowRecommendation?: {
     generatedAt: string;
@@ -76,6 +82,12 @@ function estimateSegmentTimeMin(distanceKm: number, avgSlopePct: number, mode: B
   return Math.round((distanceKm / speed) * 60);
 }
 
+const SLOT_INFO: Record<string, { timeRange: string; label: string }> = {
+  manana: { timeRange: '06:00–12:00', label: 'Mañana' },
+  tarde: { timeRange: '12:00–18:00', label: 'Tarde' },
+  noche: { timeRange: '18:00–00:00', label: 'Noche' },
+};
+
 function slotAdjust(baseTemp: number | undefined, baseWind: number | undefined, slot: 'manana' | 'tarde' | 'noche') {
   const t = baseTemp ?? 18;
   const w = baseWind ?? 12;
@@ -91,31 +103,49 @@ function evaluateWindow(
   const adjusted = slotAdjust(params.temperatureC, params.windKmh, slot);
   const rain = params.precipitationMm ?? 0;
   const humidity = params.humidityPct ?? 70;
+  const info = SLOT_INFO[slot];
 
   const red = rain >= 3 || adjusted.wind >= 45 || adjusted.temp <= 0;
   const yellow = rain > 0 || adjusted.wind >= 28 || adjusted.temp >= 33 || humidity >= 92;
 
+  const factors: string[] = [];
+  if (rain > 0) factors.push(`lluvia ${rain.toFixed(1)} mm`);
+  if (adjusted.wind >= 28) factors.push(`viento ${adjusted.wind} km/h`);
+  if (adjusted.temp >= 33) factors.push(`calor ${adjusted.temp} C`);
+  if (adjusted.temp <= 5) factors.push(`frio ${adjusted.temp} C`);
+  if (humidity >= 85) factors.push(`humedad ${humidity}%`);
+
+  const reason = factors.length
+    ? factors.join(', ')
+    : `Estable: ${adjusted.temp} C, viento ${adjusted.wind} km/h`;
+
   if (red) {
     return {
       slot,
+      timeRange: info.timeRange,
       riskLevel: 'red' as const,
       label: 'No recomendada',
-      reason: `Riesgo alto por ${rain >= 3 ? 'lluvia' : adjusted.wind >= 45 ? 'viento' : 'temperatura baja'} en ${slot}.`,
+      reason: `Desaconsejado. ${factors.length ? factors.join(', ') + '.' : 'Condiciones adversas.'}`,
+      data: { temperatureC: adjusted.temp, windKmh: adjusted.wind, precipitationMm: rain, humidityPct: humidity },
     };
   }
   if (yellow) {
     return {
       slot,
+      timeRange: info.timeRange,
       riskLevel: 'yellow' as const,
-      label: 'Con precaucion',
-      reason: `Condiciones variables en ${slot}: revisa equipo y ritmo.`,
+      label: 'Con precaución',
+      reason,
+      data: { temperatureC: adjusted.temp, windKmh: adjusted.wind, precipitationMm: rain, humidityPct: humidity },
     };
   }
   return {
     slot,
+    timeRange: info.timeRange,
     riskLevel: 'green' as const,
-    label: 'Ventana recomendada',
-    reason: `Condiciones estables y favorables para rodar en ${slot}.`,
+    label: 'Ventana óptima',
+    reason,
+    data: { temperatureC: adjusted.temp, windKmh: adjusted.wind, precipitationMm: rain, humidityPct: humidity },
   };
 }
 
@@ -307,6 +337,23 @@ export async function buildRouteStatus(slug: string, tz = 'Europe/Madrid'): Prom
       risk: assessSegmentRisk(s, weatherNow && 'riskLevel' in weatherNow ? weatherNow : null),
     }));
 
+    const daylight = calcSunriseSunset(center.lat, center.lng, new Date());
+    let safeDeadline: string | undefined;
+    if (!daylight.isPolarDay && !daylight.isPolarNight) {
+      const sunsetParts = daylight.sunset.split(':').map(Number);
+      const sunsetMin = sunsetParts[0] * 60 + sunsetParts[1];
+      const trailTimeMin = segmentsWithTime.reduce((acc, s) => acc + s.etaMinutes.trail, 0);
+      const bufferMin = 30;
+      const deadlineMin = sunsetMin - trailTimeMin - bufferMin;
+      if (deadlineMin >= 0) {
+        const h = Math.floor(deadlineMin / 60);
+        const m = Math.round(deadlineMin % 60);
+        safeDeadline = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+      } else {
+        safeDeadline = 'No hay tiempo suficiente';
+      }
+    }
+
     return {
       ok: true,
       slug,
@@ -314,6 +361,9 @@ export async function buildRouteStatus(slug: string, tz = 'Europe/Madrid'): Prom
       title: data.trail?.name ?? data.route?.name ?? slug,
       viewerNow,
       viewerTimeZone: tz,
+      daylight,
+      safeDeadline,
+      points: data.points,
       profile: {
         ...profile,
         segments: segmentsWithRisk,

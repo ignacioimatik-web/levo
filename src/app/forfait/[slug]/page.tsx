@@ -4,12 +4,13 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { Metadata } from 'next';
 import {
-  Map, Download, AlertTriangle, Bike, TrendingUp, Clock, Signal, Tag, ChevronLeft, ExternalLink,
+  Map, Download, AlertTriangle, Clock, Signal, ChevronLeft, ExternalLink,
 } from 'lucide-react';
 import TrailDifficultyBadge from '@/components/TrailDifficultyBadge';
 import { getTrailStatusLabel, getTrailTypeLabel } from '@/lib/trail-utils';
 import TrailDetailMapWrapper from '@/components/TrailDetailMapWrapper';
 import TrailNowInsights from '@/components/TrailNowInsights';
+import TrailSidebarControls from '@/components/TrailSidebarControls';
 import { buildRouteStatus } from '@/lib/route-status';
 
 interface PageProps {
@@ -143,6 +144,42 @@ export default async function TrailDetailPage({ params, searchParams }: PageProp
               </p>
             </div>
 
+            {/* Stats */}
+            {statusData.ok && statusData.profile && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="bg-slate-900/70 border border-white/5 rounded-xl p-3">
+                    <p className="text-[11px] text-slate-500">Distancia real</p>
+                    <p className="text-white font-bold">{statusData.profile.distanceKm} km</p>
+                  </div>
+                  <div className="bg-slate-900/70 border border-white/5 rounded-xl p-3">
+                    <p className="text-[11px] text-slate-500">Desnivel +</p>
+                    <p className="text-green-400 font-bold">+{statusData.profile.gainM} m</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">{((statusData.profile.gainM / (statusData.profile.distanceKm * 1000)) * 100).toFixed(1)}% medio</p>
+                  </div>
+                  <div className="bg-slate-900/70 border border-white/5 rounded-xl p-3">
+                    <p className="text-[11px] text-slate-500">Altitud max</p>
+                    <p className="text-white font-bold">{statusData.profile.maxAltitudeM} m</p>
+                  </div>
+                  <div className="bg-slate-900/70 border border-white/5 rounded-xl p-3">
+                    <p className="text-[11px] text-slate-500">Desnivel -</p>
+                    <p className="text-red-400 font-bold">-{statusData.profile.lossM} m</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">{((statusData.profile.lossM / (statusData.profile.distanceKm * 1000)) * 100).toFixed(1)}% medio</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-2 gap-3">
+                  <div className="bg-slate-900/70 border border-white/5 rounded-xl p-3">
+                    <p className="text-[11px] text-slate-500">Pendiente pico subida</p>
+                    <p className="text-orange-400 font-bold">+{statusData.profile.steepestClimbPct}%</p>
+                  </div>
+                  <div className="bg-slate-900/70 border border-white/5 rounded-xl p-3">
+                    <p className="text-[11px] text-slate-500">Pendiente pico bajada</p>
+                    <p className="text-orange-400 font-bold">{statusData.profile.steepestDescentPct}%</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Map */}
             <div id="trail-map" className="relative">
               <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
@@ -168,24 +205,6 @@ export default async function TrailDetailPage({ params, searchParams }: PageProp
                 segmentOverlays={segmentOverlays}
               />
             </div>
-
-            {/* Warnings */}
-            {trail.warnings.length > 0 && (
-              <div>
-                <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
-                  <span className="w-1.5 h-8 bg-orange-500 rounded-full inline-block" />
-                  Advertencias
-                </h2>
-                <ul className="space-y-3">
-                  {trail.warnings.map((w, i) => (
-                    <li key={i} className="flex items-start gap-3 text-amber-400/80">
-                      <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
-                      <span className="text-slate-400">{w}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
 
             <div>
               <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
@@ -230,29 +249,6 @@ export default async function TrailDetailPage({ params, searchParams }: PageProp
 
           {/* Sidebar */}
           <div className="lg:col-span-3 space-y-8">
-            {/* Stats card */}
-            <div className="bg-slate-900 border border-white/5 rounded-2xl p-6">
-              <h3 className="text-lg font-bold text-white mb-6">Ficha técnica</h3>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-slate-500">Distancia</span>
-                  <span className="font-bold text-white">{trail.distanceKm ? `${trail.distanceKm} km` : '—'}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-slate-500">Desnivel +</span>
-                  <span className="font-bold text-green-400">{trail.elevationGainM ? `+${trail.elevationGainM} m` : '—'}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-slate-500">Desnivel -</span>
-                  <span className="font-bold text-red-400">{trail.elevationLossM ? `-${trail.elevationLossM} m` : '—'}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-slate.500">Duración est.</span>
-                  <span className="font-bold text-white">{trail.estimatedTime || '—'}</span>
-                </div>
-              </div>
-            </div>
-
             {/* Ratings */}
             <div className="bg-slate-900 border border-white/5 rounded-2xl p-6">
               <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
@@ -263,39 +259,67 @@ export default async function TrailDetailPage({ params, searchParams }: PageProp
               <RatingRow label="Física" rating={trail.physicalRating} />
             </div>
 
-            {/* E-bike */}
-            <div className="bg-slate-900 border border-white/5 rounded-2xl p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Bike className="w-5 h-5 text-orange-500" />
-                  <span className="text-sm font-bold text-white">E-Bike</span>
-                </div>
-                <span className={`text-sm font-bold ${
-                  trail.ebikeFriendly === true ? 'text-green-400' :
-                  trail.ebikeFriendly === false ? 'text-red-400' : 'text-slate-500'
-                }`}>
-                  {trail.ebikeFriendly === true ? 'Compatible' :
-                   trail.ebikeFriendly === false ? 'No recomendado' : 'No especificado'}
-                </span>
-              </div>
-            </div>
-
-            {/* Tags */}
-            {trail.tags.length > 0 && (
+            {/* Warnings sidebar */}
+            {trail.warnings.length > 0 && (
               <div className="bg-slate-900 border border-white/5 rounded-2xl p-6">
                 <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
-                  <Tag className="w-4 h-4 text-slate-500" />
-                  Etiquetas
+                  <AlertTriangle className="w-4 h-4 text-amber-400" />
+                  Advertencias
                 </h3>
-                <div className="flex flex-wrap gap-1.5">
-                  {trail.tags.map(tag => (
-                    <span key={tag} className="px-2.5 py-1 rounded-full bg-slate-800 text-slate-400 text-[11px] font-medium">
-                      {tag}
-                    </span>
+                <ul className="space-y-3">
+                  {trail.warnings.map((w, i) => (
+                    <li key={i} className="flex items-start gap-3 text-amber-400/80">
+                      <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                      <span className="text-slate-400 text-sm">{w}</span>
+                    </li>
                   ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Franjas recomendadas */}
+            {statusData.ok && statusData.recommendedWindows && statusData.recommendedWindows.length > 0 && (
+              <div className="bg-slate-900 border border-white/5 rounded-2xl p-5">
+                <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-orange-500" />
+                  Salida recomendada hoy
+                </h3>
+                <div className="space-y-3">
+                  {statusData.recommendedWindows.map((w) => {
+                    const slotIcon = w.slot === 'manana' ? '\u{1F305}' : w.slot === 'tarde' ? '\u{2600}\u{FE0F}' : '\u{1F319}';
+                    const borderColor = w.riskLevel === 'red' ? 'border-red-500/30' : w.riskLevel === 'yellow' ? 'border-amber-500/30' : 'border-green-500/30';
+                    const bgAccent = w.riskLevel === 'red' ? 'bg-red-500/5' : w.riskLevel === 'yellow' ? 'bg-amber-500/5' : 'bg-green-500/5';
+                    return (
+                      <div key={w.slot} className={`flex flex-col bg-slate-950/40 border ${borderColor} rounded-xl p-3 ${bgAccent}`}>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-2">
+                            <span className="text-base">{slotIcon}</span>
+                            <div>
+                              <p className="text-sm text-white font-bold capitalize leading-tight">{w.slot}</p>
+                              <p className="text-[10px] text-slate-500 font-mono">{w.timeRange}</p>
+                            </div>
+                          </div>
+                          <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                            w.riskLevel === 'red' ? 'bg-red-500/15 text-red-300' : w.riskLevel === 'yellow' ? 'bg-amber-500/15 text-amber-300' : 'bg-green-500/15 text-green-300'
+                          }`}>{w.label}</span>
+                        </div>
+                        {'data' in w && w.data && (
+                          <div className="grid grid-cols-2 gap-1 mb-1.5 text-[10px]">
+                            <div className="bg-slate-900/60 rounded px-1.5 py-1"><span className="text-slate-500">Temp </span><span className="text-slate-200 font-medium">{w.data.temperatureC?.toFixed(0) ?? '--'} C</span></div>
+                            <div className="bg-slate-900/60 rounded px-1.5 py-1"><span className="text-slate-500">Viento </span><span className="text-slate-200 font-medium">{w.data.windKmh?.toFixed(0) ?? '--'} km/h</span></div>
+                            <div className="bg-slate-900/60 rounded px-1.5 py-1"><span className="text-slate-500">Lluvia </span><span className="text-slate-200 font-medium">{w.data.precipitationMm?.toFixed(1) ?? '--'} mm</span></div>
+                            <div className="bg-slate-900/60 rounded px-1.5 py-1"><span className="text-slate-500">Humedad </span><span className="text-slate-200 font-medium">{w.data.humidityPct?.toFixed(0) ?? '--'}%</span></div>
+                          </div>
+                        )}
+                        <p className="text-[11px] text-slate-400 leading-relaxed">{w.reason}</p>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
+
+            <TrailSidebarControls />
 
             {/* Downloads */}
             <div className="bg-slate-900 border border-white/5 rounded-2xl p-6">
