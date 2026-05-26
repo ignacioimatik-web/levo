@@ -38,10 +38,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   return {
-    title: `${route.name} | E-nduro Singletracks`,
+    title: `${route.name} | E-nduro Ebiketracks`,
     description: `${route.summary}. Descubre los detalles técnicos, dificultad y descarga el track GPX para tu aventura de MTB en ${route.sector}.`,
     openGraph: {
-      title: `${route.name} | E-nduro Singletracks`,
+      title: `${route.name} | E-nduro Ebiketracks`,
       description: route.summary,
       type: 'article',
       images: route.images.length > 0 ? [

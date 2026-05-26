@@ -8,12 +8,12 @@ const Footer = () => {
         <div className="col-span-1 md:col-span-1">
           <div className="flex items-center gap-2 mb-6">
             <img
-              src="/images/logo-enduro-singletracks.png"
-              alt="E-nduro Singletracks"
+              src="/images/logo-enduro-ebiketracks.png"
+              alt="E-nduro Ebiketracks"
               className="h-6 w-auto"
             />
             <span className="text-white font-black tracking-tighter uppercase">
-              E-nduro <span className="text-orange-500">Singletracks</span>
+              E-nduro <span className="text-orange-500">Ebiketracks</span>
             </span>
           </div>
           <p className="text-sm leading-relaxed text-slate-500">
@@ -60,7 +60,7 @@ const Footer = () => {
       </div>
 
       <div className="max-w-7xl mx-auto pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-4 text-xs">
-        <p>© {new Date().getFullYear()} E-nduro Singletracks. Todos los derechos reservados.</p>
+        <p>© {new Date().getFullYear()} E-nduro Ebiketracks. Todos los derechos reservados.</p>
         <div className="flex gap-6">
           <Link href="/seguridad" className="hover:text-white">Aviso Legal</Link>
           <Link href="/contacto" className="hover:text-white">Privacidad</Link>

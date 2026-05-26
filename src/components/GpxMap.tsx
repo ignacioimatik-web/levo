@@ -211,7 +211,7 @@ export default function GpxMap({ coordinates, gpxUrl, title, fallbackMessage, fo
           </MapContainer>
         </div>
       )}
-      <div className={`relative w-full h-[300px] rounded-2xl overflow-hidden border border-white/5 shadow-xl bg-slate-950 ${maximized ? 'hidden' : ''}`}>
+      <div className={`relative w-full h-[400px] rounded-2xl overflow-hidden border border-white/5 shadow-xl bg-slate-950 ${maximized ? 'hidden' : ''}`}>
         {!maximized && (
           <button
             onClick={() => setMaximized(true)}

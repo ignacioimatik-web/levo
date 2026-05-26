@@ -16,32 +16,32 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "E-nduro Singletracks | Rutas MTB & Enduro",
-    template: "%s | E-nduro Singletracks"
+    default: "E-nduro Ebiketracks | Rutas MTB & Enduro",
+    template: "%s | E-nduro Ebiketracks"
   },
   description: "Descubre las mejores rutas autoguiadas por GPS de MTB, Enduro y All-Mountain en Morella y Els Ports. Aventuras épicas en la naturaleza.",
   keywords: ["Morella", "Singletracks", "MTB", "Enduro", "Els Ports", "Rutas GPS", "All-Mountain"],
-  authors: [{ name: "E-nduro Singletracks" }],
-  creator: "E-nduro Singletracks",
+  authors: [{ name: "E-nduro Ebiketracks" }],
+  creator: "E-nduro Ebiketracks",
   openGraph: {
     type: "website",
     locale: "es_ES",
     url: "https://ignacioimatik-web.github.io/levo",
-    siteName: "E-nduro Singletracks",
-    title: "E-nduro Singletracks | Rutas MTB & Enduro",
+    siteName: "E-nduro Ebiketracks",
+    title: "E-nduro Ebiketracks | Rutas MTB & Enduro",
     description: "Descubre las mejores rutas autoguiadas por GPS de MTB, Enduro y All-Mountain en Morella y Els Ports.",
     images: [
       {
         url: "https://images.unsplash.com/photo-1544198365-f5d60b6d8190?auto=format&fit=crop&q=80&w=1200",
         width: 1200,
         height: 630,
-        alt: "E-nduro Singletracks MTB Adventure",
+        alt: "E-nduro Ebiketracks MTB Adventure",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "E-nduro Singletracks | Rutas MTB & Enduro",
+    title: "E-nduro Ebiketracks | Rutas MTB & Enduro",
     description: "Descubre las mejores rutas autoguiadas por GPS de MTB, Enduro y All-Mountain en Morella y Els Ports.",
     images: ["https://images.unsplash.com/photo-1544198365-f5d60b6d8190?auto=format&fit=crop&q=80&w=1200"],
   },

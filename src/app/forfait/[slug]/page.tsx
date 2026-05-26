@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!trail) return { title: 'Sendero no encontrado' };
 
   return {
-    title: `${trail.name} | Forfait MTB | E-nduro Singletracks`,
+    title: `${trail.name} | Forfait MTB | E-nduro Ebiketracks`,
     description: trail.summary || trail.description,
     openGraph: {
       title: `${trail.name} | Forfait MTB`,

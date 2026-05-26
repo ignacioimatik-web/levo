@@ -13,6 +13,7 @@ export default function RouteFilter() {
   const [sector, setSector] = useState(initialSector);
   const [difficulty, setDifficulty] = useState('all');
   const [type, setType] = useState('all');
+  const [distanceRange, setDistanceRange] = useState('all');
 
   const filteredRoutes = useMemo(() => {
     return routes.filter((route) => {
@@ -21,16 +22,22 @@ export default function RouteFilter() {
       const matchesSector = sector === 'all' || route.sector === sector;
       const matchesDifficulty = difficulty === 'all' || route.physicalDifficulty === difficulty;
       const matchesType = type === 'all' || route.type === type;
+      const matchesDistance = distanceRange === 'all' || (() => {
+        const d = route.distanceKm ?? 0;
+        const [min, max] = distanceRange.split('-').map(Number);
+        return max ? d >= min && d < max : d >= min;
+      })();
 
-      return matchesSearch && matchesSector && matchesDifficulty && matchesType;
+      return matchesSearch && matchesSector && matchesDifficulty && matchesType && matchesDistance;
     });
-  }, [search, sector, difficulty, type]);
+  }, [search, sector, difficulty, type, distanceRange]);
 
   const resetFilters = () => {
     setSearch('');
     setSector('all');
     setDifficulty('all');
     setType('all');
+    setDistanceRange('all');
   };
 
   // Get unique sectors from routes
@@ -60,7 +67,7 @@ export default function RouteFilter() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-end">
           
           {/* Search Input */}
-          <div className="lg:col-span-4">
+          <div className="lg:col-span-3">
             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">
               Buscar ruta
             </label>
@@ -119,14 +126,33 @@ export default function RouteFilter() {
             </select>
           </div>
 
-          {/* Reset Button */}
+          {/* Distance Range Filter */}
           <div className="lg:col-span-2">
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">
+              Distancia
+            </label>
+            <select
+              value={distanceRange}
+              onChange={(e) => setDistanceRange(e.target.value)}
+              className="w-full bg-slate-800 border border-white/10 text-white text-sm rounded-xl py-2.5 outline-none focus:ring-2 focus:ring-orange-500/50 transition-all"
+            >
+              <option value="all">Todas</option>
+              <option value="0-15">&lt; 15 km</option>
+              <option value="15-25">15 – 25 km</option>
+              <option value="25-35">25 – 35 km</option>
+              <option value="35-45">35 – 45 km</option>
+              <option value="45-999">&gt; 45 km</option>
+            </select>
+          </div>
+
+          {/* Reset Button */}
+          <div className="lg:col-span-1">
             <button
               onClick={resetFilters}
               className="w-full flex items-center justify-center gap-2 text-xs font-bold text-slate-400 hover:text-white transition-colors py-2.5"
             >
               <RotateCcw className="w-4 h-4" />
-              Limpiar filtros
+              Limpiar
             </button>
           </div>
         </div>

@@ -7,12 +7,12 @@ const Navbar = () => {
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 group">
           <img
-            src="/images/logo-enduro-singletracks.png"
-            alt="E-nduro Singletracks"
+            src="/images/logo-enduro-ebiketracks.png"
+            alt="E-nduro Ebiketracks"
             className="h-8 w-auto group-hover:scale-110 transition-transform"
           />
           <span className="text-lg font-black tracking-tighter text-white uppercase">
-            E-nduro <span className="text-orange-500">Singletracks</span>
+            E-nduro <span className="text-orange-500">Ebiketracks</span>
           </span>
         </Link>
 

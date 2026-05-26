@@ -33,13 +33,13 @@ export default function Home() {
 
         <div className="relative z-20 text-center px-6 max-w-5xl">
           <img
-            src="/images/logo-enduro-singletracks.png"
-            alt="E-nduro Singletracks"
+            src="/images/logo-enduro-ebiketracks.png"
+            alt="E-nduro Ebiketracks"
             className="w-full max-w-3xl mx-auto mb-2 object-contain"
           />
           <h1 className="text-5xl md:text-8xl font-black tracking-tighter text-white mb-6 leading-none">
             E-NDURO <br />
-            <span className="text-orange-500">SINGLETRACKS</span>
+            <span className="text-orange-500">EBIKETRACKS</span>
           </h1>
           <p className="text-xl md:text-3xl font-light text-slate-300 mb-12 max-w-3xl mx-auto leading-relaxed">
             Enduro, all-mountain y sendas históricas en Els Ports.

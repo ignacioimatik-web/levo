@@ -35,7 +35,7 @@ export default function TravesiasPage() {
             <h2 className="text-3xl font-bold text-white mb-4">Próximamente</h2>
             <p className="text-slate-400 text-lg max-w-2xl mx-auto leading-relaxed mb-8">
               Estamos preparando rutas de varios días con logística detallada, puntos de avituallamiento y alojamientos recomendados. 
-              Itinerarios que abarcan varios sectores para vivir la experiencia completa de E-nduro Singletracks.
+              Itinerarios que abarcan varios sectores para vivir la experiencia completa de E-nduro Ebiketracks.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link 
