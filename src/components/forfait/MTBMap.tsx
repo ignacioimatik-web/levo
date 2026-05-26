@@ -57,6 +57,19 @@ function FlyToTrack({ track }: { track: TrackMTB | null }) {
   return null;
 }
 
+/** Observes the map container for layout changes (sidebar toggle, resize) and invalidates size */
+function MapResizer() {
+  const map = useMap();
+  useEffect(() => {
+    const container = map.getContainer();
+    if (!container) return;
+    const ro = new ResizeObserver(() => { map.invalidateSize(); });
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, [map]);
+  return null;
+}
+
 export default function MTBMap({
   tracks,
   selectedTrackIds,
@@ -100,6 +113,7 @@ export default function MTBMap({
       />
       <FitBounds tracks={tracks} routePoints={builtRoute?.pointsCombinados ?? []} />
       <FlyToTrack track={fitTrack} />
+      <MapResizer />
 
       {tracks.map(track => {
         const isInRoute = selectedTrackIds.includes(track.id);

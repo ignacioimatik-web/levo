@@ -487,7 +487,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
             <div>
               <h4 className="text-xs font-bold text-white mb-2">Advertencias activas</h4>
               <div className="space-y-1.5">
-                {tracks.filter(t => t.advertencias.length > 0).slice(0, 8).flatMap(t =>
+                {selectedTracks.filter(t => t.advertencias.length > 0).flatMap(t =>
                   t.advertencias.map((w, i) => (
                     <div key={`${t.id}-${i}`} className="flex items-start gap-2 p-2 bg-slate-900/50 border border-white/5 rounded-lg">
                       <AlertTriangle className="w-3 h-3 text-amber-400 flex-shrink-0 mt-0.5" />
