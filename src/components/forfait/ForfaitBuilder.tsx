@@ -4,7 +4,7 @@ import { useMemo, useState, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import {
   List, AlertTriangle, Download, Plus, Trash2, ArrowUp, ArrowDown,
-  Search, X, Bike, Mountain, Route, Save, Copy, ChevronUp,
+  Search, X, Bike, Route, Save, Copy, ChevronUp,
 } from 'lucide-react';
 import type { TrackMTB, FiltrosForfait, NivelUsuario, DificultadMTB } from '@/lib/forfait/types';
 import {
@@ -66,7 +66,6 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
   const [routeName, setRouteName] = useState('Mi ruta Forfait');
   const [nivelUsuario, setNivelUsuario] = useState<NivelUsuario>('avanzado');
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [mobileSheet, setMobileSheet] = useState<'hidden' | 'tracks' | 'ruta'>('hidden');
   const [saved, setSaved] = useState(false);
   const [expandedSectors, setExpandedSectors] = useState<Set<string>>(new Set());
   const [previewTrackIds, setPreviewTrackIds] = useState<string[]>([]);
@@ -136,7 +135,6 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
   const handleTrackClick = useCallback((track: TrackMTB) => {
     setSelectedTrackId(track.id);
     setPreviewTrackIds(prev => prev.includes(track.id) ? prev.filter(id => id !== track.id) : [...prev, track.id]);
-    setMobileSheet('tracks');
   }, []);
 
   const addToRoute = useCallback((trackId: string) => {
