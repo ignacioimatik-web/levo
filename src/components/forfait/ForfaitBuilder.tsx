@@ -181,6 +181,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
   }, [builtRoute]);
 
   const selectedTrack = selectedTrackId ? tracks.find(t => t.id === selectedTrackId) : null;
+  const selectedTracks = useMemo(() => tracks.filter(t => selectedTrackIds.includes(t.id)), [tracks, selectedTrackIds]);
 
   const sectors = useMemo(() => [...new Set(tracks.map(t => t.sector))], [tracks]);
 
@@ -535,32 +536,41 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
         {/* PESTAÑA ESTADO Y AVISOS */}
         {activeTab === 'status' && (
           <div className="space-y-4">
-            <div>
-              <h4 className="text-xs font-bold text-white mb-2">Resumen de estado</h4>
-              <div className="grid grid-cols-2 gap-2">
-                <StatusBlock label="Abiertos" value={tracks.filter(t => t.estado === 'abierto').length} color="text-green-400" />
-                <StatusBlock label="Cerrados" value={tracks.filter(t => t.estado === 'cerrado').length} color="text-gray-400" />
-                <StatusBlock label="Precaución" value={tracks.filter(t => t.estado === 'precaucion').length} color="text-yellow-400" />
-                <StatusBlock label="En revisión" value={tracks.filter(t => t.estado === 'revision').length} color="text-orange-400" />
-              </div>
-            </div>
-
-            <div>
-              <h4 className="text-xs font-bold text-white mb-2">Total tracks: {tracks.length} ({tracks.filter(t => t.dataStatus === 'real').length} reales)</h4>
-            </div>
-
-            <div>
-              <h4 className="text-xs font-bold text-white mb-2">Tracks con incidencias</h4>
-              <div className="space-y-1.5">
-                {tracks.filter(t => t.estado !== 'abierto').map(t => (
-                  <div key={t.id} className="flex items-center gap-2 p-2 bg-slate-900/50 border border-white/5 rounded-lg">
-                    <span className={`w-2 h-2 rounded-full ${t.estado === 'cerrado' ? 'bg-gray-500' : t.estado === 'precaucion' ? 'bg-yellow-500' : 'bg-orange-500'}`} />
-                    <span className="text-xs text-white flex-1">{t.nombre}</span>
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${ESTADO_BADGE[t.estado]}`}>{t.estado}</span>
+            {selectedTracks.length === 0 ? (
+              <p className="text-xs text-slate-500 text-center py-8">Selecciona tracks para ver su estado.</p>
+            ) : (
+              <>
+                <div>
+                  <h4 className="text-xs font-bold text-white mb-2">Resumen de estado</h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    <StatusBlock label="Abiertos" value={selectedTracks.filter(t => t.estado === 'abierto').length} color="text-green-400" />
+                    <StatusBlock label="Cerrados" value={selectedTracks.filter(t => t.estado === 'cerrado').length} color="text-gray-400" />
+                    <StatusBlock label="Precaución" value={selectedTracks.filter(t => t.estado === 'precaucion').length} color="text-yellow-400" />
+                    <StatusBlock label="En revisión" value={selectedTracks.filter(t => t.estado === 'revision').length} color="text-orange-400" />
                   </div>
-                ))}
-              </div>
-            </div>
+                </div>
+
+                <div>
+                  <h4 className="text-xs font-bold text-white mb-2">Total tracks: {selectedTracks.length} ({selectedTracks.filter(t => t.dataStatus === 'real').length} reales)</h4>
+                </div>
+
+                <div>
+                  <h4 className="text-xs font-bold text-white mb-2">Tracks con incidencias</h4>
+                  <div className="space-y-1.5">
+                    {selectedTracks.filter(t => t.estado !== 'abierto').map(t => (
+                      <div key={t.id} className="flex items-center gap-2 p-2 bg-slate-900/50 border border-white/5 rounded-lg">
+                        <span className={`w-2 h-2 rounded-full ${t.estado === 'cerrado' ? 'bg-gray-500' : t.estado === 'precaucion' ? 'bg-yellow-500' : 'bg-orange-500'}`} />
+                        <span className="text-xs text-white flex-1">{t.nombre}</span>
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${ESTADO_BADGE[t.estado]}`}>{t.estado}</span>
+                      </div>
+                    ))}
+                    {selectedTracks.filter(t => t.estado !== 'abierto').length === 0 && (
+                      <p className="text-[10px] text-slate-600">Ningún track seleccionado tiene incidencias.</p>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
 
             <div>
               <h4 className="text-xs font-bold text-white mb-2">Advertencias activas</h4>
