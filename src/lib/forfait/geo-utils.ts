@@ -165,8 +165,10 @@ export function detectAllConnections(
 
   for (let i = 0; i < tracks.length; i++) {
     for (let j = i + 1; j < tracks.length; j++) {
-      if (!tracksOverlapBB(tracks[i], tracks[j], umbralSuperposicionM + 50)) continue;
-      const found = detectCrossingsTurf(tracks[i], tracks[j], umbralCruceM, umbralSuperposicionM);
+      const a = tracks[i], b = tracks[j];
+      if (!a.points.length || !b.points.length) continue;
+      if (!tracksOverlapBB(a, b, umbralSuperposicionM + 50)) continue;
+      const found = detectCrossingsTurf(a, b, umbralCruceM, umbralSuperposicionM);
       for (const c of found) {
         const key = `${c.tipoConexion}-${Math.round(c.puntoConexion.lat * 100)}-${Math.round(c.puntoConexion.lng * 100)}`;
         if (seen.has(key)) continue;
@@ -190,15 +192,21 @@ export function detectCrossingsTurf(
 
   if (trackA.points.length < 2 || trackB.points.length < 2) return results;
 
-  const coordsA = trackA.points.map(p => [p.lng, p.lat] as [number, number]);
-  const coordsB = trackB.points.map(p => [p.lng, p.lat] as [number, number]);
+  try {
+    const coordsA = trackA.points
+      .filter(p => isFinite(p.lat) && isFinite(p.lng))
+      .map(p => [p.lng, p.lat] as [number, number]);
+    const coordsB = trackB.points
+      .filter(p => isFinite(p.lat) && isFinite(p.lng))
+      .map(p => [p.lng, p.lat] as [number, number]);
+    if (coordsA.length < 2 || coordsB.length < 2) return results;
 
-  const lineA = lineString(coordsA);
-  const lineB = lineString(coordsB);
+    const lineA = lineString(coordsA);
+    const lineB = lineString(coordsB);
 
-  const lenA = distanciaTotalKm(trackA.points) * 1000;
-  const lenB = distanciaTotalKm(trackB.points) * 1000;
-  if (lenA < 1 || lenB < 1) return results;
+    const lenA = distanciaTotalKm(trackA.points) * 1000;
+    const lenB = distanciaTotalKm(trackB.points) * 1000;
+    if (lenA < 1 || lenB < 1) return results;
 
   // 1. Exact line intersections
   const intersections = turfLineIntersect(lineA, lineB);
@@ -277,6 +285,7 @@ export function detectCrossingsTurf(
   detectPartialOverlap(trackB, trackA, lineA, umbralSuperposicionM, results, seen);
 
   return results;
+  } catch { return results; }
 }
 
 /** Check if a contiguous section of trackA overlaps with trackB (sampled) */

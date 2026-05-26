@@ -123,8 +123,7 @@ export const routes: MTBRoute[] = [
     trailPercent: 39,
     trackUrl: "/tracks/garumba-gigante.gpx",
     images: [
-      "https://images.unsplash.com/photo-1544198365-f5d60b6d8190?auto=format&fit=crop&q=80&w=1000",
-      "https://images.unsplash.com/photo-1604677657548-4ced0c4f40c6?auto=format&fit=crop&q=80&w=1000",
+      "https://images.unsplash.com/photo-1749209315437-a894d1e2afe3?auto=format&fit=crop&q=80&w=1000",
     ],
     warnings: [
       "Importante tramo de porteo (15-20 min) para acceder al Balcó de Pilatos",
@@ -161,7 +160,7 @@ export const routes: MTBRoute[] = [
     trailPercent: 60,
     trackUrl: "/tracks/vuelta-garumba.gpx",
     images: [
-      "https://images.unsplash.com/photo-1632258334576-c338d143773c?auto=format&fit=crop&q=80&w=1000",
+      "https://images.unsplash.com/photo-1758196687580-4a9237f85c0f?auto=format&fit=crop&q=80&w=1000",
     ],
     warnings: [
       "Zona remota, llevar agua en abundancia",
@@ -195,7 +194,7 @@ export const routes: MTBRoute[] = [
     trailPercent: 27,
     trackUrl: "/tracks/santets-gegants.gpx",
     images: [
-      "https://images.unsplash.com/photo-1562862570-d9e821847237?auto=format&fit=crop&q=80&w=1000",
+      "https://images.unsplash.com/photo-1706252381497-5ba44eb1a0cf?auto=format&fit=crop&q=80&w=1000",
     ],
     warnings: [
       "Tramos de pista con piedra suelta que requieren atención",
@@ -229,8 +228,7 @@ export const routes: MTBRoute[] = [
     trailPercent: 70,
     trackUrl: "/tracks/coronel-perdido.gpx",
     images: [
-      "https://images.unsplash.com/photo-1551632811-561732d1e306?auto=format&fit=crop&q=80&w=1000",
-      "https://images.unsplash.com/photo-1604850613811-b50ad1aeeecd?auto=format&fit=crop&q=80&w=1000",
+      "https://images.unsplash.com/photo-1742468891945-77f88e701748?auto=format&fit=crop&q=80&w=1000",
     ],
     warnings: [
       "Varios tramos de porteo obligatorio",
@@ -268,7 +266,7 @@ export const routes: MTBRoute[] = [
     trailPercent: 39,
     trackUrl: "/tracks/romeo-julieta-y-julieta.gpx",
     images: [
-      "https://images.unsplash.com/photo-1615406308854-4805ac35ef25?auto=format&fit=crop&q=80&w=1000",
+      "https://images.unsplash.com/photo-1760892472639-82ae26956da2?auto=format&fit=crop&q=80&w=1000",
     ],
     warnings: [
       "Al inicio, acceder por paso entre postes de madera, no por puerta metálica",
@@ -302,7 +300,7 @@ export const routes: MTBRoute[] = [
     trailPercent: 56,
     trackUrl: "/tracks/hard-pertxos.gpx",
     images: [
-      "https://images.unsplash.com/photo-1594032362338-04b9952eb440?auto=format&fit=crop&q=80&w=1000",
+      "https://images.unsplash.com/photo-1575548393466-0df1618ba410?auto=format&fit=crop&q=80&w=1000",
     ],
     warnings: [
       "Paraje Natural - respetar el entorno y no dejar residuos",
@@ -338,7 +336,7 @@ export const routes: MTBRoute[] = [
     trailPercent: 52,
     trackUrl: "/tracks/big-peter.gpx",
     images: [
-      "https://images.unsplash.com/photo-1637624681315-8a3025be66c0?auto=format&fit=crop&q=80&w=1000",
+      "https://images.unsplash.com/photo-1604677657548-4ced0c4f40c6?auto=format&fit=crop&q=80&w=1000",
     ],
     warnings: [
       "Orografía quebrada: todo es subir o bajar",
@@ -373,7 +371,7 @@ export const routes: MTBRoute[] = [
     trailPercent: 43,
     trackUrl: "/tracks/teacher-perdido.gpx",
     images: [
-      "https://images.unsplash.com/photo-1564912677462-6a1d6102473d?auto=format&fit=crop&q=80&w=1000",
+      "https://images.unsplash.com/photo-1604850613811-b50ad1aeeecd?auto=format&fit=crop&q=80&w=1000",
     ],
     warnings: [
       "Algunos tramos de senda estrecha con vegetación",
@@ -407,7 +405,7 @@ export const routes: MTBRoute[] = [
     trailPercent: 48,
     trackUrl: "/tracks/medio-perdido.gpx",
     images: [
-      "https://images.unsplash.com/photo-1645520719499-6856445fe4ad?auto=format&fit=crop&q=80&w=1000",
+      "https://images.unsplash.com/photo-1668106601849-e21e72c2c563?auto=format&fit=crop&q=80&w=1000",
     ],
     warnings: [
       "Senda estrecha en algunos tramos junto al río",
@@ -441,8 +439,7 @@ export const routes: MTBRoute[] = [
     trailPercent: 48,
     trackUrl: "/tracks/todo-perdido.gpx",
     images: [
-      "https://images.unsplash.com/photo-1632258334576-c338d143773c?auto=format&fit=crop&q=80&w=1000",
-      "https://images.unsplash.com/photo-1604850613811-b50ad1aeeecd?auto=format&fit=crop&q=80&w=1000",
+      "https://images.unsplash.com/photo-1564912677462-6a1d6102473d?auto=format&fit=crop&q=80&w=1000",
     ],
     warnings: [
       "Ruta larga y muy exigente, llevar abundante avituallamiento",
@@ -478,7 +475,7 @@ export const routes: MTBRoute[] = [
     trailPercent: 45,
     trackUrl: "/tracks/left-dark-side.gpx",
     images: [
-      "https://images.unsplash.com/photo-1510312305653-8ed496efae75?auto=format&fit=crop&q=80&w=1000",
+      "https://images.unsplash.com/photo-1571081790807-6933479d240f?auto=format&fit=crop&q=80&w=1000",
     ],
     warnings: [
       "Subida larga inicial con rampas exigentes",
@@ -513,7 +510,7 @@ export const routes: MTBRoute[] = [
     trailPercent: 40,
     trackUrl: "/tracks/4o-rlemst-st-pere-morella.gpx",
     images: [
-      "https://images.unsplash.com/photo-1515536765-9ed2a06c0c24?auto=format&fit=crop&q=80&w=1000",
+      "https://images.unsplash.com/photo-1606087492572-424ebe0f2f61?auto=format&fit=crop&q=80&w=1000",
     ],
     warnings: [
       "Tramos de senda con vegetación en verano",
@@ -547,7 +544,7 @@ export const routes: MTBRoute[] = [
     trailPercent: 60,
     trackUrl: "/tracks/tercer-plato-perdido.gpx",
     images: [
-      "https://images.unsplash.com/photo-1569154941061-e231b4725ef1?auto=format&fit=crop&q=80&w=1000",
+      "https://images.unsplash.com/photo-1594942939850-d8da299577f3?auto=format&fit=crop&q=80&w=1000",
     ],
     warnings: [
       "Alto porcentaje de senda, requiere buena técnica",
@@ -582,7 +579,7 @@ export const routes: MTBRoute[] = [
     trailPercent: 51,
     trackUrl: "/tracks/rico-perdido.gpx",
     images: [
-      "https://images.unsplash.com/photo-1558442088-b3e50612e0f6?auto=format&fit=crop&q=80&w=1000",
+      "https://images.unsplash.com/photo-1633707167669-37bffb6592c9?auto=format&fit=crop&q=80&w=1000",
     ],
     warnings: [
       "Tramos de senda junto al río con precaución en días húmedos",
@@ -616,7 +613,7 @@ export const routes: MTBRoute[] = [
     trailPercent: 49,
     trackUrl: "/tracks/cabeza.gpx",
     images: [
-      "https://images.unsplash.com/photo-1533055640609-24b498dfd74c?auto=format&fit=crop&q=80&w=1000",
+      "https://images.unsplash.com/photo-1444491741275-3747c53c99b4?auto=format&fit=crop&q=80&w=1000",
     ],
     warnings: [
       "Senda estrecha en algunos tramos",
@@ -650,7 +647,7 @@ export const routes: MTBRoute[] = [
     trailPercent: 47,
     trackUrl: "/tracks/herbeset.gpx",
     images: [
-      "https://images.unsplash.com/photo-1554744511-5db8b62ed6f6?auto=format&fit=crop&q=80&w=1000",
+      "https://images.unsplash.com/photo-1776131263812-726e8e31d51d?auto=format&fit=crop&q=80&w=1000",
     ],
     warnings: [
       "Orografía quebrada con continuos cambios de ritmo",
@@ -684,7 +681,7 @@ export const routes: MTBRoute[] = [
     trailPercent: 50,
     trackUrl: "/tracks/herbesot.gpx",
     images: [
-      "https://images.unsplash.com/photo-1571993142257-eae0b44cf0c9?auto=format&fit=crop&q=80&w=1000",
+      "https://images.unsplash.com/photo-1760588774830-2a9f3bf4965d?auto=format&fit=crop&q=80&w=1000",
     ],
     warnings: [
       "Ruta larga con ascensiones técnicas exigentes",
@@ -720,7 +717,7 @@ export const routes: MTBRoute[] = [
     trailPercent: 48,
     trackUrl: "/tracks/esmeralda.gpx",
     images: [
-      "https://images.unsplash.com/photo-1517462964-21fdcec3f25b?auto=format&fit=crop&q=80&w=1000",
+      "https://images.unsplash.com/photo-1761225155424-d6bfed504284?auto=format&fit=crop&q=80&w=1000",
     ],
     warnings: [
       "Ruta muy larga, imprescindible buena planificación",
@@ -755,7 +752,7 @@ export const routes: MTBRoute[] = [
     ebikeFriendly: false,
     trailPercent: 59,
     images: [
-      "https://images.unsplash.com/photo-1557389350-e4f0d0bb06a9?auto=format&fit=crop&q=80&w=1000",
+      "https://images.unsplash.com/photo-1758764055762-745bd68fa01a?auto=format&fit=crop&q=80&w=1000",
     ],
     warnings: [
       "Altísimo porcentaje de senda técnica",
@@ -791,7 +788,7 @@ export const routes: MTBRoute[] = [
     trailPercent: 50,
     trackUrl: "/tracks/iv-marcha-btt-morella.gpx",
     images: [
-      "https://images.unsplash.com/photo-1562943905-591a5f7e15de?auto=format&fit=crop&q=80&w=1000",
+      "https://images.unsplash.com/photo-1769889055367-36ab140fccbc?auto=format&fit=crop&q=80&w=1000",
     ],
     warnings: [
       "Tramos de pista compartida con vehículos",
@@ -825,7 +822,7 @@ export const routes: MTBRoute[] = [
     trailPercent: 68,
     trackUrl: "/tracks/pikachu-tochungo.gpx",
     images: [
-      "https://images.unsplash.com/photo-1511995729963-95bf2442e5e3?auto=format&fit=crop&q=80&w=1000",
+      "https://images.unsplash.com/photo-1633707167682-9068729bc84c?auto=format&fit=crop&q=80&w=1000",
     ],
     warnings: [
       "Máxima atención durante todo el recorrido",
@@ -861,7 +858,7 @@ export const routes: MTBRoute[] = [
     trailPercent: 65,
     trackUrl: "/tracks/pardala.gpx",
     images: [
-      "https://images.unsplash.com/photo-1576603100756-1d4d6d7086ca?auto=format&fit=crop&q=80&w=1000",
+      "https://images.unsplash.com/photo-1505391758260-d361ee6c788f?auto=format&fit=crop&q=80&w=1000",
     ],
     warnings: [
       "Alto porcentaje de senda técnica y estrecha",
@@ -896,7 +893,7 @@ export const routes: MTBRoute[] = [
     trailPercent: 40,
     trackUrl: "/tracks/snait.gpx",
     images: [
-      "https://images.unsplash.com/photo-1534759846116-5799c33ce22a?auto=format&fit=crop&q=80&w=1000",
+      "https://images.unsplash.com/photo-1536690567179-287055e5d79f?auto=format&fit=crop&q=80&w=1000",
     ],
     warnings: [
       "Senda con barro después de lluvias",
@@ -930,7 +927,7 @@ export const routes: MTBRoute[] = [
     trailPercent: 57,
     trackUrl: "/tracks/medxtrem2016.gpx",
     images: [
-      "https://images.unsplash.com/photo-1551918120-9739cb430c6d?auto=format&fit=crop&q=80&w=1000",
+      "https://images.unsplash.com/photo-1635126039432-1742dbb90506?auto=format&fit=crop&q=80&w=1000",
     ],
     warnings: [
       "Ruta ultra-larga, solo para ciclistas con excelente preparación",
@@ -968,7 +965,7 @@ export const routes: MTBRoute[] = [
     trailPercent: 65,
     trackUrl: "/tracks/pereroles-arnau.gpx",
     images: [
-      "https://images.unsplash.com/photo-1593108404107-034ac4287a53?auto=format&fit=crop&q=80&w=1000",
+      "https://images.unsplash.com/photo-1603435794993-f813e28633fb?auto=format&fit=crop&q=80&w=1000",
     ],
     warnings: [
       "Orografía muy quebrada, continuo sube y baja",
@@ -1002,7 +999,7 @@ export const routes: MTBRoute[] = [
     trailPercent: 36,
     trackUrl: "/tracks/romeo-julieta-y-romeo.gpx",
     images: [
-      "https://images.unsplash.com/photo-1559060017-0fb0e5be9a2b?auto=format&fit=crop&q=80&w=1000",
+      "https://images.unsplash.com/photo-1603614068906-c1ea9b6819ab?auto=format&fit=crop&q=80&w=1000",
     ],
     warnings: [
       "Ascensión inicial dura pero corta",
@@ -1037,7 +1034,7 @@ export const routes: MTBRoute[] = [
     trailPercent: 58,
     trackUrl: "/tracks/torre-cipres-xiva.gpx",
     images: [
-      "https://images.unsplash.com/photo-1600104791821-1a71d0ef8e74?auto=format&fit=crop&q=80&w=1000",
+      "https://images.unsplash.com/photo-1556221620-3616894469d9?auto=format&fit=crop&q=80&w=1000",
     ],
     warnings: [
       "Tramos de senda rocosa que requieren experiencia",
@@ -1071,7 +1068,7 @@ export const routes: MTBRoute[] = [
     trailPercent: 46,
     trackUrl: "/tracks/xiva-torre-cipres.gpx",
     images: [
-      "https://images.unsplash.com/photo-1611746872915-64382b5c76da?auto=format&fit=crop&q=80&w=1000",
+      "https://images.unsplash.com/photo-1627848202744-9180fd73f2b1?auto=format&fit=crop&q=80&w=1000",
     ],
     warnings: [
       "Senda con roca suelta en algunos tramos",
@@ -1105,7 +1102,7 @@ export const routes: MTBRoute[] = [
     trailPercent: 38,
     trackUrl: "/tracks/torre-cipres-morella.gpx",
     images: [
-      "https://images.unsplash.com/photo-1544473240-e9c0cd44b56f?auto=format&fit=crop&q=80&w=1000",
+      "https://images.unsplash.com/photo-1568991004407-cdd5d0930945?auto=format&fit=crop&q=80&w=1000",
     ],
     warnings: [
       "Tramos de senda junto a la carretera al inicio/final",

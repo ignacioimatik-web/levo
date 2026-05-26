@@ -246,6 +246,7 @@ export default async function RouteDetailPage({ params, searchParams }: PageProp
                   focusEndKm={focusEndKm}
                   focusPointKm={focusPointKm}
                   segmentOverlays={segmentOverlays}
+                  routePoints={statusData.ok ? statusData.points : undefined}
                 />
               ) : route.trackUrl?.endsWith('.gpx') ? (
                 <div className="w-full h-[400px] bg-slate-900/80 border border-white/5 rounded-2xl flex items-center justify-center">
@@ -268,6 +269,7 @@ export default async function RouteDetailPage({ params, searchParams }: PageProp
               </h2>
               <TrailNowInsights
                 slug={slug}
+                basePath="/rutas"
                 activeOverlayTypes={{
                   climb: showSet.has('climb'),
                   descent: showSet.has('descent'),

@@ -33,9 +33,11 @@ type TempSourceMode = 'nearest' | 'estimated';
 export default function TrailNowInsights({
   slug,
   activeOverlayTypes,
+  basePath = '/forfait',
 }: {
   slug: string;
   activeOverlayTypes: { climb: boolean; descent: boolean; flat: boolean };
+  basePath?: string;
 }) {
   const [data, setData] = useState<RouteStatusPayload | null>(null);
   const [loading, setLoading] = useState(true);
@@ -88,7 +90,7 @@ export default function TrailNowInsights({
     p.set('show', show.join(','));
     p.set('segStart', String(startKm));
     p.set('segEnd', String(endKm));
-    return `/forfait/${slug}?${p.toString()}#trail-map`;
+    return `${basePath}/${slug}?${p.toString()}#trail-map`;
   };
 
   if (loading) {
@@ -101,7 +103,7 @@ export default function TrailNowInsights({
 
   return (
     <div className="space-y-6">
-<ContinuousProfile series={data.profile.profileSeries ?? []} slug={slug} />
+      <ContinuousProfile series={data.profile.profileSeries ?? []} slug={slug} basePath={basePath} />
 
       <div className={`rounded-xl border px-4 py-3 ${riskClass}`}>
         <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider">
@@ -426,6 +428,10 @@ export default function TrailNowInsights({
                   </div>
                 </div>
                 <p className="text-xs text-slate-400 mt-1">{t.keyTerrain}</p>
+                <details className="mt-1">
+                  <summary className="text-[10px] text-slate-500 cursor-pointer hover:text-slate-300 transition-colors">Por que esta valoracion</summary>
+                  <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">{t.reasoning}</p>
+                </details>
                 <p className="text-sm text-slate-200 mt-2">{t.recommendation}</p>
                 <div className="mt-2">
                   <Link
@@ -507,7 +513,7 @@ function MiniProfile({ segments }: { segments: NonNullable<RouteStatusPayload['p
   );
 }
 
-function ContinuousProfile({ series, slug }: { series: Array<{ km: number; elevationM: number }>; slug: string }) {
+function ContinuousProfile({ series, slug, basePath }: { series: Array<{ km: number; elevationM: number }>; slug: string; basePath: string }) {
   if (!series.length) return null;
   const { setHoveredKm } = useTrailHover();
   const width = 760;
@@ -715,7 +721,7 @@ function ContinuousProfile({ series, slug }: { series: Array<{ km: number; eleva
           <span className="px-2 py-1 rounded bg-slate-950/60 border border-white/10 text-red-300">descenso acum {lossPctAtPoint.toFixed(1)}%</span>
           {lockedIdx !== null && <span className="px-2 py-1 rounded bg-blue-500/15 border border-blue-500/30 text-blue-300">punto fijado</span>}
           <Link
-            href={`/forfait/${slug}?pointKm=${hoveredPoint.km.toFixed(2)}#trail-map`}
+            href={`${basePath}/${slug}?pointKm=${hoveredPoint.km.toFixed(2)}#trail-map`}
             className="px-2.5 py-1 rounded bg-orange-500/20 border border-orange-500/30 text-orange-300 font-bold uppercase tracking-wider"
           >
             Sincronizar punto en mapa

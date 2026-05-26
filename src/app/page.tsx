@@ -1,5 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
+import { promises as fs } from 'fs';
+import path from 'path';
 import { 
   Map, 
   ArrowRight,
@@ -13,9 +15,22 @@ import {
 import TopoBackground from '@/components/TopoBackground';
 import SectionHeading from '@/components/SectionHeading';
 import RouteCard from '@/components/RouteCard';
+import ContinuousProfile from '@/components/ContinuousProfile';
 import { routes, sectors } from '@/data/routes';
+import { parseGPX } from '@/lib/gpx-utils';
+import { analyzeRoute } from '@/lib/route-analysis';
 
-export default function Home() {
+export default async function Home() {
+  let profileSeries: Array<{ km: number; elevationM: number }> = [];
+  try {
+    const gpxPath = path.join(process.cwd(), 'public/tracks/coronel-perdido.gpx');
+    const xml = await fs.readFile(gpxPath, 'utf8');
+    const points = parseGPX(xml);
+    const result = analyzeRoute(points);
+    profileSeries = result.profileSeries;
+  } catch {
+    // silently fall through — profile won't render
+  }
   return (
     <div className="relative min-h-screen overflow-x-hidden">
       {/* --- HERO SECTION --- */}
@@ -186,12 +201,14 @@ export default function Home() {
       <section className="py-24 px-6 bg-slate-950/50">
         <div className="max-w-7xl mx-auto">
           <div className="bg-gradient-to-br from-slate-900 to-slate-950 border border-white/10 rounded-3xl overflow-hidden flex flex-col md:flex-row">
-            <div className="md:w-1/2 h-64 md:h-auto relative overflow-hidden bg-slate-900">
-              <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 to-transparent"></div>
-              <TopoBackground />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <Mountain className="w-24 h-24 text-orange-500/20" />
-              </div>
+            <div className="md:w-1/2 p-6 flex items-center">
+              {profileSeries.length > 0 ? (
+                <ContinuousProfile series={profileSeries} />
+              ) : (
+                <div className="w-full h-64 flex items-center justify-center bg-slate-900 rounded-xl border border-white/5">
+                  <Mountain className="w-24 h-24 text-orange-500/20" />
+                </div>
+              )}
             </div>
             <div className="md:w-1/2 p-12 flex flex-col justify-center">
               <div className="flex items-center gap-2 text-orange-500 mb-4">

@@ -10,7 +10,7 @@ export default function SectoresPage() {
         subtitle="Explora las diferentes zonas donde se concentran nuestras rutas de MTB y Enduro."
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-8">
         {sectors.map((sector) => (
           <Link key={sector.id} href={`/rutas?sector=${encodeURIComponent(sector.name)}`} className="group">
             <div className="bg-slate-900 border border-white/5 rounded-2xl overflow-hidden shadow-sm h-full transition-all group-hover:border-orange-500/50 group-hover:shadow-orange-500/10">

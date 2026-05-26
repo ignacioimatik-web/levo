@@ -22,9 +22,11 @@ function mapDifficulty(d: string): DificultadMTB {
 function parseEstimatedTime(est: string | undefined): number {
   if (!est) return 60;
   const parts = est.split('-').map(s => {
-    const [h, m] = s.trim().split(':').map(Number);
-    if (m !== undefined) return h * 60 + m;
-    return h * 60;
+    const [hStr, mStr] = s.trim().split(':');
+    const h = Number(hStr);
+    if (mStr === undefined) return isNaN(h) ? 60 : h * 60;
+    const m = Number(mStr.replace(/[^0-9]/g, ''));
+    return isNaN(h) || isNaN(m) ? 60 : h * 60 + m;
   });
   return Math.round(parts.reduce((a, b) => a + b, 0) / parts.length);
 }

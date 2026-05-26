@@ -165,7 +165,7 @@ export default function RouteFilter() {
 
       {/* Routes Grid */}
       {filteredRoutes.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
           {filteredRoutes.map((route) => (
             <RouteCard key={route.id} route={route} />
           ))}

@@ -18,12 +18,14 @@ export default function TrailDetailMapWrapper({
   focusEndKm,
   focusPointKm,
   segmentOverlays,
+  routePoints,
 }: {
   trail: MTBTrail;
   focusStartKm?: number;
   focusEndKm?: number;
   focusPointKm?: number;
   segmentOverlays?: Array<{ startKm: number; endKm: number; type: 'climb' | 'descent' | 'flat' }>;
+  routePoints?: Array<{ lat: number; lng: number }>;
 }) {
-  return <TrailDetailMap trail={trail} focusStartKm={focusStartKm} focusEndKm={focusEndKm} focusPointKm={focusPointKm} segmentOverlays={segmentOverlays} />;
+  return <TrailDetailMap trail={trail} focusStartKm={focusStartKm} focusEndKm={focusEndKm} focusPointKm={focusPointKm} segmentOverlays={segmentOverlays} routePoints={routePoints} />;
 }

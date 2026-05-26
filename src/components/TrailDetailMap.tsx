@@ -14,16 +14,19 @@ export default function TrailDetailMap({
   focusEndKm,
   focusPointKm,
   segmentOverlays,
+  routePoints,
 }: {
   trail: MTBTrail;
   focusStartKm?: number;
   focusEndKm?: number;
   focusPointKm?: number;
   segmentOverlays?: Array<{ startKm: number; endKm: number; type: 'climb' | 'descent' | 'flat' }>;
+  routePoints?: Array<{ lat: number; lng: number }>;
 }) {
   return (
     <GpxMap 
       coordinates={trail.coordinates}
+      preparsedPoints={routePoints}
       gpxUrl={trail.gpxFile || undefined}
       title={trail.name}
       fallbackMessage="Datos demo — GPX pendiente"

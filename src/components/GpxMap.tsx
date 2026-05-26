@@ -12,6 +12,7 @@ import 'leaflet/dist/leaflet.css';
 interface GpxMapProps {
   coordinates?: TrailPoint[];
   gpxUrl?: string;
+  preparsedPoints?: Array<{ lat: number; lng: number }>;
   title?: string;
   fallbackMessage?: string;
   focusStartKm?: number;
@@ -119,15 +120,23 @@ function HoverMarker({ coords }: { coords: LatLngExpression[] }) {
   );
 }
 
-export default function GpxMap({ coordinates, gpxUrl, title, fallbackMessage, focusStartKm, focusEndKm, focusPointKm, segmentOverlays }: GpxMapProps) {
+export default function GpxMap({ coordinates, gpxUrl, preparsedPoints, title, fallbackMessage, focusStartKm, focusEndKm, focusPointKm, segmentOverlays }: GpxMapProps) {
   const [maximized, setMaximized] = useState(false);
   const [trackCoords, setTrackCoords] = useState<LatLngExpression[]>(
-    coordinates ? coordinates.map(p => [p.lat, p.lng] as LatLngExpression) : []
+    preparsedPoints
+      ? preparsedPoints.map(p => [p.lat, p.lng] as LatLngExpression)
+      : coordinates
+        ? coordinates.map(p => [p.lat, p.lng] as LatLngExpression)
+        : []
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
 
   useEffect(() => {
+    if (preparsedPoints) {
+      setTrackCoords(preparsedPoints.map(p => [p.lat, p.lng] as LatLngExpression));
+      return;
+    }
     if (gpxUrl && !coordinates) {
       const fetchGpx = async () => {
         setLoading(true);
@@ -147,7 +156,7 @@ export default function GpxMap({ coordinates, gpxUrl, title, fallbackMessage, fo
       };
       fetchGpx();
     }
-  }, [gpxUrl, coordinates]);
+  }, [gpxUrl, coordinates, preparsedPoints]);
 
   if ((!trackCoords.length || error) && !loading) {
     return (

@@ -46,6 +46,7 @@ export interface RouteStatusPayload {
       technicalDemand: 'baja' | 'media' | 'alta';
       weatherRisk: 'bajo' | 'medio' | 'alto';
       recommendation: string;
+      reasoning: string;
       checklist: string[];
     }>;
   };
@@ -61,6 +62,7 @@ type RouteThirdRecommendation = {
   technicalDemand: 'baja' | 'media' | 'alta';
   weatherRisk: 'bajo' | 'medio' | 'alto';
   recommendation: string;
+  reasoning: string;
   checklist: string[];
 };
 
@@ -173,6 +175,7 @@ function buildThirdRecommendations(payload: {
     const climbCount = segs.filter((s) => s.type === 'climb').length;
     const descentCount = segs.filter((s) => s.type === 'descent').length;
     const maxAbsSlope = segs.length ? Math.max(...segs.map((s) => Math.abs(s.avgSlopePct))) : 0;
+    const totalSegDist = segs.reduce((a, s) => a + (s.endKm - s.startKm), 0);
 
     const technicalDemand: 'baja' | 'media' | 'alta' =
       maxAbsSlope >= 12 || descentCount >= 2 ? 'alta' : maxAbsSlope >= 8 || descentCount >= 1 ? 'media' : 'baja';
@@ -213,6 +216,18 @@ function buildThirdRecommendations(payload: {
     if (climbCount > descentCount) checklist.push('En subida, controla cadencia y traccion para no perder adherencia en cambios de rasante.');
     if (checklist.length === 0) checklist.push('Condiciones estables: ritmo constante y vigilancia normal de terreno.');
 
+    const reasons: string[] = [];
+    const w = payload.weather;
+    const pct = `${t === 0 ? '0' : Math.round((t / 3) * 100)}-${Math.round(((t + 1) / 3) * 100)}`;
+    if (climbCount > 0) reasons.push(`${climbCount} ascenso(s)`);
+    if (descentCount > 0) reasons.push(`${descentCount} descenso(s)`);
+    if (maxAbsSlope > 0) reasons.push(`pendiente max ${maxAbsSlope.toFixed(1)}%`);
+    reasons.push(`${totalSegDist.toFixed(1)} km de tramos activos`);
+    if (w.temperatureC !== undefined) reasons.push(`${w.temperatureC.toFixed(0)} C`);
+    if ((w.precipitationMm ?? 0) > 0) reasons.push(`lluvia ${w.precipitationMm!.toFixed(1)} mm`);
+    if ((w.windKmh ?? 0) >= 20) reasons.push(`viento ${w.windKmh!.toFixed(0)} km/h`);
+    const reasoning = `${phaseLabel} (${pct}%): ${reasons.join(', ')}. Demanda tecnica ${technicalDemand}, riesgo meteo ${weatherRisk}.`;
+
     let recommendation = '';
     if (phaseLabel === 'inicio') {
       recommendation = weatherRisk === 'alto'
@@ -242,6 +257,7 @@ function buildThirdRecommendations(payload: {
       technicalDemand,
       weatherRisk,
       recommendation,
+      reasoning,
       checklist,
     });
   }
