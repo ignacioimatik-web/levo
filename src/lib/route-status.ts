@@ -337,7 +337,25 @@ export async function buildRouteStatus(slug: string, tz = 'Europe/Madrid'): Prom
       risk: assessSegmentRisk(s, weatherNow && 'riskLevel' in weatherNow ? weatherNow : null),
     }));
 
-    const daylight = calcSunriseSunset(center.lat, center.lng, new Date());
+function spainTzOffset(date: Date): number {
+  const y = date.getFullYear();
+  const marLast = new Date(y, 2, 31);
+  marLast.setDate(marLast.getDate() - marLast.getDay());
+  const octLast = new Date(y, 9, 31);
+  octLast.setDate(octLast.getDate() - octLast.getDay());
+  return date >= marLast && date < octLast ? 2 : 1;
+}
+
+function localDateInTz(date: Date, tzOffsetHours: number): Date {
+  const utcMs = date.getTime();
+  const localMs = utcMs + tzOffsetHours * 3600000;
+  return new Date(localMs);
+}
+
+const _now = new Date();
+const _tzOffset = spainTzOffset(_now);
+const _localNow = localDateInTz(_now, _tzOffset);
+const daylight = calcSunriseSunset(center.lat, center.lng, _localNow, _tzOffset);
     let safeDeadline: string | undefined;
     if (!daylight.isPolarDay && !daylight.isPolarNight) {
       const sunsetParts = daylight.sunset.split(':').map(Number);
