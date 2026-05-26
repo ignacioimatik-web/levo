@@ -1,4 +1,4 @@
-import { Map, AlertTriangle } from 'lucide-react';
+import { Map } from 'lucide-react';
 import TopoBackground from '@/components/TopoBackground';
 import ForfaitBuilder from '@/components/forfait/ForfaitBuilder';
 import { routes } from '@/data/routes';
@@ -27,18 +27,6 @@ export default async function ForfaitPage() {
           <p className="text-lg text-slate-300 max-w-3xl mx-auto leading-relaxed">
             Constructor interactivo de rutas. Selecciona tracks en el mapa, combínalos y descarga tu ruta personalizada en GPX.
           </p>
-        </div>
-      </section>
-
-      {/* Disclaimer */}
-      <section className="px-6 py-6 bg-slate-950/50">
-        <div className="max-w-4xl mx-auto">
-          <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-4 flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Los tracks mostrados son datos de ejemplo. La dificultad real puede variar por meteorología, erosión, vegetación, obras o fatiga. Antes de salir, revisa el track, el estado de la ruta y tu material.
-            </p>
-          </div>
         </div>
       </section>
 
