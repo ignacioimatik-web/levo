@@ -563,10 +563,35 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
   );
 
   return (
-    <section className="relative min-h-screen px-6">
-      <div className="flex flex-col min-h-[calc(100vh-80px)]">
-        {/* MAPA — ancho completo, altura reducida */}
-        <div className="relative w-full h-[30vh] lg:h-[35vh] flex-shrink-0 z-0">
+    <section className="relative h-[calc(100vh-80px)] px-6">
+      <div className="flex flex-row h-full">
+        {/* PANEL LATERAL IZQUIERDO — ancho fijo, scroll propio */}
+        {sidebarOpen && (
+          <div className="hidden lg:flex w-[380px] xl:w-[420px] flex-shrink-0 bg-slate-950 border-r border-white/5 overflow-y-auto flex-col">
+            <div className="p-4 space-y-4 flex-1">
+              {/* TABS */}
+              <div className="flex items-center gap-4 border-b border-white/5 pb-3">
+                <button onClick={() => setActiveTab('tracks')} className={`text-xs font-bold uppercase tracking-widest ${activeTab === 'tracks' ? 'text-orange-500' : 'text-slate-500'}`}>Tracks</button>
+                <button onClick={() => setActiveTab('ruta')} className={`text-xs font-bold uppercase tracking-widest ${activeTab === 'ruta' ? 'text-orange-500' : 'text-slate-500'}`}>Ruta</button>
+                <button onClick={() => setActiveTab('status')} className={`text-xs font-bold uppercase tracking-widest ${activeTab === 'status' ? 'text-orange-500' : 'text-slate-500'}`}>Estado</button>
+              </div>
+
+              {/* CONTENIDO DE PESTAÑAS */}
+              {sidebarContent}
+
+              {/* ADVERTENCIA / DISCLAIMER */}
+              <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-3 flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                <p className="text-[10px] text-slate-400 leading-relaxed">
+                  Los tracks mostrados son datos de ejemplo. La dificultad real puede variar por meteorología, erosión, vegetación, obras o fatiga. Antes de salir, revisa el track, el estado de la ruta y tu material.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MAPA PRINCIPAL — ocupa todo el espacio restante */}
+        <div className="flex-1 relative h-full z-0">
           <MTBMap
             tracks={effectiveTracks}
             selectedTrackIds={selectedTrackIds}
@@ -598,32 +623,27 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
             )}
           </div>
         </div>
+      </div>
 
-        {/* PANEL INFERIOR — siempre visible debajo del mapa */}
-        {sidebarOpen && (
-          <div className="w-full flex-1 overflow-y-auto bg-slate-950 border-t border-white/5">
-            <div className="p-4 space-y-4">
-              {/* TABS */}
-              <div className="flex items-center gap-4 border-b border-white/5 pb-3">
+      {/* VISTA MÓVIL — panel tipo bottom sheet */}
+      {sidebarOpen && (
+        <div className="lg:hidden fixed inset-0 z-[2000] pointer-events-none">
+          <div className="absolute inset-0 bg-black/50 pointer-events-auto" onClick={() => setSidebarOpen(false)} />
+          <div className="absolute bottom-0 left-0 right-0 max-h-[70vh] bg-slate-950 border-t border-white/10 rounded-t-2xl overflow-y-auto pointer-events-auto">
+            <div className="sticky top-0 bg-slate-950 z-10 flex items-center justify-between px-4 py-3 border-b border-white/5">
+              <div className="flex gap-2">
                 <button onClick={() => setActiveTab('tracks')} className={`text-xs font-bold uppercase tracking-widest ${activeTab === 'tracks' ? 'text-orange-500' : 'text-slate-500'}`}>Tracks</button>
                 <button onClick={() => setActiveTab('ruta')} className={`text-xs font-bold uppercase tracking-widest ${activeTab === 'ruta' ? 'text-orange-500' : 'text-slate-500'}`}>Ruta</button>
                 <button onClick={() => setActiveTab('status')} className={`text-xs font-bold uppercase tracking-widest ${activeTab === 'status' ? 'text-orange-500' : 'text-slate-500'}`}>Estado</button>
               </div>
-
-              {/* CONTENIDO DE PESTAÑAS */}
+              <button onClick={() => setSidebarOpen(false)} className="text-slate-400 p-1"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-4 space-y-4">
               {sidebarContent}
-
-              {/* ADVERTENCIA / DISCLAIMER */}
-              <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-3 flex items-start gap-2">
-                <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
-                <p className="text-[10px] text-slate-400 leading-relaxed">
-                  Los tracks mostrados son datos de ejemplo. La dificultad real puede variar por meteorología, erosión, vegetación, obras o fatiga. Antes de salir, revisa el track, el estado de la ruta y tu material.
-                </p>
-              </div>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </section>
   );
 }
