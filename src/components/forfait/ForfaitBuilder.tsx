@@ -261,56 +261,46 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
   const renderTrackListItem = (track: TrackMTB) => {
     const isInRoute = selectedTrackIds.includes(track.id);
     const isPreview = previewTrackIds.includes(track.id) && !isInRoute;
-    const isSelected = selectedTrackId === track.id;
     return (
       <div
         key={track.id}
         onClick={() => handleTrackClick(track)}
-        className={`p-2.5 rounded-lg border cursor-pointer transition-all ${
+        className={`flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer transition-all ${
           isInRoute
-            ? 'bg-blue-500/10 border-blue-500/40'
+            ? 'bg-blue-500/10'
             : isPreview
-            ? 'bg-orange-500/10 border-orange-500/40'
-            : isSelected
-            ? 'bg-slate-700/50 border-white/20'
-            : 'bg-slate-900/50 border-white/5 hover:border-white/20'
+            ? 'bg-orange-500/10'
+            : 'hover:bg-slate-800/50'
         }`}
       >
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 mb-1">
-              <span className={`w-2 h-2 rounded-full ${DIF_COLORS[track.dificultad] || 'bg-slate-500'}`} />
-              <span className="text-xs font-bold text-white truncate">{track.nombre}</span>
-              {track.dataStatus === 'real' && <span className="text-[8px] text-green-500 font-bold">REAL</span>}
-            </div>
-            <div className="flex items-center gap-2 text-[10px] text-slate-500">
-              <span>{track.sector}</span>
-              <span>•</span>
-              <span>{track.distanciaKm} km</span>
-              <span>•</span>
-              <span>±{track.desnivelPositivo}m</span>
-            </div>
-            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-              <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${DIF_TEXT[track.dificultad]}`}>
-                {track.dificultad}
-              </span>
-              <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${ESTADO_BADGE[track.estado]}`}>
+        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${DIF_COLORS[track.dificultad] || 'bg-slate-500'}`} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-bold text-white truncate">{track.nombre}</span>
+            {track.estado !== 'abierto' && (
+              <span className={`px-1 py-0.5 rounded text-[8px] font-bold border flex-shrink-0 ${ESTADO_BADGE[track.estado]}`}>
                 {track.estado}
               </span>
-              <span className="text-[9px] text-slate-500">T{track.nivelTecnico}/F{track.exigenciaFisica}</span>
-            </div>
+            )}
           </div>
-          <button
-            onClick={e => { e.stopPropagation(); isInRoute ? removeFromRoute(track.id) : addToRoute(track.id); }}
-            className={`flex-shrink-0 p-1.5 rounded-lg transition-colors ${
-              isInRoute
-                ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
-                : 'bg-orange-500/20 text-orange-400 hover:bg-orange-500/30'
-            }`}
-          >
-            {isInRoute ? <Trash2 className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
-          </button>
+          <div className="flex items-center gap-1.5 text-[9px] text-slate-500">
+            <span>{track.distanciaKm} km</span>
+            <span>·</span>
+            <span>±{track.desnivelPositivo}m</span>
+            <span>·</span>
+            <span>T{track.nivelTecnico}/F{track.exigenciaFisica}</span>
+          </div>
         </div>
+        <button
+          onClick={e => { e.stopPropagation(); isInRoute ? removeFromRoute(track.id) : addToRoute(track.id); }}
+          className={`flex-shrink-0 p-1 rounded-lg transition-colors ${
+            isInRoute
+              ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
+              : 'bg-slate-800 text-slate-400 hover:bg-orange-500/20 hover:text-orange-400'
+          }`}
+        >
+          {isInRoute ? <Trash2 className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
+        </button>
       </div>
     );
   };
@@ -321,20 +311,20 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
       {activeTab === 'tracks' && (
           <>
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-500" />
               <input
                 type="text"
                 placeholder="Buscar track..."
                 value={filters.busqueda}
                 onChange={e => setFilters(f => ({ ...f, busqueda: e.target.value }))}
-                className="w-full bg-slate-900 border border-white/5 rounded-lg pl-8 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-orange-500/40"
+                className="w-full bg-slate-900 border border-white/5 rounded-lg pl-7 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-orange-500/40"
               />
             </div>
 
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1">
               <button
                 onClick={() => setFilters(f => ({ ...f, soloAbiertos: !f.soloAbiertos }))}
-                className={`px-2 py-1 rounded text-[10px] font-bold transition-colors ${
+                className={`px-2 py-1 rounded text-[9px] font-bold transition-colors ${
                   filters.soloAbiertos ? 'bg-green-500/20 text-green-400 border border-green-500/40' : 'bg-slate-800/50 text-slate-500 border border-white/5'
                 }`}
               >
@@ -342,7 +332,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
               </button>
               <button
                 onClick={() => setFilters(f => ({ ...f, soloEbike: !f.soloEbike }))}
-                className={`px-2 py-1 rounded text-[10px] font-bold transition-colors ${
+                className={`px-2 py-1 rounded text-[9px] font-bold transition-colors ${
                   filters.soloEbike ? 'bg-orange-500/20 text-orange-400 border border-orange-500/40' : 'bg-slate-800/50 text-slate-500 border border-white/5'
                 }`}
               >
@@ -359,7 +349,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
                       : [...f.dificultad, e.target.value as DificultadMTB],
                   }));
                 }}
-                className="px-2 py-1 rounded text-[10px] font-bold bg-slate-800/50 text-slate-400 border border-white/5"
+                className="px-2 py-1 rounded text-[9px] font-bold bg-slate-800/50 text-slate-400 border border-white/5"
               >
                 <option value="">Dificultad</option>
                 <option value="verde">Verde</option>
@@ -370,43 +360,33 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
               </select>
             </div>
 
-            {/* Selected track detail */}
-            {selectedTrack && (
-              <div className="lg:hidden">
-                {renderTrackDetail(selectedTrack)}
-              </div>
-            )}
-
             {/* SECTOR SECTIONS */}
-            <div className="space-y-2">
+            <div className="space-y-1">
               {sectors.map(sector => {
                 const isExpanded = expandedSectors.has(sector);
                 const sectorTracks = tracksBySector.get(sector) || [];
                 return (
-                  <div key={sector} className="border border-white/5 rounded-xl overflow-hidden">
+                  <div key={sector} className="border border-white/5 rounded-lg overflow-hidden">
                     <button
                       onClick={() => toggleSector(sector)}
-                      className="w-full flex items-center justify-between px-3 py-2.5 bg-slate-900/80 hover:bg-slate-900 transition-colors text-left"
+                      className="w-full flex items-center justify-between px-2.5 py-2 bg-slate-900/60 hover:bg-slate-900 transition-colors text-left"
                     >
-                      <div className="flex items-center gap-2">
-                        <ChevronUp className={`w-3.5 h-3.5 text-slate-500 transition-transform ${isExpanded ? '' : 'rotate-180'}`} />
-                        <span className="text-xs font-bold text-white">{sector}</span>
+                      <div className="flex items-center gap-1.5">
+                        <ChevronUp className={`w-3 h-3 text-slate-500 transition-transform ${isExpanded ? '' : '-rotate-90'}`} />
+                        <span className="text-xs font-semibold text-white">{sector}</span>
                       </div>
-                      <span className="text-[10px] text-slate-500">{sectorTracks.length} tracks</span>
+                      <span className="text-[9px] text-slate-500">{sectorTracks.length}</span>
                     </button>
                     {isExpanded && (
-                      <div className="p-2 space-y-1.5 bg-slate-950/30">
+                      <div className="divide-y divide-white/5">
                         {sectorTracks.map(renderTrackListItem)}
-                        {sectorTracks.length === 0 && (
-                          <p className="text-[10px] text-slate-600 text-center py-3">Ningún track coincide con los filtros.</p>
-                        )}
                       </div>
                     )}
                   </div>
                 );
               })}
               {sectors.length === 0 && (
-                <p className="text-xs text-slate-500 text-center py-8">No hay sectores disponibles.</p>
+                <p className="text-[10px] text-slate-500 text-center py-6">No hay sectores disponibles.</p>
               )}
             </div>
           </>
