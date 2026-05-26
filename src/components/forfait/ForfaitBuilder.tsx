@@ -204,16 +204,16 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
     return filteredTracks.filter(t => ids.has(t.id));
   }, [filteredTracks, previewTrackIds, selectedTrackIds]);
 
-  // Tracks grouped by sector for display
+  // Tracks grouped by sector for display (all tracks in list, not just map-visible)
   const tracksBySector = useMemo(() => {
     const map = new Map<string, TrackMTB[]>();
-    for (const t of effectiveTracks) {
+    for (const t of filteredTracks) {
       const list = map.get(t.sector) || [];
       list.push(t);
       map.set(t.sector, list);
     }
     return map;
-  }, [effectiveTracks]);
+  }, [filteredTracks]);
 
   // Track detail component used in both sidebar and mobile sheet
   const renderTrackDetail = (track: TrackMTB) => (
