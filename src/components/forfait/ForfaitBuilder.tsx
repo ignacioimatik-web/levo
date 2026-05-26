@@ -265,33 +265,34 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
     const isInRoute = selectedTrackIds.includes(track.id);
     const isPreview = previewTrackIds.includes(track.id) && !isInRoute;
     const isHovered = hoveredTrackId === track.id;
+    const isClosed = track.estado === 'cerrado';
     return (
       <div
         key={track.id}
         onClick={() => handleTrackClick(track)}
         onMouseEnter={() => setHoveredTrackId(track.id)}
         onMouseLeave={() => setHoveredTrackId(null)}
-        className={`flex items-start gap-2 px-2.5 py-2 rounded-lg cursor-pointer transition-all ${
+        className={`flex items-start gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition-all ${
           isInRoute
-            ? 'bg-blue-500/10'
+            ? 'bg-blue-500/10 border-l-2 border-blue-500'
             : isPreview
-            ? 'bg-orange-500/10'
+            ? 'bg-orange-500/10 border-l-2 border-orange-500'
             : isHovered
             ? 'bg-slate-700/40'
             : 'hover:bg-slate-800/50'
-        }`}
+        } ${isClosed ? 'opacity-50' : ''}`}
       >
-        <span className={`w-2 h-2 rounded-full flex-shrink-0 mt-1 ${DIF_COLORS[track.dificultad] || 'bg-slate-500'}`} />
+        <span className={`w-2 h-2 rounded-full flex-shrink-0 mt-1 ${isClosed ? 'bg-slate-500' : DIF_COLORS[track.dificultad] || 'bg-slate-500'}`} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-1">
-            <span className="text-[11px] font-bold text-white truncate">{track.nombre}</span>
+            <span className={`text-[11px] font-bold truncate ${isClosed ? 'text-slate-500' : 'text-white'}`}>{track.nombre}</span>
             <button
               onClick={e => { e.stopPropagation(); isInRoute ? removeFromRoute(track.id) : addToRoute(track.id); }}
               className={`flex-shrink-0 p-1 rounded-lg transition-colors ${
                 isInRoute
-                  ? 'bg-blue-500/20 text-blue-400'
+                  ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30'
                   : 'bg-slate-800 text-slate-500 hover:bg-orange-500/20 hover:text-orange-400'
-              }`}
+              } ${isClosed ? 'opacity-40' : ''}`}
             >
               {isInRoute ? <Trash2 className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
             </button>
@@ -305,19 +306,19 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
             <span className="mx-1">·</span>
             <span>T{track.nivelTecnico}/F{track.exigenciaFisica}</span>
           </div>
-          <div className="flex items-center gap-1 mt-1 flex-wrap">
+          <div className="flex items-center gap-1 mt-0.5 flex-wrap">
             {track.dificultad && (
-              <span className={`px-1 py-0.5 rounded text-[8px] font-bold border ${DIF_TEXT[track.dificultad]}`}>
+              <span className={`px-1 py-0.5 rounded text-[7px] font-bold border leading-none ${DIF_TEXT[track.dificultad]}`}>
                 {track.dificultad}
               </span>
             )}
             {track.estado !== 'abierto' && (
-              <span className={`px-1 py-0.5 rounded text-[8px] font-bold border ${ESTADO_BADGE[track.estado]}`}>
+              <span className={`px-1 py-0.5 rounded text-[7px] font-bold border leading-none ${ESTADO_BADGE[track.estado]}`}>
                 {track.estado}
               </span>
             )}
             {track.dataStatus === 'real' && (
-              <span className="px-1 py-0.5 rounded text-[8px] font-bold border bg-green-500/10 text-green-400 border-green-500/30">
+              <span className="px-1 py-0.5 rounded text-[7px] font-bold border leading-none bg-green-500/10 text-green-400 border-green-500/30">
                 REAL
               </span>
             )}
@@ -333,24 +334,24 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
       {activeTab === 'tracks' && (
           <>
             {/* SECTOR SECTIONS */}
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               {sectors.map(sector => {
                 const isExpanded = expandedSectors.has(sector);
                 const sectorTracks = tracksBySector.get(sector) || [];
                 return (
-                  <div key={sector} className="border border-white/5 rounded-lg overflow-hidden">
+                  <div key={sector} className="border border-white/[0.04] rounded-lg overflow-hidden">
                     <button
                       onClick={() => toggleSector(sector)}
-                      className="w-full flex items-center justify-between px-2.5 py-2 bg-slate-900/60 hover:bg-slate-900 transition-colors text-left"
+                      className="w-full flex items-center justify-between px-2.5 py-1.5 bg-slate-900/60 hover:bg-slate-900 transition-colors text-left"
                     >
                       <div className="flex items-center gap-1.5">
-                        <ChevronUp className={`w-3 h-3 text-slate-500 transition-transform ${isExpanded ? '' : '-rotate-90'}`} />
-                        <span className="text-xs font-semibold text-white">{sector}</span>
+                        <ChevronUp className={`w-3 h-3 text-slate-500 transition-transform duration-150 ${isExpanded ? '' : '-rotate-90'}`} />
+                        <span className="text-[11px] font-semibold text-white">{sector}</span>
                       </div>
                       <span className="text-[9px] text-slate-500">{sectorTracks.length}</span>
                     </button>
                     {isExpanded && (
-                      <div className="divide-y divide-white/5">
+                      <div className="divide-y divide-white/[0.03]">
                         {sectorTracks.map(renderTrackListItem)}
                       </div>
                     )}
@@ -517,7 +518,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
   return (
     <section className="relative h-[calc(100vh-80px)]">
       {/* TOP TOOLBAR */}
-      <div className="h-12 flex items-center justify-between px-4 bg-slate-950 border-b border-white/5">
+      <div className="h-12 flex items-center justify-between px-4 bg-slate-950 border-b border-white/[0.04]">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5 mr-1">
             <MapIcon className="w-4 h-4 text-orange-400" />
@@ -548,11 +549,11 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
       <div className="flex flex-row h-[calc(100%-48px)]">
         {/* PANEL LATERAL IZQUIERDO — ancho fijo, scroll propio */}
         {sidebarOpen && (
-          <div className="hidden lg:flex w-[380px] xl:w-[420px] flex-shrink-0 bg-slate-950 border-r border-white/5 flex-col">
+          <div className="hidden lg:flex w-[360px] xl:w-[400px] flex-shrink-0 bg-slate-950 border-r border-white/[0.04] flex-col">
             {/* STICKY TOP: search/filters */}
-            <div className="sticky top-0 z-20 bg-slate-950 border-b border-white/5">
+            <div className="sticky top-0 z-20 bg-slate-950 border-b border-white/[0.04] shadow-lg shadow-black/10">
               {activeTab === 'tracks' && (
-                <div className="px-4 pb-3 space-y-1.5">
+                <div className="px-3 pb-2 space-y-1.5">
                   <div className="relative">
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-500" />
                     <input
@@ -607,7 +608,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
             </div>
 
             {/* SCROLLABLE BODY */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
               {sidebarContent}
 
               {/* ADVERTENCIA / DISCLAIMER */}
@@ -674,37 +675,37 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
           </div>
 
           {/* Móvil: bottom sheet de tracks */}
-          <div className="flex md:hidden absolute bottom-0 left-0 right-0 bg-slate-950 border-t border-white/10 rounded-t-2xl overflow-hidden flex-col max-h-[70vh] pointer-events-auto">
+          <div className="flex md:hidden absolute bottom-0 left-0 right-0 bg-slate-950 border-t border-white/10 rounded-t-2xl overflow-hidden flex-col max-h-[65vh] pointer-events-auto">
             <div className="sticky top-0 bg-slate-950 z-10">
-              <div className="flex justify-center pt-1.5 pb-0.5">
-                <div className="w-8 h-1 rounded-full bg-slate-600" />
+              <div className="flex justify-center pt-1 pb-0.5">
+                <div className="w-7 h-0.5 rounded-full bg-slate-600" />
               </div>
-              <div className="flex items-center justify-between px-4 pb-2">
-                <div className="flex items-center gap-2">
-                  <Bike className="w-4 h-4 text-orange-400" />
-                  <span className="text-xs font-bold text-white">Tracks</span>
+              <div className="flex items-center justify-between px-3 pb-1.5">
+                <div className="flex items-center gap-1.5">
+                  <Bike className="w-3.5 h-3.5 text-orange-400" />
+                  <span className="text-[11px] font-bold text-white">Tracks</span>
                   <span className="text-[9px] text-slate-500">{filteredTracks.length}</span>
                 </div>
                 <button onClick={() => setSidebarOpen(false)} className="text-slate-400 p-1 hover:text-white transition-colors" aria-label="Cerrar">
-                  <ChevronDown className="w-5 h-5" />
+                  <ChevronDown className="w-4 h-4" />
                 </button>
               </div>
             </div>
-            <div className="px-4 pb-2 space-y-1.5">
+            <div className="px-3 pb-1.5 space-y-1">
               <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-500" />
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-500" />
                 <input
                   type="text"
                   placeholder="Buscar track..."
                   value={filters.busqueda}
                   onChange={e => setFilters(f => ({ ...f, busqueda: e.target.value }))}
-                  className="w-full bg-slate-900 border border-white/5 rounded-lg pl-7 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-orange-500/40"
+                  className="w-full bg-slate-900 border border-white/5 rounded-lg pl-7 pr-3 py-1.5 text-[11px] text-white placeholder-slate-500 focus:outline-none focus:border-orange-500/40"
                 />
               </div>
               <div className="flex flex-wrap gap-1">
                 <button
                   onClick={() => setFilters(f => ({ ...f, soloAbiertos: !f.soloAbiertos }))}
-                  className={`px-2.5 py-1.5 rounded text-[9px] font-bold transition-colors ${
+                  className={`px-2 py-1 rounded text-[8px] font-bold transition-colors ${
                     filters.soloAbiertos ? 'bg-green-500/20 text-green-400 border border-green-500/40' : 'bg-slate-800/50 text-slate-500 border border-white/5'
                   }`}
                 >
@@ -712,7 +713,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
                 </button>
                 <button
                   onClick={() => setFilters(f => ({ ...f, soloEbike: !f.soloEbike }))}
-                  className={`px-2.5 py-1.5 rounded text-[9px] font-bold transition-colors ${
+                  className={`px-2 py-1 rounded text-[8px] font-bold transition-colors ${
                     filters.soloEbike ? 'bg-orange-500/20 text-orange-400 border border-orange-500/40' : 'bg-slate-800/50 text-slate-500 border border-white/5'
                   }`}
                 >
@@ -729,7 +730,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
                         : [...f.dificultad, e.target.value as DificultadMTB],
                     }));
                   }}
-                  className="px-2.5 py-1.5 rounded text-[9px] font-bold bg-slate-800/50 text-slate-400 border border-white/5"
+                  className="px-2 py-1 rounded text-[8px] font-bold bg-slate-800/50 text-slate-400 border border-white/5"
                 >
                   <option value="">Dificultad</option>
                   <option value="verde">Verde</option>
@@ -740,24 +741,24 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
                 </select>
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-1">
+            <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-0.5">
               {sectors.map(sector => {
                 const isExpanded = expandedSectors.has(sector);
                 const sectorTracks = tracksBySector.get(sector) || [];
                 return (
-                  <div key={sector} className="border border-white/5 rounded-lg overflow-hidden">
+                  <div key={sector} className="border border-white/[0.04] rounded-lg overflow-hidden">
                     <button
                       onClick={() => toggleSector(sector)}
-                      className="w-full flex items-center justify-between px-3 py-2.5 bg-slate-900/60 hover:bg-slate-900 transition-colors text-left"
+                      className="w-full flex items-center justify-between px-2.5 py-1.5 bg-slate-900/60 hover:bg-slate-900 transition-colors text-left"
                     >
                       <div className="flex items-center gap-1.5">
-                        <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform ${isExpanded ? '' : '-rotate-90'}`} />
-                        <span className="text-xs font-semibold text-white">{sector}</span>
+                        <ChevronDown className={`w-3 h-3 text-slate-500 transition-transform duration-150 ${isExpanded ? '' : '-rotate-90'}`} />
+                        <span className="text-[11px] font-semibold text-white">{sector}</span>
                       </div>
                       <span className="text-[9px] text-slate-500">{sectorTracks.length}</span>
                     </button>
                     {isExpanded && (
-                      <div className="divide-y divide-white/5">
+                      <div className="divide-y divide-white/[0.03]">
                         {sectorTracks.map(renderTrackListItem)}
                       </div>
                     )}
@@ -774,15 +775,15 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
 
       {/* BARRA INFERIOR DE RUTA — always on top */}
       {selectedTrackIds.length > 0 && builtRoute && (
-        <div className="fixed bottom-3 left-3 right-3 z-[3000] bg-slate-950/90 backdrop-blur-md border border-white/10 rounded-xl px-3 md:px-4 py-2 md:py-2.5 flex items-center justify-between gap-2 md:gap-3">
-          <div className="flex items-center gap-2 md:gap-3 min-w-0">
-            <div className="hidden md:block text-[9px] md:text-[10px] font-bold text-orange-400 uppercase tracking-widest flex-shrink-0">Ruta</div>
-            <div className="flex items-center gap-1.5 md:gap-2 text-[10px] md:text-[11px] text-white font-medium flex-shrink-0">
-              <Route className="w-3 h-3 md:w-3.5 md:h-3.5 text-orange-400" />
+        <div className="fixed bottom-3 left-3 right-3 z-[3000] mx-auto max-w-3xl bg-slate-950/90 backdrop-blur-md border border-white/10 rounded-xl px-3 py-1.5 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="hidden md:block text-[9px] font-bold text-orange-400 uppercase tracking-widest flex-shrink-0">Ruta</div>
+            <div className="flex items-center gap-1.5 text-[10px] text-white font-medium flex-shrink-0">
+              <Route className="w-3 h-3 text-orange-400" />
               {selectedTrackIds.length}
             </div>
-            <div className="h-3 md:h-4 w-px bg-white/10" />
-            <div className="flex items-center gap-1.5 md:gap-2 text-[9px] md:text-[10px] text-slate-300">
+            <div className="h-3 w-px bg-white/10" />
+            <div className="flex items-center gap-1.5 text-[9px] text-slate-300">
               <span className="whitespace-nowrap">{builtRoute.distanciaTotalKm} km</span>
               <span className="text-slate-600 hidden sm:inline">|</span>
               <span className="text-green-400 whitespace-nowrap hidden sm:inline">+{builtRoute.desnivelPositivoTotal}m</span>
@@ -793,10 +794,10 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
               <span className="text-orange-400 font-bold">{builtRoute.dificultadGlobal}</span>
             </div>
           </div>
-          <div className="flex items-center gap-1 md:gap-1.5 flex-shrink-0">
+          <div className="flex items-center gap-1 flex-shrink-0">
             <button
               onClick={() => setActiveTab('ruta')}
-              className="hidden sm:flex px-2 md:px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[8px] md:text-[9px] font-bold transition-colors items-center gap-1"
+              className="hidden sm:flex px-2 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[8px] font-bold transition-colors items-center gap-1"
               title="Ver perfil"
             >
               <Route className="w-3 h-3" />
@@ -804,17 +805,17 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
             </button>
             <button
               onClick={handleExportGPX}
-              className="px-2.5 md:px-2.5 py-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-[8px] md:text-[9px] font-bold transition-colors flex items-center gap-1"
+              className="px-2.5 py-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-[8px] font-bold transition-colors flex items-center gap-1"
             >
               <Download className="w-3 h-3" />
               <span className="hidden sm:inline">GPX</span>
             </button>
             <button
               onClick={clearRoute}
-              className="p-2 bg-slate-800 hover:bg-red-500/20 text-slate-500 hover:text-red-400 rounded-lg transition-colors"
+              className="p-1.5 bg-slate-800 hover:bg-red-500/20 text-slate-500 hover:text-red-400 rounded-lg transition-colors"
               title="Limpiar ruta"
             >
-              <Trash2 className="w-4 h-4" />
+              <Trash2 className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
