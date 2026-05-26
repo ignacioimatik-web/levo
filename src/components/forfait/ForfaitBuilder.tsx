@@ -198,14 +198,11 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
     });
   }, []);
 
-  // Filter: if any sector is expanded, only show tracks from expanded sectors
-  // Always show previewed and selected tracks regardless of sector state
+  // Only show previewed or selected tracks on the map
   const effectiveTracks = useMemo(() => {
-    const fromExpanded = expandedSectors.size === 0 ? [] : filteredTracks.filter(t => expandedSectors.has(t.sector));
-    const forced = filteredTracks.filter(t => previewTrackIds.includes(t.id) || selectedTrackIds.includes(t.id));
-    const ids = new Set([...fromExpanded.map(t => t.id), ...forced.map(t => t.id)]);
+    const ids = new Set([...previewTrackIds, ...selectedTrackIds]);
     return filteredTracks.filter(t => ids.has(t.id));
-  }, [filteredTracks, expandedSectors, previewTrackIds, selectedTrackIds]);
+  }, [filteredTracks, previewTrackIds, selectedTrackIds]);
 
   // Tracks grouped by sector for display
   const tracksBySector = useMemo(() => {
