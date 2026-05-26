@@ -265,7 +265,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
       <div
         key={track.id}
         onClick={() => handleTrackClick(track)}
-        className={`flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer transition-all ${
+        className={`flex items-start gap-2 px-2.5 py-2 rounded-lg cursor-pointer transition-all ${
           isInRoute
             ? 'bg-blue-500/10'
             : isPreview
@@ -273,34 +273,48 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
             : 'hover:bg-slate-800/50'
         }`}
       >
-        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${DIF_COLORS[track.dificultad] || 'bg-slate-500'}`} />
+        <span className={`w-2 h-2 rounded-full flex-shrink-0 mt-1 ${DIF_COLORS[track.dificultad] || 'bg-slate-500'}`} />
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs font-bold text-white truncate">{track.nombre}</span>
+          <div className="flex items-center justify-between gap-1">
+            <span className="text-[11px] font-bold text-white truncate">{track.nombre}</span>
+            <button
+              onClick={e => { e.stopPropagation(); isInRoute ? removeFromRoute(track.id) : addToRoute(track.id); }}
+              className={`flex-shrink-0 p-1 rounded-lg transition-colors ${
+                isInRoute
+                  ? 'bg-blue-500/20 text-blue-400'
+                  : 'bg-slate-800 text-slate-500 hover:bg-orange-500/20 hover:text-orange-400'
+              }`}
+            >
+              {isInRoute ? <Trash2 className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+            </button>
+          </div>
+          <div className="text-[9px] text-slate-500 leading-tight mt-0.5">
+            <span>{track.sector}</span>
+            <span className="mx-1">·</span>
+            <span>{track.distanciaKm} km</span>
+            <span className="mx-1">·</span>
+            <span>+{track.desnivelPositivo} m</span>
+            <span className="mx-1">·</span>
+            <span>T{track.nivelTecnico}/F{track.exigenciaFisica}</span>
+          </div>
+          <div className="flex items-center gap-1 mt-1 flex-wrap">
+            {track.dificultad && (
+              <span className={`px-1 py-0.5 rounded text-[8px] font-bold border ${DIF_TEXT[track.dificultad]}`}>
+                {track.dificultad}
+              </span>
+            )}
             {track.estado !== 'abierto' && (
-              <span className={`px-1 py-0.5 rounded text-[8px] font-bold border flex-shrink-0 ${ESTADO_BADGE[track.estado]}`}>
+              <span className={`px-1 py-0.5 rounded text-[8px] font-bold border ${ESTADO_BADGE[track.estado]}`}>
                 {track.estado}
               </span>
             )}
-          </div>
-          <div className="flex items-center gap-1.5 text-[9px] text-slate-500">
-            <span>{track.distanciaKm} km</span>
-            <span>·</span>
-            <span>±{track.desnivelPositivo}m</span>
-            <span>·</span>
-            <span>T{track.nivelTecnico}/F{track.exigenciaFisica}</span>
+            {track.dataStatus === 'real' && (
+              <span className="px-1 py-0.5 rounded text-[8px] font-bold border bg-green-500/10 text-green-400 border-green-500/30">
+                REAL
+              </span>
+            )}
           </div>
         </div>
-        <button
-          onClick={e => { e.stopPropagation(); isInRoute ? removeFromRoute(track.id) : addToRoute(track.id); }}
-          className={`flex-shrink-0 p-1 rounded-lg transition-colors ${
-            isInRoute
-              ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
-              : 'bg-slate-800 text-slate-400 hover:bg-orange-500/20 hover:text-orange-400'
-          }`}
-        >
-          {isInRoute ? <Trash2 className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
-        </button>
       </div>
     );
   };
