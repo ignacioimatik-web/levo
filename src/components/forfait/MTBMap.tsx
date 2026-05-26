@@ -1,9 +1,9 @@
 'use client';
 
-import 'leaflet/dist/leaflet.css';
-import { useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Polyline, CircleMarker, Tooltip, useMap } from 'react-leaflet';
-import type { Map as LeafletMap, LatLngBoundsExpression } from 'leaflet';
+import { useRef, useEffect, useMemo, useCallback, Fragment } from 'react';
+import { Map, Source, Layer, useMap } from 'react-map-gl/mapbox';
+import type { MapMouseEvent } from 'react-map-gl/mapbox';
+import 'mapbox-gl/dist/mapbox-gl.css';
 import type { TrackMTB, TrackPoint, RutaConstruida } from '@/lib/forfait/types';
 
 const DIFICULTAD_COLORS: Record<string, string> = {
@@ -14,59 +14,50 @@ const DIFICULTAD_COLORS: Record<string, string> = {
   'doble-negro': '#000000',
 };
 
-const ESTADO_DASH: Record<string, string> = {
-  abierto: '',
-  cerrado: '6 6',
-  precaucion: '4 4',
-  revision: '8 4 2 4',
+const ESTADO_DASH: Record<string, number[] | undefined> = {
+  abierto: undefined,
+  cerrado: [6, 6],
+  precaucion: [4, 4],
+  revision: [8, 4, 2, 4],
 };
 
+function toLngLat(points: TrackPoint[]): [number, number][] {
+  return points.map(p => [p.lng, p.lat] as [number, number]);
+}
+
 function FitBounds({ tracks, routePoints }: { tracks: TrackMTB[]; routePoints: TrackPoint[] }) {
-  const map = useMap();
+  const { current: mapRef } = useMap();
   const fitted = useRef(false);
 
   useEffect(() => {
-    if (fitted.current) return;
-    const allPoints = routePoints.length > 0
-      ? routePoints
-      : tracks.flatMap(t => t.points);
+    if (fitted.current || !mapRef) return;
+    const allPoints = routePoints.length > 0 ? routePoints : tracks.flatMap(t => t.points);
     if (!allPoints.length) return;
     const lats = allPoints.map(p => p.lat);
     const lngs = allPoints.map(p => p.lng);
-    map.fitBounds(
-      [[Math.min(...lats), Math.min(...lngs)], [Math.max(...lats), Math.max(...lngs)]],
-      { padding: [40, 40] },
+    mapRef.fitBounds(
+      [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
+      { padding: 40 },
     );
     fitted.current = true;
-  }, [tracks, routePoints, map]);
+  }, [tracks, routePoints, mapRef]);
 
   return null;
 }
 
 function FlyToTrack({ track }: { track: TrackMTB | null }) {
-  const map = useMap();
+  const { current: mapRef } = useMap();
+
   useEffect(() => {
-    if (!track || !track.points.length) return;
+    if (!track || !track.points.length || !mapRef) return;
     const lats = track.points.map(p => p.lat);
     const lngs = track.points.map(p => p.lng);
-    map.fitBounds(
-      [[Math.min(...lats), Math.min(...lngs)], [Math.max(...lats), Math.max(...lngs)]],
-      { padding: [50, 50] },
+    mapRef.fitBounds(
+      [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
+      { padding: 50 },
     );
-  }, [track, map]);
-  return null;
-}
+  }, [track, mapRef]);
 
-/** Observes the map container for layout changes (sidebar toggle, resize) and invalidates size */
-function MapResizer() {
-  const map = useMap();
-  useEffect(() => {
-    const container = map.getContainer();
-    if (!container) return;
-    const ro = new ResizeObserver(() => { map.invalidateSize(); });
-    ro.observe(container);
-    return () => ro.disconnect();
-  }, [map]);
   return null;
 }
 
@@ -93,29 +84,36 @@ export default function MTBMap({
   builtRoute: RutaConstruida | null;
   onTrackClick: (track: TrackMTB) => void;
 }) {
-  const mapRef = useRef<LeafletMap | null>(null);
-
   const hasSelection = selectedTrackIds.length > 0 || previewTrackIds.length > 0;
   const fitTrack = fitToTrackId ? tracks.find(t => t.id === fitToTrackId) || null : null;
 
+  const lineLayerIds = useMemo(() => tracks.map(t => `track-line-${t.id}`), [tracks]);
+
+  const onClick = useCallback((e: MapMouseEvent) => {
+    const feature = e.features?.[0];
+    if (!feature) return;
+    const trackId = feature.properties?.trackId;
+    if (!trackId) return;
+    const track = tracks.find(t => t.id === trackId);
+    if (track) onTrackClick(track);
+  }, [tracks, onTrackClick]);
+
   return (
-    <MapContainer
-      center={[40.6, -0.02]}
-      zoom={13}
-      className="w-full h-full rounded-xl"
-      scrollWheelZoom={true}
-      ref={mapRef}
-      preferCanvas={true}
+    <Map
+      mapStyle="mapbox://styles/mapbox/outdoors-v12"
+      mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
+      initialViewState={{ latitude: 40.6, longitude: -0.02, zoom: 13, pitch: 40 }}
+      terrain={{ source: 'mapbox-dem', exaggeration: 1.0 }}
+      interactiveLayerIds={lineLayerIds}
+      onClick={onClick}
+      style={{ width: '100%', height: '100%', borderRadius: '12px', overflow: 'hidden' }}
     >
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
+      <Source id="mapbox-dem" type="raster-dem" url="mapbox://mapbox.mapbox-terrain-dem-v1" />
+
       <FitBounds tracks={tracks} routePoints={builtRoute?.pointsCombinados ?? []} />
       <FlyToTrack track={fitTrack} />
-      <MapResizer />
 
-      {tracks.map(track => {
+      {tracks.flatMap(track => {
         const isInRoute = selectedTrackIds.includes(track.id);
         const isPreview = previewTrackIds.includes(track.id) && !isInRoute;
         const isHovered = hoveredTrackId === track.id;
@@ -128,78 +126,120 @@ export default function MTBMap({
         let color = DIFICULTAD_COLORS[track.dificultad] || '#64748b';
         let weight = 3;
         let opacity = 1;
+        let dashArray: number[] | undefined;
 
-        if (isClosed) { color = '#64748b'; opacity = 0.35; }
+        if (isClosed) { color = '#64748b'; opacity = 0.35; dashArray = [6, 6]; }
         else if (isNotRec) { color = '#CC3311'; opacity = 0.45; }
         else if (isAttenuated) { opacity = 0.2; }
         else if (isHovered) { weight = 5; opacity = 0.9; }
         else if (isCaution) { color = '#EE7733'; weight = 4; }
         else if (isRecommended) { color = '#009988'; weight = 4; }
         else if (isInRoute) { color = '#0077BB'; weight = 5; }
-        else if (isPreview) { opacity = 0.7; weight = 4; }
+        else if (isPreview) { opacity = 0.7; weight = 4; dashArray = [8, 4]; }
+
+        if (!dashArray && ESTADO_DASH[track.estado]) {
+          dashArray = ESTADO_DASH[track.estado];
+        }
+
+        const lineCoords = toLngLat(track.points);
 
         return (
-          <g key={track.id}>
-            {isHovered && (
-              <Polyline
-                positions={track.points.map(p => [p.lat, p.lng] as [number, number])}
-                pathOptions={{
-                  color: '#ffffff',
-                  weight: 8,
-                  opacity: 0.12,
+          <Fragment key={track.id}>
+            <Source id={`track-source-${track.id}`} type="geojson" data={{
+              type: 'Feature',
+              geometry: { type: 'LineString', coordinates: lineCoords },
+              properties: { trackId: track.id },
+            }}>
+              <Layer
+                id={`track-glow-${track.id}`}
+                type="line"
+                source={`track-source-${track.id}`}
+                paint={{
+                  'line-color': '#ffffff',
+                  'line-width': 8,
+                  'line-opacity': isHovered ? 0.12 : 0,
                 }}
-                eventHandlers={{ click: () => onTrackClick(track) }}
               />
-            )}
-            {isPreview && (
-              <Polyline
-                positions={track.points.map(p => [p.lat, p.lng] as [number, number])}
-                pathOptions={{
-                  color: '#ffffff',
-                  weight: 6,
-                  opacity: 0.15,
+              <Layer
+                id={`track-preview-${track.id}`}
+                type="line"
+                source={`track-source-${track.id}`}
+                paint={{
+                  'line-color': '#ffffff',
+                  'line-width': 6,
+                  'line-opacity': isPreview ? 0.15 : 0,
                 }}
-                eventHandlers={{ click: () => onTrackClick(track) }}
               />
-            )}
-            <Polyline
-              positions={track.points.map(p => [p.lat, p.lng] as [number, number])}
-              pathOptions={{
-                color,
-                weight,
-                opacity,
-                dashArray: isPreview ? '8 4' : ESTADO_DASH[track.estado] || undefined,
-              }}
-              eventHandlers={{ click: () => onTrackClick(track) }}
-            />
-            <CircleMarker
-              center={[track.startPoint.lat, track.startPoint.lng]}
-              radius={isInRoute ? 5 : isPreview ? 4 : 3}
-              pathOptions={{ color: '#009988', fillColor: '#009988', fillOpacity: 0.8 }}
-            >
-              <Tooltip permanent={false} direction="top">
-                {track.nombre} — inicio
-              </Tooltip>
-            </CircleMarker>
-            <CircleMarker
-              center={[track.endPoint.lat, track.endPoint.lng]}
-              radius={isInRoute ? 5 : isPreview ? 4 : 3}
-              pathOptions={{ color: '#CC3311', fillColor: '#CC3311', fillOpacity: 0.8 }}
-            >
-              <Tooltip permanent={false} direction="bottom">
-                {track.nombre} — fin
-              </Tooltip>
-            </CircleMarker>
-          </g>
+              <Layer
+                id={`track-line-${track.id}`}
+                type="line"
+                source={`track-source-${track.id}`}
+                paint={{
+                  'line-color': color,
+                  'line-width': weight,
+                  'line-opacity': opacity,
+                  ...(dashArray ? { 'line-dasharray': dashArray } : {}),
+                }}
+              />
+            </Source>
+            <Source id={`track-start-${track.id}`} type="geojson" data={{
+              type: 'Feature',
+              geometry: { type: 'Point', coordinates: [track.startPoint.lng, track.startPoint.lat] },
+              properties: { trackId: track.id },
+            }}>
+              <Layer
+                id={`track-start-${track.id}`}
+                type="circle"
+                source={`track-start-${track.id}`}
+                paint={{
+                  'circle-color': '#009988',
+                  'circle-radius': isInRoute ? 5 : isPreview ? 4 : 3,
+                  'circle-opacity': 0.8,
+                  'circle-stroke-color': '#009988',
+                  'circle-stroke-width': 1,
+                }}
+              />
+            </Source>
+            <Source id={`track-end-${track.id}`} type="geojson" data={{
+              type: 'Feature',
+              geometry: { type: 'Point', coordinates: [track.endPoint.lng, track.endPoint.lat] },
+              properties: { trackId: track.id },
+            }}>
+              <Layer
+                id={`track-end-${track.id}`}
+                type="circle"
+                source={`track-end-${track.id}`}
+                paint={{
+                  'circle-color': '#CC3311',
+                  'circle-radius': isInRoute ? 5 : isPreview ? 4 : 3,
+                  'circle-opacity': 0.8,
+                  'circle-stroke-color': '#CC3311',
+                  'circle-stroke-width': 1,
+                }}
+              />
+            </Source>
+          </Fragment>
         );
       })}
 
       {builtRoute && builtRoute.pointsCombinados.length > 0 && (
-        <Polyline
-          positions={builtRoute.pointsCombinados.map(p => [p.lat, p.lng] as [number, number])}
-          pathOptions={{ color: '#0077BB', weight: 5, opacity: 0.8 }}
-        />
+        <Source id="built-route-source" type="geojson" data={{
+          type: 'Feature',
+          geometry: { type: 'LineString', coordinates: toLngLat(builtRoute.pointsCombinados) },
+          properties: null,
+        }}>
+          <Layer
+            id="built-route-line"
+            type="line"
+            source="built-route-source"
+            paint={{
+              'line-color': '#0077BB',
+              'line-width': 5,
+              'line-opacity': 0.8,
+            }}
+          />
+        </Source>
       )}
-    </MapContainer>
+    </Map>
   );
 }

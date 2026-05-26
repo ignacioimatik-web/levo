@@ -602,9 +602,9 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
                       <option value="negro">Negro</option>
                       <option value="doble-negro">Doble negro</option>
                     </select>
-                  </div>
-                </div>
-              )}
+          </div>
+        </div>
+      )}
             </div>
 
             {/* SCROLLABLE BODY */}
@@ -775,49 +775,51 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
 
       {/* BARRA INFERIOR DE RUTA — always on top */}
       {selectedTrackIds.length > 0 && builtRoute && (
-        <div className="fixed bottom-3 left-3 right-3 z-[3000] mx-auto max-w-3xl bg-slate-950/90 backdrop-blur-md border border-white/10 rounded-xl px-3 py-1.5 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="hidden md:block text-[9px] font-bold text-orange-400 uppercase tracking-widest flex-shrink-0">Ruta</div>
-            <div className="flex items-center gap-1.5 text-[10px] text-white font-medium flex-shrink-0">
-              <Route className="w-3 h-3 text-orange-400" />
-              {selectedTrackIds.length}
+        <div className="absolute bottom-0 left-0 right-0 z-[3000] mx-auto bg-gradient-to-t from-slate-950/95 via-slate-950/90 to-transparent px-3 pt-5 pb-2">
+          <div className="mx-auto max-w-3xl bg-slate-900/95 backdrop-blur-md border border-white/10 rounded-xl px-4 py-2.5 flex items-center justify-between gap-3 shadow-2xl">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="hidden md:block text-xs font-bold text-orange-400 uppercase tracking-widest flex-shrink-0">Ruta</div>
+              <div className="flex items-center gap-1.5 text-xs text-white font-medium flex-shrink-0">
+                <Route className="w-4 h-4 text-orange-400" />
+                {selectedTrackIds.length}
+              </div>
+              <div className="h-4 w-px bg-white/10" />
+              <div className="flex items-center gap-2 text-[11px] text-slate-300">
+                <span className="whitespace-nowrap font-medium">{builtRoute.distanciaTotalKm} km</span>
+                <span className="text-slate-600 hidden sm:inline">|</span>
+                <span className="text-green-400 whitespace-nowrap hidden sm:inline font-medium">+{builtRoute.desnivelPositivoTotal}m</span>
+                <span className="text-red-400 whitespace-nowrap hidden sm:inline font-medium">-{builtRoute.desnivelNegativoTotal}m</span>
+                <span className="text-slate-600 hidden sm:inline">|</span>
+                <span className="hidden sm:inline font-medium">T{builtRoute.nivelTecnicoMaximo}/F{builtRoute.exigenciaFisicaMedia}</span>
+                <span className="text-slate-600 hidden sm:inline">|</span>
+                <span className="text-orange-400 font-bold">{builtRoute.dificultadGlobal}</span>
+              </div>
             </div>
-            <div className="h-3 w-px bg-white/10" />
-            <div className="flex items-center gap-1.5 text-[9px] text-slate-300">
-              <span className="whitespace-nowrap">{builtRoute.distanciaTotalKm} km</span>
-              <span className="text-slate-600 hidden sm:inline">|</span>
-              <span className="text-green-400 whitespace-nowrap hidden sm:inline">+{builtRoute.desnivelPositivoTotal}m</span>
-              <span className="text-red-400 whitespace-nowrap hidden sm:inline">-{builtRoute.desnivelNegativoTotal}m</span>
-              <span className="text-slate-600 hidden sm:inline">|</span>
-              <span className="hidden sm:inline">T{builtRoute.nivelTecnicoMaximo}/F{builtRoute.exigenciaFisicaMedia}</span>
-              <span className="text-slate-600 hidden sm:inline">|</span>
-              <span className="text-orange-400 font-bold">{builtRoute.dificultadGlobal}</span>
-            </div>
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <button
+                onClick={() => setActiveTab('ruta')}
+                className="hidden sm:flex px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[10px] font-bold transition-colors items-center gap-1.5"
+                title="Ver perfil"
+              >
+                <Route className="w-3.5 h-3.5" />
+                Perfil
+              </button>
+              <button
+                onClick={handleExportGPX}
+                className="px-3 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-[10px] font-bold transition-colors flex items-center gap-1.5"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">GPX</span>
+              </button>
+              <button
+                onClick={clearRoute}
+                className="p-2 bg-slate-800 hover:bg-red-500/20 text-slate-500 hover:text-red-400 rounded-lg transition-colors"
+                title="Limpiar ruta"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
           </div>
-          <div className="flex items-center gap-1 flex-shrink-0">
-            <button
-              onClick={() => setActiveTab('ruta')}
-              className="hidden sm:flex px-2 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-[8px] font-bold transition-colors items-center gap-1"
-              title="Ver perfil"
-            >
-              <Route className="w-3 h-3" />
-              Perfil
-            </button>
-            <button
-              onClick={handleExportGPX}
-              className="px-2.5 py-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-[8px] font-bold transition-colors flex items-center gap-1"
-            >
-              <Download className="w-3 h-3" />
-              <span className="hidden sm:inline">GPX</span>
-            </button>
-            <button
-              onClick={clearRoute}
-              className="p-1.5 bg-slate-800 hover:bg-red-500/20 text-slate-500 hover:text-red-400 rounded-lg transition-colors"
-              title="Limpiar ruta"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
-          </div>
+        </div>
         </div>
       )}
     </section>
