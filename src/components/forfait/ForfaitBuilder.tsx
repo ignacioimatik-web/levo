@@ -553,7 +553,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
   );
 
   return (
-    <section className="relative min-h-screen">
+    <section className="relative min-h-screen px-6">
       <div className="flex flex-col lg:flex-row h-[calc(100vh-80px)]">
         {/* MAPA */}
         <div className={`flex-1 relative ${sidebarOpen ? 'lg:w-3/5' : 'w-full'} h-[calc(100vh-80px)] lg:h-full transition-all z-0`}>
