@@ -3,7 +3,7 @@
 import 'leaflet/dist/leaflet.css';
 import { useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Polyline, CircleMarker, Tooltip, useMap } from 'react-leaflet';
-import type { Map as LeafletMap } from 'leaflet';
+import type { Map as LeafletMap, LatLngBoundsExpression } from 'leaflet';
 import type { TrackMTB, TrackPoint, RutaConstruida } from '@/lib/forfait/types';
 
 const DIFICULTAD_COLORS: Record<string, string> = {
@@ -43,10 +43,26 @@ function FitBounds({ tracks, routePoints }: { tracks: TrackMTB[]; routePoints: T
   return null;
 }
 
+function FlyToTrack({ track }: { track: TrackMTB | null }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!track || !track.points.length) return;
+    const lats = track.points.map(p => p.lat);
+    const lngs = track.points.map(p => p.lng);
+    map.fitBounds(
+      [[Math.min(...lats), Math.min(...lngs)], [Math.max(...lats), Math.max(...lngs)]],
+      { padding: [50, 50] },
+    );
+  }, [track, map]);
+  return null;
+}
+
 export default function MTBMap({
   tracks,
   selectedTrackIds,
   previewTrackIds = [],
+  hoveredTrackId = null,
+  fitToTrackId = null,
   recommendedIds,
   cautionIds,
   notRecommendedIds,
@@ -56,6 +72,8 @@ export default function MTBMap({
   tracks: TrackMTB[];
   selectedTrackIds: string[];
   previewTrackIds: string[];
+  hoveredTrackId: string | null;
+  fitToTrackId: string | null;
   recommendedIds: string[];
   cautionIds: string[];
   notRecommendedIds: string[];
@@ -63,6 +81,9 @@ export default function MTBMap({
   onTrackClick: (track: TrackMTB) => void;
 }) {
   const mapRef = useRef<LeafletMap | null>(null);
+
+  const hasSelection = selectedTrackIds.length > 0 || previewTrackIds.length > 0;
+  const fitTrack = fitToTrackId ? tracks.find(t => t.id === fitToTrackId) || null : null;
 
   return (
     <MapContainer
@@ -78,28 +99,44 @@ export default function MTBMap({
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       <FitBounds tracks={tracks} routePoints={builtRoute?.pointsCombinados ?? []} />
+      <FlyToTrack track={fitTrack} />
 
       {tracks.map(track => {
         const isInRoute = selectedTrackIds.includes(track.id);
         const isPreview = previewTrackIds.includes(track.id) && !isInRoute;
+        const isHovered = hoveredTrackId === track.id;
         const isRecommended = recommendedIds.includes(track.id);
         const isCaution = cautionIds.includes(track.id);
         const isNotRec = notRecommendedIds.includes(track.id);
         const isClosed = track.estado === 'cerrado';
+        const isAttenuated = hasSelection && !isInRoute && !isPreview && !isHovered;
 
         let color = DIFICULTAD_COLORS[track.dificultad] || '#64748b';
-        let weight = isInRoute ? 5 : isPreview ? 4 : 3;
+        let weight = 3;
         let opacity = 1;
 
-        if (isClosed) { color = '#64748b'; opacity = 0.4; }
-        else if (isNotRec) { color = '#CC3311'; opacity = 0.5; }
+        if (isClosed) { color = '#64748b'; opacity = 0.35; }
+        else if (isNotRec) { color = '#CC3311'; opacity = 0.45; }
+        else if (isAttenuated) { opacity = 0.2; }
+        else if (isHovered) { weight = 5; opacity = 0.9; }
         else if (isCaution) { color = '#EE7733'; weight = 4; }
         else if (isRecommended) { color = '#009988'; weight = 4; }
         else if (isInRoute) { color = '#0077BB'; weight = 5; }
-        else if (isPreview) { color = DIFICULTAD_COLORS[track.dificultad] || '#64748b'; weight = 4; opacity = 0.7; }
+        else if (isPreview) { opacity = 0.7; weight = 4; }
 
         return (
           <g key={track.id}>
+            {isHovered && (
+              <Polyline
+                positions={track.points.map(p => [p.lat, p.lng] as [number, number])}
+                pathOptions={{
+                  color: '#ffffff',
+                  weight: 8,
+                  opacity: 0.12,
+                }}
+                eventHandlers={{ click: () => onTrackClick(track) }}
+              />
+            )}
             {isPreview && (
               <Polyline
                 positions={track.points.map(p => [p.lat, p.lng] as [number, number])}

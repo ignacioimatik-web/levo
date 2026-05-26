@@ -69,6 +69,8 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
   const [saved, setSaved] = useState(false);
   const [expandedSectors, setExpandedSectors] = useState<Set<string>>(new Set());
   const [previewTrackIds, setPreviewTrackIds] = useState<string[]>([]);
+  const [hoveredTrackId, setHoveredTrackId] = useState<string | null>(null);
+  const [fitToTrackId, setFitToTrackId] = useState<string | null>(null);
 
   // Restore saved route from localStorage
   useEffect(() => {
@@ -135,6 +137,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
   const handleTrackClick = useCallback((track: TrackMTB) => {
     setSelectedTrackId(track.id);
     setPreviewTrackIds(prev => prev.includes(track.id) ? prev.filter(id => id !== track.id) : [...prev, track.id]);
+    setFitToTrackId(track.id);
   }, []);
 
   const addToRoute = useCallback((trackId: string) => {
@@ -261,15 +264,20 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
   const renderTrackListItem = (track: TrackMTB) => {
     const isInRoute = selectedTrackIds.includes(track.id);
     const isPreview = previewTrackIds.includes(track.id) && !isInRoute;
+    const isHovered = hoveredTrackId === track.id;
     return (
       <div
         key={track.id}
         onClick={() => handleTrackClick(track)}
+        onMouseEnter={() => setHoveredTrackId(track.id)}
+        onMouseLeave={() => setHoveredTrackId(null)}
         className={`flex items-start gap-2 px-2.5 py-2 rounded-lg cursor-pointer transition-all ${
           isInRoute
             ? 'bg-blue-500/10'
             : isPreview
             ? 'bg-orange-500/10'
+            : isHovered
+            ? 'bg-slate-700/40'
             : 'hover:bg-slate-800/50'
         }`}
       >
@@ -598,6 +606,8 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
             tracks={effectiveTracks}
             selectedTrackIds={selectedTrackIds}
             previewTrackIds={previewTrackIds}
+            hoveredTrackId={hoveredTrackId}
+            fitToTrackId={fitToTrackId}
             recommendedIds={suggestions.recomendado}
             cautionIds={suggestions.con_precaucion}
             notRecommendedIds={suggestions.no_recomendado}
