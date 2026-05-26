@@ -66,6 +66,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileSheet, setMobileSheet] = useState<'hidden' | 'tracks' | 'ruta'>('hidden');
   const [saved, setSaved] = useState(false);
+  const [expandedSectors, setExpandedSectors] = useState<Set<string>>(new Set());
 
   // Restore saved route from localStorage
   useEffect(() => {
@@ -182,6 +183,32 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
   const selectedTrack = selectedTrackId ? tracks.find(t => t.id === selectedTrackId) : null;
 
   const sectors = useMemo(() => [...new Set(tracks.map(t => t.sector))], [tracks]);
+
+  const toggleSector = useCallback((sector: string) => {
+    setExpandedSectors(prev => {
+      const next = new Set(prev);
+      if (next.has(sector)) next.delete(sector);
+      else next.add(sector);
+      return next;
+    });
+  }, []);
+
+  // Filter: if any sector is expanded, only show tracks from expanded sectors
+  const effectiveTracks = useMemo(() => {
+    if (expandedSectors.size === 0) return [];
+    return filteredTracks.filter(t => expandedSectors.has(t.sector));
+  }, [filteredTracks, expandedSectors]);
+
+  // Tracks grouped by sector for display
+  const tracksBySector = useMemo(() => {
+    const map = new Map<string, TrackMTB[]>();
+    for (const t of effectiveTracks) {
+      const list = map.get(t.sector) || [];
+      list.push(t);
+      map.set(t.sector, list);
+    }
+    return map;
+  }, [effectiveTracks]);
 
   // Track detail component used in both sidebar and mobile sheet
   const renderTrackDetail = (track: TrackMTB) => (
@@ -381,17 +408,6 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
                 <option value="negro">Negro</option>
                 <option value="doble-negro">Doble negro</option>
               </select>
-              <select
-                value=""
-                onChange={e => {
-                  if (!e.target.value) return;
-                  setFilters(f => ({ ...f, sector: f.sector.includes(e.target.value) ? f.sector.filter(s => s !== e.target.value) : [...f.sector, e.target.value] }));
-                }}
-                className="px-2 py-1 rounded text-[10px] font-bold bg-slate-800/50 text-slate-400 border border-white/5"
-              >
-                <option value="">Sector</option>
-                {sectors.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
             </div>
 
             {/* Selected track detail */}
@@ -401,10 +417,36 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
               </div>
             )}
 
-            <div className="space-y-1.5">
-              {filteredTracks.map(renderTrackListItem)}
-              {filteredTracks.length === 0 && (
-                <p className="text-xs text-slate-500 text-center py-8">No hay tracks que coincidan con los filtros.</p>
+            {/* SECTOR SECTIONS */}
+            <div className="space-y-2">
+              {sectors.map(sector => {
+                const isExpanded = expandedSectors.has(sector);
+                const sectorTracks = tracksBySector.get(sector) || [];
+                return (
+                  <div key={sector} className="border border-white/5 rounded-xl overflow-hidden">
+                    <button
+                      onClick={() => toggleSector(sector)}
+                      className="w-full flex items-center justify-between px-3 py-2.5 bg-slate-900/80 hover:bg-slate-900 transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-2">
+                        <ChevronUp className={`w-3.5 h-3.5 text-slate-500 transition-transform ${isExpanded ? '' : 'rotate-180'}`} />
+                        <span className="text-xs font-bold text-white">{sector}</span>
+                      </div>
+                      <span className="text-[10px] text-slate-500">{sectorTracks.length} tracks</span>
+                    </button>
+                    {isExpanded && (
+                      <div className="p-2 space-y-1.5 bg-slate-950/30">
+                        {sectorTracks.map(renderTrackListItem)}
+                        {sectorTracks.length === 0 && (
+                          <p className="text-[10px] text-slate-600 text-center py-3">Ningún track coincide con los filtros.</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              {sectors.length === 0 && (
+                <p className="text-xs text-slate-500 text-center py-8">No hay sectores disponibles.</p>
               )}
             </div>
           </>
@@ -558,7 +600,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
         {/* MAPA */}
         <div className={`flex-1 relative ${sidebarOpen ? 'lg:w-3/5' : 'w-full'} h-[calc(100vh-80px)] lg:h-full transition-all z-0`}>
           <MTBMap
-            tracks={filteredTracks}
+            tracks={effectiveTracks}
             selectedTrackIds={selectedTrackIds}
             recommendedIds={suggestions.recomendado}
             cautionIds={suggestions.con_precaucion}
@@ -626,11 +668,31 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
               {mobileSheet === 'tracks' && (
                 <>
                   {selectedTrack && renderTrackDetail(selectedTrack)}
-                  <div className="space-y-1.5">
-                    {filteredTracks.length > 0
-                      ? filteredTracks.map(renderTrackListItem)
-                      : <p className="text-xs text-slate-500 text-center py-8">No hay tracks.</p>
-                    }
+                  <div className="space-y-2">
+                    {sectors.map(sector => {
+                      const isExpanded = expandedSectors.has(sector);
+                      const sectorTracks = tracksBySector.get(sector) || [];
+                      if (sectorTracks.length === 0 && !isExpanded) return null;
+                      return (
+                        <div key={sector} className="border border-white/5 rounded-xl overflow-hidden">
+                          <button
+                            onClick={() => toggleSector(sector)}
+                            className="w-full flex items-center justify-between px-3 py-2.5 bg-slate-900/80 text-left"
+                          >
+                            <div className="flex items-center gap-2">
+                              <ChevronUp className={`w-3 h-3 text-slate-500 transition-transform ${isExpanded ? '' : 'rotate-180'}`} />
+                              <span className="text-xs font-bold text-white">{sector}</span>
+                            </div>
+                            <span className="text-[10px] text-slate-500">{sectorTracks.length}</span>
+                          </button>
+                          {isExpanded && (
+                            <div className="p-2 space-y-1.5 bg-slate-950/30">
+                              {sectorTracks.map(renderTrackListItem)}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </>
               )}
