@@ -135,7 +135,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
 
   const handleTrackClick = useCallback((track: TrackMTB) => {
     setSelectedTrackId(track.id);
-    setPreviewTrackIds(prev => prev.includes(track.id) ? prev.filter(id => id !== track.id) : [track.id]);
+    setPreviewTrackIds(prev => prev.includes(track.id) ? prev.filter(id => id !== track.id) : [...prev, track.id]);
     setMobileSheet('tracks');
   }, []);
 
