@@ -12,6 +12,18 @@ const TrailDetailMap = dynamic(() => import('./TrailDetailMap'), {
   ),
 });
 
-export default function TrailDetailMapWrapper({ trail }: { trail: MTBTrail }) {
-  return <TrailDetailMap trail={trail} />;
+export default function TrailDetailMapWrapper({
+  trail,
+  focusStartKm,
+  focusEndKm,
+  focusPointKm,
+  segmentOverlays,
+}: {
+  trail: MTBTrail;
+  focusStartKm?: number;
+  focusEndKm?: number;
+  focusPointKm?: number;
+  segmentOverlays?: Array<{ startKm: number; endKm: number; type: 'climb' | 'descent' | 'flat' }>;
+}) {
+  return <TrailDetailMap trail={trail} focusStartKm={focusStartKm} focusEndKm={focusEndKm} focusPointKm={focusPointKm} segmentOverlays={segmentOverlays} />;
 }

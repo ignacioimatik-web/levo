@@ -9,9 +9,12 @@ import {
 import TrailDifficultyBadge from '@/components/TrailDifficultyBadge';
 import { getTrailStatusLabel, getTrailTypeLabel } from '@/lib/trail-utils';
 import TrailDetailMapWrapper from '@/components/TrailDetailMapWrapper';
+import TrailNowInsights from '@/components/TrailNowInsights';
+import { buildRouteStatus } from '@/lib/route-status';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
+  searchParams?: Promise<{ segStart?: string; segEnd?: string; pointKm?: string; show?: string }>;
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -46,10 +49,33 @@ function RatingRow({ label, rating }: { label: string; rating?: number | null })
   );
 }
 
-export default async function TrailDetailPage({ params }: PageProps) {
+export default async function TrailDetailPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
+  const sp = (await searchParams) ?? {};
+  const focusStartKm = sp.segStart ? Number(sp.segStart) : undefined;
+  const focusEndKm = sp.segEnd ? Number(sp.segEnd) : undefined;
+  const focusPointKm = sp.pointKm ? Number(sp.pointKm) : undefined;
+  const showSet = new Set((sp.show ?? 'climb,descent,flat').split(',').filter(Boolean));
+  const currentShow = ['climb', 'descent', 'flat'].filter((k) => showSet.has(k));
+  const toggleHref = (key: 'climb' | 'descent' | 'flat') => {
+    const next = new Set(currentShow);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    const arr = Array.from(next);
+    const params = new URLSearchParams();
+    params.set('show', arr.length ? arr.join(',') : key);
+    if (focusStartKm !== undefined) params.set('segStart', String(focusStartKm));
+    if (focusEndKm !== undefined) params.set('segEnd', String(focusEndKm));
+    return `/forfait/${slug}?${params.toString()}#trail-map`;
+  };
   const trail = demoTrails.find(t => t.slug === slug);
   if (!trail) notFound();
+  const statusData = await buildRouteStatus(slug);
+  const segmentOverlays = statusData.ok && statusData.profile
+    ? statusData.profile.segments
+        .filter((s) => showSet.has(s.type))
+        .map((s) => ({ startKm: s.startKm, endKm: s.endKm, type: s.type }))
+    : undefined;
 
   const isPlaceholder = trail.dataStatus === "placeholder";
   const hasGpx = !!trail.gpxFile;
@@ -103,9 +129,9 @@ export default async function TrailDetailPage({ params }: PageProps) {
 
       {/* Content */}
       <section className="py-16 px-6">
-        <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-12">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12">
           {/* Main column */}
-          <div className="lg:col-span-2 space-y-12">
+          <div className="lg:col-span-9 space-y-12">
             {/* Description */}
             <div>
               <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
@@ -118,12 +144,29 @@ export default async function TrailDetailPage({ params }: PageProps) {
             </div>
 
             {/* Map */}
-            <div>
+            <div id="trail-map" className="relative">
               <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
                 <span className="w-1.5 h-8 bg-orange-500 rounded-full inline-block" />
                 Plano del sendero
               </h2>
-              <TrailDetailMapWrapper trail={trail} />
+              <div className="absolute right-3 top-16 z-[500] bg-slate-950/85 backdrop-blur-sm border border-white/10 rounded-lg p-2 flex gap-1.5">
+                <Link href={toggleHref('climb')} className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border ${showSet.has('climb') ? 'bg-green-500/20 border-green-400/40 text-green-300' : 'bg-slate-800 border-white/10 text-slate-500'}`}>
+                  Subidas
+                </Link>
+                <Link href={toggleHref('descent')} className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border ${showSet.has('descent') ? 'bg-red-500/20 border-red-400/40 text-red-300' : 'bg-slate-800 border-white/10 text-slate-500'}`}>
+                  Bajadas
+                </Link>
+                <Link href={toggleHref('flat')} className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border ${showSet.has('flat') ? 'bg-amber-500/20 border-amber-400/40 text-amber-300' : 'bg-slate-800 border-white/10 text-slate-500'}`}>
+                  Tramos
+                </Link>
+              </div>
+              <TrailDetailMapWrapper
+                trail={trail}
+                focusStartKm={focusStartKm}
+                focusEndKm={focusEndKm}
+                focusPointKm={focusPointKm}
+                segmentOverlays={segmentOverlays}
+              />
             </div>
 
             {/* Warnings */}
@@ -143,6 +186,21 @@ export default async function TrailDetailPage({ params }: PageProps) {
                 </ul>
               </div>
             )}
+
+            <div>
+              <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
+                <span className="w-1.5 h-8 bg-orange-500 rounded-full inline-block" />
+                Perfil y estado ahora
+              </h2>
+              <TrailNowInsights
+                slug={trail.slug}
+                activeOverlayTypes={{
+                  climb: showSet.has('climb'),
+                  descent: showSet.has('descent'),
+                  flat: showSet.has('flat'),
+                }}
+              />
+            </div>
 
             {/* Related routes */}
             {relatedRoutes.length > 0 && (
@@ -171,7 +229,7 @@ export default async function TrailDetailPage({ params }: PageProps) {
           </div>
 
           {/* Sidebar */}
-          <div className="space-y-8">
+          <div className="lg:col-span-3 space-y-8">
             {/* Stats card */}
             <div className="bg-slate-900 border border-white/5 rounded-2xl p-6">
               <h3 className="text-lg font-bold text-white mb-6">Ficha técnica</h3>
