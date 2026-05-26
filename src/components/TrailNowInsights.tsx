@@ -108,16 +108,7 @@ export default function TrailNowInsights({
 
   return (
     <div className="space-y-6">
-      <div className="no-print flex flex-wrap items-center gap-2">
-        <button
-          onClick={() => window.print()}
-          className="ml-auto px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider border bg-slate-900 border-white/10 text-slate-300 hover:bg-slate-800"
-        >
-          Exportar informe (PDF)
-        </button>
-      </div>
-
-      <ContinuousProfile series={data.profile.profileSeries ?? []} slug={slug} />
+<ContinuousProfile series={data.profile.profileSeries ?? []} slug={slug} />
 
       <div className={`rounded-xl border px-4 py-3 ${riskClass}`}>
         <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider">
