@@ -4,7 +4,7 @@ import { useMemo, useState, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import {
   List, AlertTriangle, Download, Plus, Trash2, ArrowUp, ArrowDown,
-  Search, X, Bike, Route, Save, Copy, ChevronUp,
+  Search, X, MapIcon, Route, Save, Copy, ChevronUp,
 } from 'lucide-react';
 import type { TrackMTB, FiltrosForfait, NivelUsuario, DificultadMTB } from '@/lib/forfait/types';
 import {
@@ -515,21 +515,40 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
   );
 
   return (
-    <section className="relative h-[calc(100vh-80px)] px-6">
-      <div className="flex flex-row h-full">
+    <section className="relative h-[calc(100vh-80px)]">
+      {/* TOP TOOLBAR */}
+      <div className="h-12 flex items-center justify-between px-4 bg-slate-950 border-b border-white/5">
+        <div className="flex items-center gap-3">
+          <div className="hidden sm:flex items-center gap-1.5 mr-1">
+            <MapIcon className="w-4 h-4 text-orange-400" />
+            <span className="text-xs font-extrabold tracking-tight text-white">Forfait <span className="text-orange-500">MTB</span></span>
+          </div>
+          <div className="flex items-center gap-0.5">
+            <button onClick={() => setActiveTab('tracks')} className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-widest transition-colors ${activeTab === 'tracks' ? 'bg-orange-500/15 text-orange-400' : 'text-slate-500 hover:text-slate-300'}`}>Explorar</button>
+            <button onClick={() => setActiveTab('ruta')} className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-widest transition-colors ${activeTab === 'ruta' ? 'bg-orange-500/15 text-orange-400' : 'text-slate-500 hover:text-slate-300'}`}>Crear ruta</button>
+            <button onClick={() => setActiveTab('status')} className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-widest transition-colors ${activeTab === 'status' ? 'bg-orange-500/15 text-orange-400' : 'text-slate-500 hover:text-slate-300'}`}>Estado</button>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5">
+          {selectedTrackIds.length > 0 && (
+            <button onClick={handleExportGPX} className="px-2.5 py-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-[9px] font-bold transition-colors flex items-center gap-1">
+              <Download className="w-3 h-3" />
+              <span className="hidden sm:inline">Exportar GPX</span>
+              <span className="sm:hidden">GPX</span>
+            </button>
+          )}
+          <button onClick={() => setSidebarOpen(o => !o)} className={`p-1.5 rounded-lg text-[9px] font-bold transition-colors ${sidebarOpen ? 'bg-orange-500/15 text-orange-400' : 'text-slate-500 hover:text-slate-300'}`}>
+            <List className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+
+      <div className="flex flex-row h-[calc(100%-48px)]">
         {/* PANEL LATERAL IZQUIERDO — ancho fijo, scroll propio */}
         {sidebarOpen && (
           <div className="hidden lg:flex w-[380px] xl:w-[420px] flex-shrink-0 bg-slate-950 border-r border-white/5 flex-col">
-            {/* STICKY TOP: tabs + search/filters */}
+            {/* STICKY TOP: search/filters */}
             <div className="sticky top-0 z-20 bg-slate-950 border-b border-white/5">
-              <div className="px-4 pt-3 pb-0">
-                <div className="flex items-center gap-4 pb-3">
-                  <button onClick={() => setActiveTab('tracks')} className={`text-xs font-bold uppercase tracking-widest ${activeTab === 'tracks' ? 'text-orange-500' : 'text-slate-500'}`}>Tracks</button>
-                  <button onClick={() => setActiveTab('ruta')} className={`text-xs font-bold uppercase tracking-widest ${activeTab === 'ruta' ? 'text-orange-500' : 'text-slate-500'}`}>Ruta</button>
-                  <button onClick={() => setActiveTab('status')} className={`text-xs font-bold uppercase tracking-widest ${activeTab === 'status' ? 'text-orange-500' : 'text-slate-500'}`}>Estado</button>
-                </div>
-              </div>
-
               {activeTab === 'tracks' && (
                 <div className="px-4 pb-3 space-y-1.5">
                   <div className="relative">
@@ -614,17 +633,6 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
             builtRoute={builtRoute}
             onTrackClick={handleTrackClick}
           />
-
-          {/* OVERLAY CONTROLS */}
-          <div className="absolute top-3 left-3 z-[1000] flex gap-2 flex-wrap">
-            <button
-              onClick={() => setSidebarOpen(o => !o)}
-              className="px-3 py-1.5 bg-slate-900/90 backdrop-blur-md border border-white/10 rounded-lg text-xs text-white font-bold flex items-center gap-1.5 hover:bg-slate-800 transition-colors"
-            >
-              <List className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">{sidebarOpen ? 'Ocultar panel' : 'Mostrar panel'}</span>
-            </button>
-          </div>
 
           {/* BARRA INFERIOR DE RUTA */}
           {selectedTrackIds.length > 0 && builtRoute && (
