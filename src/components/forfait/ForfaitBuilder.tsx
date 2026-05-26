@@ -596,9 +596,9 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
 
   return (
     <section className="relative min-h-screen px-6">
-      <div className="flex flex-col lg:flex-row h-[calc(100vh-80px)]">
+      <div className="flex flex-col lg:flex-row h-[45vh] lg:h-[calc(100vh-80px)]">
         {/* MAPA */}
-        <div className={`flex-1 relative ${sidebarOpen ? 'lg:w-3/5' : 'w-full'} h-[55vh] lg:h-full transition-all z-0`}>
+        <div className={`flex-1 relative ${sidebarOpen ? 'lg:w-3/5' : 'w-full'} h-[45vh] lg:h-[60vh] transition-all z-0`}>
           <MTBMap
             tracks={effectiveTracks}
             selectedTrackIds={selectedTrackIds}
@@ -646,7 +646,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
 
         {/* PANEL LATERAL - Desktop */}
         {sidebarOpen && (
-          <div className="hidden lg:flex lg:w-2/5 bg-slate-950 border-t lg:border-t-0 lg:border-l border-white/5 overflow-y-auto h-[50vh] lg:h-full flex-col">
+          <div className="hidden lg:flex lg:w-2/5 bg-slate-950 border-t lg:border-t-0 lg:border-l border-white/5 overflow-y-auto h-[45vh] lg:h-full flex-col">
             {sidebarContent}
           </div>
         )}
