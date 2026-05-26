@@ -206,6 +206,7 @@ export default async function TrailDetailPage({ params, searchParams }: PageProp
                 focusEndKm={focusEndKm}
                 focusPointKm={focusPointKm}
                 segmentOverlays={segmentOverlays}
+                routePoints={statusData.ok ? statusData.points : undefined}
               />
             </div>
 
@@ -216,6 +217,7 @@ export default async function TrailDetailPage({ params, searchParams }: PageProp
               </h2>
               <TrailNowInsights
                 slug={trail.slug}
+                basePath="/forfait"
                 activeOverlayTypes={{
                   climb: showSet.has('climb'),
                   descent: showSet.has('descent'),
