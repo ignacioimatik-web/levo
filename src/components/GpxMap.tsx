@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback } from 'react';
 import { MapContainer, TileLayer, Polyline, CircleMarker, useMap } from 'react-leaflet';
 import type { LatLngExpression } from 'leaflet';
 import { TrailPoint } from '@/data/trails';
-import { parseGPX } from '@/lib/gpx-utils';
-import { Map } from 'lucide-react';
+import { parseGPX, haversineKm } from '@/lib/gpx-utils';
+import { useTrailHover } from '@/lib/trail-hover-context';
+import { Map, Maximize2, Minimize2 } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 
 interface GpxMapProps {
@@ -24,10 +25,8 @@ function buildCumulativeKm(coords: LatLngExpression[]): number[] {
   for (let i = 1; i < coords.length; i++) {
     const a = coords[i - 1] as number[];
     const b = coords[i] as number[];
-    const dx = (b[0] - a[0]) * 111;
-    const dy = (b[1] - a[1]) * 111;
-    const approxKm = Math.sqrt(dx * dx + dy * dy);
-    out.push(out[out.length - 1] + approxKm);
+    const d = haversineKm(a[0], a[1], b[0], b[1]);
+    out.push(out[out.length - 1] + d);
   }
   return out;
 }
@@ -74,8 +73,11 @@ function pointAtKm(coords: LatLngExpression[], km: number) {
   return coords[coords.length - 1] as [number, number];
 }
 
-function MapController({ coords, focusStartKm, focusEndKm, focusPointKm }: { coords: LatLngExpression[]; focusStartKm?: number; focusEndKm?: number; focusPointKm?: number }) {
+function MapController({ coords, focusStartKm, focusEndKm, focusPointKm, maximized }: { coords: LatLngExpression[]; focusStartKm?: number; focusEndKm?: number; focusPointKm?: number; maximized?: boolean }) {
   const map = useMap();
+  useLayoutEffect(() => {
+    map.invalidateSize();
+  }, [maximized, map]);
   useEffect(() => {
     if (coords.length > 1) {
       if (typeof focusPointKm === 'number') {
@@ -103,7 +105,22 @@ function MapController({ coords, focusStartKm, focusEndKm, focusPointKm }: { coo
   return null;
 }
 
+function HoverMarker({ coords }: { coords: LatLngExpression[] }) {
+  const { hoveredKm } = useTrailHover();
+  if (typeof hoveredKm !== 'number') return null;
+  const pt = pointAtKm(coords, hoveredKm);
+  if (!pt) return null;
+  return (
+    <CircleMarker
+      center={pt}
+      radius={6}
+      pathOptions={{ color: '#ffffff', fillColor: '#38bdf8', fillOpacity: 0.9, weight: 2.5 }}
+    />
+  );
+}
+
 export default function GpxMap({ coordinates, gpxUrl, title, fallbackMessage, focusStartKm, focusEndKm, focusPointKm, segmentOverlays }: GpxMapProps) {
+  const [maximized, setMaximized] = useState(false);
   const [trackCoords, setTrackCoords] = useState<LatLngExpression[]>(
     coordinates ? coordinates.map(p => [p.lat, p.lng] as LatLngExpression) : []
   );
@@ -143,18 +160,79 @@ export default function GpxMap({ coordinates, gpxUrl, title, fallbackMessage, fo
   }
 
   return (
-    <div className="relative w-full h-[300px] rounded-2xl overflow-hidden border border-white/5 shadow-xl">
-      {loading && (
-        <div className="absolute inset-0 z-[1000] bg-slate-950/60 flex items-center justify-center backdrop-blur-sm">
-          <p className="text-white text-xs font-bold animate-pulse">Cargando trazado...</p>
+    <>
+      {maximized && (
+        <div className="fixed inset-0 z-[9999] bg-slate-950">
+          <button
+            onClick={() => setMaximized(false)}
+            className="absolute bottom-3 left-3 z-[1000] flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider border transition-colors bg-slate-950/80 backdrop-blur-sm border-white/10 text-slate-300 hover:bg-slate-800 hover:text-white"
+            aria-label="Minimizar mapa"
+          >
+            <Minimize2 className="w-3.5 h-3.5" />
+            Minimizar
+          </button>
+          <MapContainer
+            center={[40.62, -0.12]}
+            zoom={13}
+            className="w-full h-full"
+            zoomControl={true}
+          >
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+            {trackCoords.length > 1 && (
+              <Polyline
+                positions={trackCoords}
+                pathOptions={{ color: '#64748b', weight: 4, opacity: 0.6, lineCap: 'round' }}
+              />
+            )}
+            {segmentOverlays?.map((seg, idx) => {
+              const slice = segmentSlice(trackCoords, seg.startKm, seg.endKm);
+              if (!slice) return null;
+              const color = seg.type === 'climb' ? '#000000' : seg.type === 'descent' ? '#ef4444' : '#f59e0b';
+              return (
+                <Polyline
+                  key={`seg-${idx}`}
+                  positions={slice}
+                  pathOptions={{ color, weight: 5, opacity: 0.9, lineCap: 'round' }}
+                />
+              );
+            })}
+            {typeof focusPointKm === 'number' && pointAtKm(trackCoords, focusPointKm) && (
+              <CircleMarker
+                center={pointAtKm(trackCoords, focusPointKm)!}
+                radius={7}
+                pathOptions={{ color: '#f97316', fillColor: '#fb923c', fillOpacity: 0.9, weight: 2 }}
+              />
+            )}
+            <HoverMarker coords={trackCoords} />
+            <MapController coords={trackCoords} focusStartKm={focusStartKm} focusEndKm={focusEndKm} focusPointKm={focusPointKm} maximized={maximized} />
+          </MapContainer>
         </div>
       )}
-      <MapContainer
-        center={[40.62, -0.12]}
-        zoom={13}
-        className="w-full h-full"
-        zoomControl={true}
-      >
+      <div className={`relative w-full h-[300px] rounded-2xl overflow-hidden border border-white/5 shadow-xl bg-slate-950 ${maximized ? 'hidden' : ''}`}>
+        {!maximized && (
+          <button
+            onClick={() => setMaximized(true)}
+            className="absolute bottom-3 left-3 z-[1000] flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider border transition-colors bg-slate-950/80 backdrop-blur-sm border-white/10 text-slate-300 hover:bg-slate-800 hover:text-white"
+            aria-label="Maximizar mapa"
+          >
+            <Maximize2 className="w-3.5 h-3.5" />
+            Maximizar
+          </button>
+        )}
+        {loading && (
+          <div className="absolute inset-0 z-[1000] bg-slate-950/60 flex items-center justify-center backdrop-blur-sm">
+            <p className="text-white text-xs font-bold animate-pulse">Cargando trazado...</p>
+          </div>
+        )}
+        <MapContainer
+          center={[40.62, -0.12]}
+          zoom={13}
+          className="w-full h-full"
+          zoomControl={true}
+        >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -184,8 +262,10 @@ export default function GpxMap({ coordinates, gpxUrl, title, fallbackMessage, fo
             pathOptions={{ color: '#f97316', fillColor: '#fb923c', fillOpacity: 0.9, weight: 2 }}
           />
         )}
-        <MapController coords={trackCoords} focusStartKm={focusStartKm} focusEndKm={focusEndKm} focusPointKm={focusPointKm} />
+        <HoverMarker coords={trackCoords} />
+        <MapController coords={trackCoords} focusStartKm={focusStartKm} focusEndKm={focusEndKm} focusPointKm={focusPointKm} maximized={maximized} />
       </MapContainer>
     </div>
+    </>
   );
 }

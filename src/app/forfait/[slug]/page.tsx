@@ -12,6 +12,7 @@ import TrailDetailMapWrapper from '@/components/TrailDetailMapWrapper';
 import TrailNowInsights from '@/components/TrailNowInsights';
 import TrailSidebarControls from '@/components/TrailSidebarControls';
 import { buildRouteStatus } from '@/lib/route-status';
+import { TrailHoverProvider } from '@/lib/trail-hover-context';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -131,6 +132,8 @@ export default async function TrailDetailPage({ params, searchParams }: PageProp
       {/* Content */}
       <section className="py-16 px-6">
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12">
+
+          <TrailHoverProvider>
           {/* Main column */}
           <div className="lg:col-span-9 space-y-12">
             {/* Description */}
@@ -366,6 +369,7 @@ export default async function TrailDetailPage({ params, searchParams }: PageProp
               </div>
             </div>
           </div>
+          </TrailHoverProvider>
         </div>
       </section>
     </div>

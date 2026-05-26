@@ -6,6 +6,7 @@ import { CloudRain, Mountain, Wind, AlertTriangle, Gauge, ChevronDown } from 'lu
 import type { RouteStatusPayload } from '@/lib/route-status';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { useTrailHover } from '@/lib/trail-hover-context';
 import SegmentMiniMap from '@/components/SegmentMiniMap';
 
 function hasEtaMinutes(segment: unknown): segment is { etaMinutes: { trail: number; enduro: number; ebike: number } } {
@@ -108,41 +109,6 @@ export default function TrailNowInsights({
   return (
     <div className="space-y-6">
       <div className="no-print flex flex-wrap items-center gap-2">
-        <span className="text-xs uppercase tracking-wider text-slate-500 font-bold">Modo bici</span>
-        {(['trail', 'enduro', 'ebike'] as BikeMode[]).map((mode) => (
-          <button
-            key={mode}
-            onClick={() => setBikeMode(mode)}
-            className={`px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider border transition-colors ${
-              bikeMode === mode
-                ? 'bg-orange-500/20 border-orange-500/40 text-orange-300'
-                : 'bg-slate-900 border-white/10 text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            {mode}
-          </button>
-        ))}
-        <span className="text-xs uppercase tracking-wider text-slate-500 font-bold ml-2">Temp</span>
-        <button
-          onClick={() => setTempSource('nearest')}
-          className={`px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider border transition-colors ${
-            tempSource === 'nearest'
-              ? 'bg-sky-500/20 border-sky-500/40 text-sky-300'
-              : 'bg-slate-900 border-white/10 text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          Estacion cercana
-        </button>
-        <button
-          onClick={() => setTempSource('estimated')}
-          className={`px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider border transition-colors ${
-            tempSource === 'estimated'
-              ? 'bg-sky-500/20 border-sky-500/40 text-sky-300'
-              : 'bg-slate-900 border-white/10 text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          Temp ruta est.
-        </button>
         <button
           onClick={() => window.print()}
           className="ml-auto px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider border bg-slate-900 border-white/10 text-slate-300 hover:bg-slate-800"
@@ -581,6 +547,7 @@ function MiniProfile({ segments }: { segments: NonNullable<RouteStatusPayload['p
 
 function ContinuousProfile({ series, slug }: { series: Array<{ km: number; elevationM: number }>; slug: string }) {
   if (!series.length) return null;
+  const { setHoveredKm } = useTrailHover();
   const width = 760;
   const height = 220;
   const padX = 46;
@@ -634,6 +601,7 @@ function ContinuousProfile({ series, slug }: { series: Array<{ km: number; eleva
       }
     }
     setHover({ idx: best, x: points[best].x, y: points[best].y });
+    setHoveredKm(points[best].km);
   };
 
   const onClick: MouseEventHandler<SVGSVGElement> = () => {
@@ -654,6 +622,7 @@ function ContinuousProfile({ series, slug }: { series: Array<{ km: number; eleva
     const next = ev.key === 'ArrowRight' ? Math.min(points.length - 1, base + step) : Math.max(0, base - step);
     setLockedIdx(next);
     setHover({ idx: next, x: points[next].x, y: points[next].y });
+    setHoveredKm(points[next].km);
   };
 
   // Keep live hover measurement even when a point is locked.
@@ -715,7 +684,7 @@ function ContinuousProfile({ series, slug }: { series: Array<{ km: number; eleva
       <p className="text-xs text-slate-400 mb-3">
         Eje horizontal: kilometros. Eje vertical: altitud (m). Sirve para identificar donde estan las grandes subidas y bajadas.
       </p>
-      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto cursor-crosshair" role="img" aria-label="Perfil altimetrico" onMouseMove={onMove} onMouseLeave={() => setHover(null)} onClick={onClick}>
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto cursor-crosshair" role="img" aria-label="Perfil altimetrico" onMouseMove={onMove} onMouseLeave={() => { setHover(null); setHoveredKm(null); }} onClick={onClick}>
         <defs>
           <linearGradient id="elevLine" x1="0" x2="1" y1="0" y2="0">
             <stop offset="0%" stopColor="#22c55e" />
