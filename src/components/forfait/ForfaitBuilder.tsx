@@ -17,12 +17,14 @@ const MTBMap = dynamic(() => import('@/components/forfait/MTBMap'), { ssr: false
 const ElevationProfile = dynamic(() => import('@/components/forfait/ElevationProfile'), { ssr: false });
 
 const DIF_COLORS: Record<string, string> = {
-  verde: 'bg-green-500', azul: 'bg-blue-500', rojo: 'bg-red-500',
+  verde: 'bg-teal-500', azul: 'bg-blue-600', rojo: 'bg-orange-500',
   negro: 'bg-slate-700', 'doble-negro': 'bg-black',
 };
 const DIF_TEXT: Record<string, string> = {
-  verde: 'bg-green-500/10 text-green-400 border-green-500/30', azul: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
-  rojo: 'bg-red-500/10 text-red-400 border-red-500/30', negro: 'bg-slate-700/30 text-slate-300 border-slate-600/30',
+  verde: 'bg-teal-500/10 text-teal-400 border-teal-500/30',
+  azul: 'bg-blue-600/10 text-blue-400 border-blue-600/30',
+  rojo: 'bg-orange-500/10 text-orange-400 border-orange-500/30',
+  negro: 'bg-slate-700/30 text-slate-300 border-slate-600/30',
   'doble-negro': 'bg-black/30 text-white border-slate-700/30',
 };
 const ESTADO_BADGE: Record<string, string> = {
@@ -67,6 +69,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
   const [mobileSheet, setMobileSheet] = useState<'hidden' | 'tracks' | 'ruta'>('hidden');
   const [saved, setSaved] = useState(false);
   const [expandedSectors, setExpandedSectors] = useState<Set<string>>(new Set());
+  const [previewTrackIds, setPreviewTrackIds] = useState<string[]>([]);
 
   // Restore saved route from localStorage
   useEffect(() => {
@@ -132,6 +135,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
 
   const handleTrackClick = useCallback((track: TrackMTB) => {
     setSelectedTrackId(track.id);
+    setPreviewTrackIds(prev => prev.includes(track.id) ? prev.filter(id => id !== track.id) : [track.id]);
     setMobileSheet('tracks');
   }, []);
 
@@ -195,10 +199,13 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
   }, []);
 
   // Filter: if any sector is expanded, only show tracks from expanded sectors
+  // Always show previewed and selected tracks regardless of sector state
   const effectiveTracks = useMemo(() => {
-    if (expandedSectors.size === 0) return [];
-    return filteredTracks.filter(t => expandedSectors.has(t.sector));
-  }, [filteredTracks, expandedSectors]);
+    const fromExpanded = expandedSectors.size === 0 ? [] : filteredTracks.filter(t => expandedSectors.has(t.sector));
+    const forced = filteredTracks.filter(t => previewTrackIds.includes(t.id) || selectedTrackIds.includes(t.id));
+    const ids = new Set([...fromExpanded.map(t => t.id), ...forced.map(t => t.id)]);
+    return filteredTracks.filter(t => ids.has(t.id));
+  }, [filteredTracks, expandedSectors, previewTrackIds, selectedTrackIds]);
 
   // Tracks grouped by sector for display
   const tracksBySector = useMemo(() => {
@@ -258,16 +265,19 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
 
   const renderTrackListItem = (track: TrackMTB) => {
     const isInRoute = selectedTrackIds.includes(track.id);
+    const isPreview = previewTrackIds.includes(track.id) && !isInRoute;
     const isSelected = selectedTrackId === track.id;
     return (
       <div
         key={track.id}
         onClick={() => handleTrackClick(track)}
         className={`p-2.5 rounded-lg border cursor-pointer transition-all ${
-          isSelected
+          isInRoute
+            ? 'bg-blue-500/10 border-blue-500/40'
+            : isPreview
             ? 'bg-orange-500/10 border-orange-500/40'
-            : isInRoute
-            ? 'bg-blue-500/10 border-blue-500/30'
+            : isSelected
+            ? 'bg-slate-700/50 border-white/20'
             : 'bg-slate-900/50 border-white/5 hover:border-white/20'
         }`}
       >
@@ -612,6 +622,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
           <MTBMap
             tracks={effectiveTracks}
             selectedTrackIds={selectedTrackIds}
+            previewTrackIds={previewTrackIds}
             recommendedIds={suggestions.recomendado}
             cautionIds={suggestions.con_precaucion}
             notRecommendedIds={suggestions.no_recomendado}
