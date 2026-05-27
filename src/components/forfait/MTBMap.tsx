@@ -1,7 +1,7 @@
 'use client';
 
-import { useRef, useEffect, useMemo, useCallback, Fragment } from 'react';
-import { Map, Source, Layer, useMap } from 'react-map-gl/mapbox';
+import { useRef, useEffect, useMemo, useCallback, useState, Fragment } from 'react';
+import { Map, Source, Layer, useMap, useControl, NavigationControl, FullscreenControl } from 'react-map-gl/mapbox';
 import type { MapMouseEvent } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import type { TrackMTB, TrackPoint, RutaConstruida } from '@/lib/forfait/types';
@@ -61,6 +61,42 @@ function FlyToTrack({ track }: { track: TrackMTB | null }) {
   return null;
 }
 
+function PitchToggle() {
+  const { current: map } = useMap();
+  const [flat, setFlat] = useState(false);
+  const btnRef = useRef<HTMLButtonElement | null>(null);
+  const first = useRef(true);
+
+  useEffect(() => {
+    if (first.current) { first.current = false; return; }
+    if (!map) return;
+    map.easeTo({ pitch: flat ? 0 : 40, duration: 300 });
+    if (btnRef.current) {
+      btnRef.current.querySelector('span')!.textContent = flat ? '3D' : '2D';
+    }
+  }, [flat, map]);
+
+  useControl(() => ({
+    onAdd() {
+      const div = document.createElement('div');
+      div.className = 'mapboxgl-ctrl mapboxgl-ctrl-group';
+      div.innerHTML = `<button class="mapboxgl-ctrl-icon" type="button"
+        style="width:29px;height:29px;display:flex;align-items:center;justify-content:center;cursor:pointer"
+        aria-label="Alternar 3D">
+        <span style="font-size:12px;font-weight:700">2D</span>
+      </button>`;
+      (div.querySelector('button') as HTMLButtonElement).onclick = () => setFlat(p => !p);
+      btnRef.current = div.querySelector('button');
+      return div;
+    },
+    onRemove() {
+      btnRef.current = null;
+    }
+  }), { position: 'top-right' });
+
+  return null;
+}
+
 export default function MTBMap({
   tracks,
   selectedTrackIds,
@@ -109,6 +145,10 @@ export default function MTBMap({
       style={{ width: '100%', height: '100%', borderRadius: '12px', overflow: 'hidden' }}
     >
       <Source id="mapbox-dem" type="raster-dem" url="mapbox://mapbox.mapbox-terrain-dem-v1" />
+
+      <NavigationControl visualizePitch={true} position="top-right" />
+      <FullscreenControl position="top-right" />
+      <PitchToggle />
 
       <FitBounds tracks={tracks} routePoints={builtRoute?.pointsCombinados ?? []} />
       <FlyToTrack track={fitTrack} />

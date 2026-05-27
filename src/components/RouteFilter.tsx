@@ -16,6 +16,10 @@ export default function RouteFilter() {
   const [distanceRange, setDistanceRange] = useState('all');
 
   const filteredRoutes = useMemo(() => {
+    const difficultyOrder: Record<string, number> = {
+      verde: 0, azul: 1, roja: 2, negra: 3, 'doble-negra': 4, pendiente: 5,
+    };
+
     return routes.filter((route) => {
       const matchesSearch = route.name.toLowerCase().includes(search.toLowerCase()) || 
                             route.summary.toLowerCase().includes(search.toLowerCase());
@@ -29,6 +33,16 @@ export default function RouteFilter() {
       })();
 
       return matchesSearch && matchesSector && matchesDifficulty && matchesType && matchesDistance;
+    }).sort((a, b) => {
+      const da = a.distanceKm ?? 999;
+      const db = b.distanceKm ?? 999;
+      if (da !== db) return da - db;
+      const fa = difficultyOrder[a.physicalDifficulty] ?? 5;
+      const fb = difficultyOrder[b.physicalDifficulty] ?? 5;
+      if (fa !== fb) return fa - fb;
+      const ta = difficultyOrder[a.technicalDifficulty] ?? 5;
+      const tb = difficultyOrder[b.technicalDifficulty] ?? 5;
+      return ta - tb;
     });
   }, [search, sector, difficulty, type, distanceRange]);
 

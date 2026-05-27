@@ -4,7 +4,7 @@ import { useMemo, useState, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import {
   List, AlertTriangle, Download, Plus, Trash2, ArrowUp, ArrowDown,
-  Search, X, MapIcon, Bike, Route, Save, Copy, ChevronUp, ChevronDown,
+  Search, X, MapIcon, Bike, Route, Save, Copy, ChevronUp, ChevronDown, Upload,
 } from 'lucide-react';
 import type { TrackMTB, FiltrosForfait, NivelUsuario, DificultadMTB } from '@/lib/forfait/types';
 import {
@@ -12,6 +12,10 @@ import {
   defaultFilters,
 } from '@/lib/forfait/geo-utils';
 import { exportarRutaGPX, descargarGPX } from '@/lib/forfait/gpx-export';
+import { createClient } from '@/lib/supabase/browser';
+import { fetchSavedRoutes, saveRouteToCloud, deleteSavedRoute } from '@/lib/forfait/save-route';
+import type { SavedRouteData } from '@/lib/forfait/save-route';
+import type { User } from '@supabase/supabase-js';
 
 const MTBMap = dynamic(() => import('@/components/forfait/MTBMap'), { ssr: false });
 const ElevationProfile = dynamic(() => import('@/components/forfait/ElevationProfile'), { ssr: false });
@@ -71,6 +75,12 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
   const [previewTrackIds, setPreviewTrackIds] = useState<string[]>([]);
   const [hoveredTrackId, setHoveredTrackId] = useState<string | null>(null);
   const [fitToTrackId, setFitToTrackId] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [savedRoutes, setSavedRoutes] = useState<SavedRouteData[]>([]);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [showSavedList, setShowSavedList] = useState(false);
+  const [loadingSaved, setLoadingSaved] = useState(false);
 
   // Restore saved route from localStorage
   useEffect(() => {
@@ -95,6 +105,19 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
       setSaved(false);
     }
   }, [selectedTrackIds, routeName]);
+
+  // Auth state
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user);
+      setAuthLoading(false);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   const conexiones = useMemo(() => detectAllConnections(tracks), [tracks]);
 
@@ -184,6 +207,56 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
     ].join('\n');
     navigator.clipboard.writeText(summary);
   }, [builtRoute]);
+
+  const handleSaveToCloud = useCallback(async () => {
+    if (!builtRoute || !user || selectedTrackIds.length === 0) return;
+    setSaveStatus('saving');
+    const { error } = await saveRouteToCloud({
+      name: routeName,
+      track_ids: selectedTrackIds,
+      distance_km: builtRoute.distanciaTotalKm,
+      elevation_gain_m: builtRoute.desnivelPositivoTotal,
+      elevation_loss_m: builtRoute.desnivelNegativoTotal,
+      estimated_time_min: builtRoute.tiempoEstimadoTotalMin,
+      difficulty: builtRoute.dificultadGlobal,
+    });
+    setSaveStatus(error ? 'error' : 'saved');
+    if (error) {
+      setTimeout(() => setSaveStatus('idle'), 4000);
+    } else {
+      setShowSavedList(true);
+      const routes = await fetchSavedRoutes();
+      setSavedRoutes(routes);
+      setTimeout(() => setSaveStatus('idle'), 3000);
+    }
+  }, [builtRoute, user, routeName, selectedTrackIds]);
+
+  const loadSavedRoutesFromCloud = useCallback(async () => {
+    if (!user) return;
+    setLoadingSaved(true);
+    const routes = await fetchSavedRoutes();
+    setSavedRoutes(routes);
+    setLoadingSaved(false);
+    setShowSavedList(true);
+  }, [user]);
+
+  const handleDeleteRoute = useCallback(async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const { error } = await deleteSavedRoute(id);
+    if (!error) {
+      setSavedRoutes(prev => prev.filter(r => r.id !== id));
+    }
+  }, []);
+
+  const handleLoadRoute = useCallback((saved: SavedRouteData) => {
+    const valid = saved.track_ids.filter(id => tracks.some(t => t.id === id));
+    if (valid.length > 0) {
+      setSelectedTrackIds(valid);
+      setRouteName(saved.name);
+      setActiveTab('ruta');
+      setShowSavedList(false);
+    }
+  }, [tracks]);
 
   const selectedTrack = selectedTrackId ? tracks.find(t => t.id === selectedTrackId) : null;
   const selectedTracks = useMemo(() => tracks.filter(t => selectedTrackIds.includes(t.id)), [tracks, selectedTrackIds]);
@@ -377,7 +450,31 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
                   onChange={e => setRouteName(e.target.value)}
                   className="flex-1 bg-slate-900 border border-white/5 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-orange-500/40"
                 />
-                {saved && <Save className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />}
+                {user ? (
+                  <button
+                    onClick={handleSaveToCloud}
+                    disabled={saveStatus === 'saving'}
+                    className={`flex-shrink-0 p-1.5 rounded-lg transition-colors ${
+                      saveStatus === 'saved'
+                        ? 'text-green-400 bg-green-500/10'
+                        : saveStatus === 'error'
+                        ? 'text-red-400 bg-red-500/10'
+                        : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                    }`}
+                    title="Guardar en cuenta"
+                  >
+                    <Save className={`w-4 h-4 ${saveStatus === 'saving' ? 'animate-pulse' : ''}`} />
+                  </button>
+                ) : (
+                  <a
+                    href="/auth"
+                    className="flex-shrink-0 p-1.5 text-slate-500 hover:text-slate-300 rounded-lg hover:bg-slate-800 transition-colors"
+                    title="Inicia sesión para guardar"
+                  >
+                    <Save className="w-4 h-4" />
+                  </a>
+                )}
+                {!user && saved && <span className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0" title="Guardado localmente" />}
               </div>
             </div>
 
@@ -429,18 +526,67 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
             </div>
 
             {selectedTrackIds.length > 0 && (
-              <div className="flex gap-2">
-                <button onClick={handleExportGPX} className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-xs font-bold transition-colors">
-                  <Download className="w-4 h-4" />
-                  GPX
-                </button>
-                <button onClick={handleCopySummary} className="px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold transition-colors" title="Copiar resumen">
-                  <Copy className="w-4 h-4" />
-                </button>
-                <button onClick={clearRoute} className="px-3 py-2.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-xs font-bold transition-colors">
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
+              <>
+                <div className="flex gap-2">
+                  <button onClick={handleExportGPX} className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-xs font-bold transition-colors">
+                    <Download className="w-4 h-4" />
+                    GPX
+                  </button>
+                  <button onClick={handleCopySummary} className="px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold transition-colors" title="Copiar resumen">
+                    <Copy className="w-4 h-4" />
+                  </button>
+                  {user && (
+                    <button
+                      onClick={loadSavedRoutesFromCloud}
+                      className="px-3 py-2.5 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 rounded-lg text-xs font-bold transition-colors"
+                      title="Cargar ruta guardada"
+                    >
+                      <Upload className="w-4 h-4" />
+                    </button>
+                  )}
+                  <button onClick={clearRoute} className="px-3 py-2.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-xs font-bold transition-colors">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+                {user && showSavedList && (
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-bold text-white">Mis rutas guardadas</h4>
+                      <button onClick={() => setShowSavedList(false)} className="text-slate-500 hover:text-white p-1">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                    {loadingSaved ? (
+                      <p className="text-xs text-slate-500 text-center py-4">Cargando...</p>
+                    ) : savedRoutes.length === 0 ? (
+                      <p className="text-xs text-slate-500 text-center py-4">No tienes rutas guardadas</p>
+                    ) : (
+                      savedRoutes.map(r => (
+                        <div
+                          key={r.id}
+                          className="flex items-center gap-1 p-1 bg-slate-900/50 border border-white/5 rounded-lg"
+                        >
+                          <button
+                            onClick={() => handleLoadRoute(r)}
+                            className="flex-1 flex items-center gap-2 p-1 text-left transition-colors"
+                          >
+                            <Route className="w-3 h-3 text-indigo-400 flex-shrink-0" />
+                            <span className="flex-1 text-xs text-white truncate">{r.name}</span>
+                            <span className="text-[10px] text-slate-500">{r.distance_km} km</span>
+                          </button>
+                          <button
+                            onClick={e => handleDeleteRoute(r.id, e)}
+                            className="p-1 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded transition-colors"
+                            title="Eliminar"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
