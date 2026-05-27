@@ -113,9 +113,9 @@ function PitchToggle() {
       const div = document.createElement('div');
       div.className = 'mapboxgl-ctrl mapboxgl-ctrl-group';
       div.innerHTML = `<button class="mapboxgl-ctrl-icon" type="button"
-        style="width:29px;height:29px;display:flex;align-items:center;justify-content:center;cursor:pointer"
+        style="width:29px;height:29px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:#1e293b;border-radius:4px"
         aria-label="Alternar 3D">
-        <span style="font-size:12px;font-weight:700">2D</span>
+        <span style="font-size:11px;font-weight:700;color:#f97316">2D</span>
       </button>`;
       (div.querySelector('button') as HTMLButtonElement).onclick = () => setFlat(p => !p);
       btnRef.current = div.querySelector('button');

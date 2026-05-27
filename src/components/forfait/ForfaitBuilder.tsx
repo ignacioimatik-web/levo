@@ -814,7 +814,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
               onTrackClick={handleTrackClick}
             />
             {selectedTrackIds.length > 0 && builtRoute && (
-              <div className="absolute bottom-0 left-0 right-0 px-4 py-2 bg-gradient-to-t from-slate-950/95 via-slate-950/80 to-transparent flex items-center justify-between gap-3 pointer-events-none">
+              <div className="absolute top-0 left-0 right-0 px-4 py-1.5 bg-gradient-to-b from-slate-950/90 via-slate-950/70 to-transparent flex items-center justify-between gap-2 pointer-events-none pr-28">
                 <div className="flex items-center gap-3 min-w-0 pointer-events-auto">
                   <div className="flex items-center gap-1.5 text-xs text-white font-medium flex-shrink-0">
                     <Route className="w-4 h-4 text-orange-400" />
