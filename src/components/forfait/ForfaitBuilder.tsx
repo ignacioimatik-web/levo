@@ -677,18 +677,6 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
           </div>
         </div>
         <div className="flex items-center gap-1.5">
-          {selectedTrackIds.length > 0 && (
-            <button onClick={handleExportGPX} className="px-2.5 py-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-[9px] font-bold transition-colors flex items-center gap-1">
-              <Download className="w-3 h-3" />
-              <span className="hidden sm:inline">Exportar GPX</span>
-              <span className="sm:hidden">GPX</span>
-            </button>
-          )}
-          <div className="hidden sm:flex">
-            <button onClick={() => setSidebarOpen(o => !o)} className={`p-1.5 rounded-lg text-[9px] font-bold transition-colors ${sidebarOpen ? 'bg-orange-500/15 text-orange-400' : 'text-slate-500 hover:text-slate-300'}`}>
-              <List className="w-3.5 h-3.5" />
-            </button>
-          </div>
         </div>
       </div>
 
@@ -840,13 +828,6 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
                   >
                     <Route className="w-3 h-3" />
                     Perfil
-                  </button>
-                  <button
-                    onClick={handleExportGPX}
-                    className="px-2.5 py-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-[9px] font-bold transition-colors flex items-center gap-1"
-                  >
-                    <Download className="w-3 h-3" />
-                    <span className="hidden sm:inline">GPX</span>
                   </button>
                   <button
                     onClick={clearRoute}
