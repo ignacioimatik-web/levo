@@ -135,27 +135,59 @@ const MAP_STYLES = [
   { id: 'dark', label: 'Oscuro', url: 'mapbox://styles/mapbox/dark-v11' },
 ];
 
-function StyleSwitcher({ current, onChange }: { current: string; onChange: (url: string) => void }) {
-  return (
-    <div className="mapboxgl-ctrl mapboxgl-ctrl-group flex flex-col">
-      {MAP_STYLES.map(s => (
-        <button
-          key={s.id}
-          onClick={() => onChange(s.url)}
-          className="mapboxgl-ctrl-icon"
-          style={{
-            width: 32, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'pointer', background: current === s.url ? '#1e293b' : '#0f172a',
-            borderBottom: '1px solid rgba(255,255,255,0.06)', fontSize: 10, fontWeight: 700,
-            color: current === s.url ? '#f97316' : '#94a3b8',
-          }}
-          title={s.label}
-        >
-          {s.label}
-        </button>
-      ))}
-    </div>
-  );
+function StyleSwitcherControl({ current, onChange }: { current: string; onChange: (url: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const btnRef = useRef<HTMLButtonElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+
+  useControl(() => ({
+    onAdd() {
+      const div = document.createElement('div');
+      div.className = 'mapboxgl-ctrl mapboxgl-ctrl-group';
+      div.style.position = 'relative';
+      div.innerHTML = `<button class="mapboxgl-ctrl-icon" type="button"
+        style="width:29px;height:29px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:#1e293b"
+        aria-label="Cambiar estilo de mapa">
+        <span style="font-size:14px;font-weight:700;color:#f97316">🗺</span>
+      </button>`;
+      (div.querySelector('button') as HTMLButtonElement).onclick = () => setOpen(p => !p);
+      btnRef.current = div.querySelector('button');
+
+      const panel = document.createElement('div');
+      panel.style.cssText = 'position:absolute;top:0;right:34px;display:none;flex-direction:column;background:#0f172a;border:1px solid rgba(255,255,255,0.1);border-radius:4px;overflow:hidden';
+      MAP_STYLES.forEach(s => {
+        const b = document.createElement('button');
+        b.textContent = s.label;
+        b.style.cssText = 'padding:6px 10px;font-size:10px;font-weight:700;cursor:pointer;border:none;border-bottom:1px solid rgba(255,255,255,0.06);color:#94a3b8;background:transparent;text-align:left;white-space:nowrap';
+        b.onmouseenter = () => { b.style.background = '#1e293b'; };
+        b.onmouseleave = () => { b.style.background = 'transparent'; };
+        b.onclick = () => { onChange(s.url); setOpen(false); };
+        panel.appendChild(b);
+      });
+      div.appendChild(panel);
+      panelRef.current = panel;
+
+      document.addEventListener('click', (e: MouseEvent) => {
+        if (!div.contains(e.target as Node)) setOpen(false);
+      });
+
+      return div;
+    },
+    onRemove() { btnRef.current = null; panelRef.current = null; }
+  }), { position: 'top-right' });
+
+  useEffect(() => {
+    if (!panelRef.current) return;
+    panelRef.current.style.display = open ? 'flex' : 'none';
+    if (open) {
+      const btns = panelRef.current.querySelectorAll('button');
+      MAP_STYLES.forEach((s, i) => {
+        (btns[i] as HTMLButtonElement).style.color = s.url === current ? '#f97316' : '#94a3b8';
+      });
+    }
+  }, [open, current]);
+
+  return null;
 }
 
 export default function MTBMap({
@@ -213,9 +245,7 @@ export default function MTBMap({
       <NavigationControl visualizePitch={true} position="top-right" />
       <FullscreenControl position="top-right" />
       <PitchToggle />
-      <div className="absolute top-2 left-2 z-10">
-        <StyleSwitcher current={mapStyle} onChange={setMapStyle} />
-      </div>
+      <StyleSwitcherControl current={mapStyle} onChange={setMapStyle} />
 
       <FitBounds tracks={tracks} routePoints={builtRoute?.pointsCombinados ?? []} />
       <FlyToTrack track={fitTrack} />
