@@ -7,6 +7,7 @@ import {
   Search, X, MapIcon, Bike, Route, Save, Copy, ChevronUp, ChevronDown,
 } from 'lucide-react';
 import type { TrackMTB, FiltrosForfait, NivelUsuario, DificultadMTB } from '@/lib/forfait/types';
+import type { RouteHoverData } from '@/components/forfait/ContinuousProfile';
 import {
   detectAllConnections, sugerirSiguientesTracks, buildRouteFromTracks,
   defaultFilters,
@@ -75,7 +76,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
   const [previewTrackIds, setPreviewTrackIds] = useState<string[]>([]);
   const [hoveredTrackId, setHoveredTrackId] = useState<string | null>(null);
   const [fitToTrackId, setFitToTrackId] = useState<string | null>(null);
-  const [hoveredRouteKm, setHoveredRouteKm] = useState<number | null>(null);
+  const [hoveredRouteKm, setHoveredRouteKm] = useState<RouteHoverData | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [savedRoutes, setSavedRoutes] = useState<SavedRouteData[]>([]);

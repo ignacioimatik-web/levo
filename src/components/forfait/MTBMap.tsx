@@ -5,6 +5,7 @@ import { Map, Source, Layer, useMap, useControl, NavigationControl, FullscreenCo
 import type { MapMouseEvent } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import type { TrackMTB, TrackPoint, RutaConstruida } from '@/lib/forfait/types';
+import type { RouteHoverData } from '@/components/forfait/ContinuousProfile';
 
 function distM(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
   const R = 6371000;
@@ -212,7 +213,7 @@ export default function MTBMap({
   cautionIds: string[];
   notRecommendedIds: string[];
   builtRoute: RutaConstruida | null;
-  hoveredRouteKm: number | null;
+  hoveredRouteKm: RouteHoverData | null;
   onTrackClick: (track: TrackMTB) => void;
 }) {
   const [mapStyle, setMapStyle] = useState(MAP_STYLES[0].url);
@@ -379,19 +380,23 @@ export default function MTBMap({
       )}
 
       {hoveredRouteKm !== null && builtRoute && (() => {
-        const pt = interpolarPuntoEnRuta(builtRoute.pointsCombinados, hoveredRouteKm);
+        const pt = interpolarPuntoEnRuta(builtRoute.pointsCombinados, hoveredRouteKm.km);
         if (!pt) return null;
+        const arrow = hoveredRouteKm.slopePct >= 0 ? '▲' : '▼';
+        const color = hoveredRouteKm.slopePct >= 5 ? '#ef4444' : hoveredRouteKm.slopePct <= -5 ? '#22c55e' : '#f97316';
         return (
-          <Marker longitude={pt.lng} latitude={pt.lat} anchor="center">
-            <div style={{
-              width: 14,
-              height: 14,
-              borderRadius: '50%',
-              background: '#f97316',
-              border: '3px solid #fff',
-              boxShadow: '0 0 8px rgba(249,115,22,0.6)',
-              pointerEvents: 'none',
-            }} />
+          <Marker longitude={pt.lng} latitude={pt.lat} anchor="bottom">
+            <div className="flex flex-col items-center gap-0.5" style={{ pointerEvents: 'none' }}>
+              <div className="px-1.5 py-0.5 rounded bg-slate-950/85 border border-white/15 text-[9px] font-bold whitespace-nowrap flex items-center gap-1 shadow-lg backdrop-blur-sm" style={{ color }}>
+                <span>{arrow}</span>
+                <span>{hoveredRouteKm.slopePct >= 0 ? '+' : ''}{hoveredRouteKm.slopePct.toFixed(1)}%</span>
+              </div>
+              <div style={{
+                width: 12, height: 12, borderRadius: '50%',
+                background: '#f97316', border: '2.5px solid #fff',
+                boxShadow: '0 0 8px rgba(249,115,22,0.6)',
+              }} />
+            </div>
           </Marker>
         );
       })()}

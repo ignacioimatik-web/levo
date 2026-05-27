@@ -4,9 +4,16 @@ import { useState, useMemo, useCallback, useRef, useEffect, type MouseEventHandl
 import type { TrackPoint } from '@/lib/forfait/types';
 import { buildProfileSeries } from '@/lib/forfait/geo-utils';
 
+export interface RouteHoverData {
+  km: number;
+  elevationM: number;
+  slopePct: number;
+  trend: 'subiendo' | 'bajando' | 'llano';
+}
+
 export default function ContinuousProfile({ points, onHoverKm }: {
   points: TrackPoint[];
-  onHoverKm?: (km: number | null) => void;
+  onHoverKm?: (data: RouteHoverData | null) => void;
 }) {
   const series = useMemo(() => buildProfileSeries(points), [points]);
 
@@ -72,9 +79,23 @@ export default function ContinuousProfile({ points, onHoverKm }: {
 
   const mapped = series.map(p => ({ ...p, x: scaleX(p.km), y: scaleY(p.elevationM) }));
 
-  const emitKm = useCallback((km: number | null) => {
-    onHoverKm?.(km);
-  }, [onHoverKm]);
+  const emitHover = useCallback((idx: number | null) => {
+    if (idx === null) { onHoverKm?.(null); return; }
+    const p = mapped[idx];
+    const pr = idx > 0 ? mapped[idx - 1] : null;
+    const tr = pr && p
+      ? p.elevationM > pr.elevationM + 1 ? 'subiendo'
+        : p.elevationM < pr.elevationM - 1 ? 'bajando' : 'llano'
+      : 'llano';
+    const slope = pr && p
+      ? (() => {
+          const dKm = Math.max(0.0001, p.km - pr.km);
+          const dM = p.elevationM - pr.elevationM;
+          return (dM / (dKm * 1000)) * 100;
+        })()
+      : 0;
+    onHoverKm?.({ km: p.km, elevationM: p.elevationM, slopePct: slope, trend: tr });
+  }, [mapped, onHoverKm]);
 
   const onMove: MouseEventHandler<SVGSVGElement> = useCallback((ev) => {
     const rect = ev.currentTarget.getBoundingClientRect();
@@ -86,8 +107,8 @@ export default function ContinuousProfile({ points, onHoverKm }: {
       if (d < bestDist) { best = i; bestDist = d; }
     }
     setHover({ idx: best, x: mapped[best].x, y: mapped[best].y });
-    emitKm(mapped[best].km);
-  }, [mapped, cWidth, emitKm]);
+    emitHover(best);
+  }, [mapped, cWidth, emitHover]);
 
   const onClick: MouseEventHandler<SVGSVGElement> = useCallback(() => {
     if (!hover) return;
@@ -96,14 +117,14 @@ export default function ContinuousProfile({ points, onHoverKm }: {
 
   const onLeave = useCallback(() => {
     setHover(null);
-    if (!lockedIdx) emitKm(null);
-  }, [lockedIdx, emitKm]);
+    if (!lockedIdx) emitHover(null);
+  }, [lockedIdx, emitHover]);
 
   const onKeyDown: KeyboardEventHandler<HTMLDivElement> = useCallback((ev) => {
     if (!mapped.length) return;
     if (ev.key === 'Escape') {
       setLockedIdx(null);
-      emitKm(null);
+      emitHover(null);
       return;
     }
     if (ev.key !== 'ArrowLeft' && ev.key !== 'ArrowRight') return;
@@ -113,8 +134,8 @@ export default function ContinuousProfile({ points, onHoverKm }: {
     const next = ev.key === 'ArrowRight' ? Math.min(mapped.length - 1, base + step) : Math.max(0, base - step);
     setLockedIdx(next);
     setHover({ idx: next, x: mapped[next].x, y: mapped[next].y });
-    emitKm(mapped[next].km);
-  }, [mapped, lockedIdx, hover?.idx, emitKm]);
+    emitHover(next);
+  }, [mapped, lockedIdx, hover?.idx, emitHover]);
 
   const activeIdx = hover?.idx ?? lockedIdx ?? null;
   const hoveredPoint = activeIdx !== null ? mapped[activeIdx] : null;
