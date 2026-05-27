@@ -18,7 +18,7 @@ import type { SavedRouteData } from '@/lib/forfait/save-route';
 import type { User } from '@supabase/supabase-js';
 
 const MTBMap = dynamic(() => import('@/components/forfait/MTBMap'), { ssr: false });
-const ElevationProfile = dynamic(() => import('@/components/forfait/ElevationProfile'), { ssr: false });
+const ElevationProfile = dynamic(() => import('@/components/forfait/ContinuousProfile'), { ssr: false });
 
 const DIF_COLORS: Record<string, string> = {
   verde: 'bg-teal-500', azul: 'bg-blue-600', rojo: 'bg-orange-500',
@@ -661,7 +661,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
   );
 
   return (
-    <section className="relative h-[calc(100vh-80px)]">
+    <section className="relative h-[calc(100vh-64px)]">
       {/* TOP TOOLBAR */}
       <div className="h-12 flex items-center justify-between px-4 bg-slate-950 border-b border-white/[0.04]">
         <div className="flex items-center gap-3">
@@ -812,7 +812,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
               onTrackClick={handleTrackClick}
             />
           </div>
-          <div className={`flex-shrink-0 border-t border-white/[0.04] bg-slate-950/50 transition-all duration-300 ${builtRoute && selectedTrackIds.length > 0 ? 'h-[140px] lg:h-[160px]' : 'h-0 overflow-hidden'}`}>
+          <div className={`flex-shrink-0 border-t border-white/[0.04] bg-slate-950/50 transition-all duration-300 ${builtRoute && selectedTrackIds.length > 0 ? 'h-[180px] lg:h-[200px]' : 'h-0 overflow-hidden'}`}>
             {builtRoute && selectedTrackIds.length > 0 && (
               <ElevationProfile points={builtRoute.pointsCombinados} />
             )}
