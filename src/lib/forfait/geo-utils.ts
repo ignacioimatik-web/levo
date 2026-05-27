@@ -54,15 +54,9 @@ export function buildProfileSeries(points: TrackPoint[]): Array<{ km: number; el
   for (let i = 1; i < points.length; i++) {
     cumKm.push(cumKm[i - 1] + haversineM(points[i - 1], points[i]) / 1000);
   }
-  const sampleEvery = Math.max(1, Math.floor(points.length / 120));
-
   const result: Array<{ km: number; elevationM: number }> = [];
-  for (let i = 0; i < points.length; i += sampleEvery) {
+  for (let i = 0; i < points.length; i++) {
     result.push({ km: +(cumKm[i]).toFixed(2), elevationM: points[i].elevation ?? 0 });
-  }
-  const last = points.length - 1;
-  if (result.length && result[result.length - 1].km !== +(cumKm[last]).toFixed(2)) {
-    result.push({ km: +(cumKm[last]).toFixed(2), elevationM: points[last].elevation ?? 0 });
   }
   return result;
 }
