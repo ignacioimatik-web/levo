@@ -59,12 +59,8 @@ export async function loadRealTracks(routes: MTBRoute[]): Promise<TrackMTB[]> {
     const points = parseGPX(xml);
     if (points.length < 2) continue;
 
-    // Downsample to max 150 points for map rendering
-    const step = Math.max(1, Math.floor(points.length / 150));
-    const sampledPoints = points.filter((_, i) => i % step === 0);
-    if (sampledPoints[sampledPoints.length - 1] !== points[points.length - 1]) {
-      sampledPoints.push(points[points.length - 1]);
-    }
+    // Use all points for detailed map rendering
+    const sampledPoints = points;
 
     tracks.push({
       id: `real-${String(idCounter++).padStart(2, '0')}`,
