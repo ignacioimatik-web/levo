@@ -356,23 +356,23 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
         onClick={() => handleTrackClick(track)}
         onMouseEnter={() => setHoveredTrackId(track.id)}
         onMouseLeave={() => setHoveredTrackId(null)}
-        className={`flex items-start gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition-all ${
+        className={`flex items-start gap-2 px-2 py-1 rounded-lg cursor-pointer transition-all ${
           isInRoute
-            ? 'bg-blue-500/10 border-l-2 border-blue-500'
+            ? 'bg-blue-500/10 border-l-[3px] border-blue-500'
             : isPreview
-            ? 'bg-orange-500/10 border-l-2 border-orange-500'
+            ? 'bg-orange-500/10 border-l-[3px] border-orange-500'
             : isHovered
             ? 'bg-slate-700/40'
             : 'hover:bg-slate-800/50'
         } ${isClosed ? 'opacity-50' : ''}`}
       >
-        <span className={`w-2 h-2 rounded-full flex-shrink-0 mt-1 ${isClosed ? 'bg-slate-500' : DIF_COLORS[track.dificultad] || 'bg-slate-500'}`} />
+        <span className={`w-2 h-2 rounded-full flex-shrink-0 mt-0.5 ${isClosed ? 'bg-slate-500' : DIF_COLORS[track.dificultad] || 'bg-slate-500'}`} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-1">
-            <span className={`text-[11px] font-bold truncate ${isClosed ? 'text-slate-500' : 'text-white'}`}>{track.nombre}</span>
+            <span className={`text-[11px] font-bold truncate leading-tight ${isClosed ? 'text-slate-500' : 'text-white'}`}>{track.nombre}</span>
             <button
               onClick={e => { e.stopPropagation(); isInRoute ? removeFromRoute(track.id) : addToRoute(track.id); }}
-              className={`flex-shrink-0 p-1 rounded-lg transition-colors ${
+              className={`flex-shrink-0 p-0.5 rounded-lg transition-colors ${
                 isInRoute
                   ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30'
                   : 'bg-slate-800 text-slate-500 hover:bg-orange-500/20 hover:text-orange-400'
@@ -381,7 +381,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
               {isInRoute ? <Trash2 className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
             </button>
           </div>
-          <div className="text-[9px] text-slate-500 leading-tight mt-0.5">
+          <div className="text-[9px] text-slate-500 leading-tight">
             <span>{track.sector}</span>
             <span className="mx-1">·</span>
             <span>{track.distanciaKm} km</span>
@@ -389,21 +389,14 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
             <span>+{track.desnivelPositivo} m</span>
             <span className="mx-1">·</span>
             <span>T{track.nivelTecnico}/F{track.exigenciaFisica}</span>
-          </div>
-          <div className="flex items-center gap-1 mt-0.5 flex-wrap">
             {track.dificultad && (
-              <span className={`px-1 py-0.5 rounded text-[7px] font-bold border leading-none ${DIF_TEXT[track.dificultad]}`}>
+              <span className={`ml-1 px-1 py-[1px] rounded text-[7px] font-bold border leading-none ${DIF_TEXT[track.dificultad]}`}>
                 {track.dificultad}
               </span>
             )}
             {track.estado !== 'abierto' && (
-              <span className={`px-1 py-0.5 rounded text-[7px] font-bold border leading-none ${ESTADO_BADGE[track.estado]}`}>
+              <span className={`ml-0.5 px-1 py-[1px] rounded text-[7px] font-bold border leading-none ${ESTADO_BADGE[track.estado]}`}>
                 {track.estado}
-              </span>
-            )}
-            {track.dataStatus === 'real' && (
-              <span className="px-1 py-0.5 rounded text-[7px] font-bold border leading-none bg-green-500/10 text-green-400 border-green-500/30">
-                REAL
               </span>
             )}
           </div>
@@ -491,8 +484,6 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
 
             {builtRoute && selectedTrackIds.length > 0 && (
               <>
-                <ElevationProfile points={builtRoute.pointsCombinados} />
-
                 <div className="grid grid-cols-2 gap-2">
                   <MetricBox label="Distancia" value={`${builtRoute.distanciaTotalKm} km`} />
                   <MetricBox label="Desnivel +" value={`+${builtRoute.desnivelPositivoTotal} m`} />
@@ -550,48 +541,6 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
-                {user && (
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-xs font-bold text-white">Mis rutas guardadas</h4>
-                      <button
-                        onClick={loadSavedRoutesFromCloud}
-                        className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
-                        title="Refrescar"
-                      >
-                        Refrescar
-                      </button>
-                    </div>
-                    {loadingSaved ? (
-                      <p className="text-xs text-slate-500 text-center py-4">Cargando...</p>
-                    ) : savedRoutes.length === 0 ? (
-                      <p className="text-xs text-slate-500 text-center py-4">No tienes rutas guardadas</p>
-                    ) : (
-                      savedRoutes.map(r => (
-                        <div
-                          key={r.id}
-                          className="flex items-center gap-1 p-1 bg-slate-900/50 border border-white/5 rounded-lg"
-                        >
-                          <button
-                            onClick={() => handleLoadRoute(r)}
-                            className="flex-1 flex items-center gap-2 p-1 text-left transition-colors"
-                          >
-                            <Route className="w-3 h-3 text-indigo-400 flex-shrink-0" />
-                            <span className="flex-1 text-xs text-white truncate">{r.name}</span>
-                            <span className="text-[10px] text-slate-500">{r.distance_km} km</span>
-                          </button>
-                          <button
-                            onClick={e => handleDeleteRoute(r.id, e)}
-                            className="p-1 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded transition-colors"
-                            title="Eliminar"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                )}
               </>
             )}
           </div>
@@ -655,6 +604,50 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
           </div>
         )}
 
+        {/* RUTAS GUARDADAS — siempre visible si autenticado */}
+        {user && (
+          <div className="space-y-1.5 px-1">
+            <div className="flex items-center justify-between">
+              <h4 className="text-[10px] font-bold text-white uppercase tracking-wider">Mis rutas guardadas</h4>
+              <button
+                onClick={loadSavedRoutesFromCloud}
+                className="text-[9px] text-indigo-400 hover:text-indigo-300 transition-colors"
+                title="Refrescar"
+              >
+                Refrescar
+              </button>
+            </div>
+            {loadingSaved ? (
+              <p className="text-[10px] text-slate-500 text-center py-3">Cargando...</p>
+            ) : savedRoutes.length === 0 ? (
+              <p className="text-[10px] text-slate-500 text-center py-3">No tienes rutas guardadas</p>
+            ) : (
+              savedRoutes.map(r => (
+                <div
+                  key={r.id}
+                  className="flex items-center gap-1 p-1.5 bg-slate-900/50 border border-white/5 rounded-lg"
+                >
+                  <button
+                    onClick={() => handleLoadRoute(r)}
+                    className="flex-1 flex items-center gap-2 p-1 text-left transition-colors"
+                  >
+                    <Route className="w-3 h-3 text-indigo-400 flex-shrink-0" />
+                    <span className="flex-1 text-[10px] text-white truncate">{r.name}</span>
+                    <span className="text-[9px] text-slate-500">{r.distance_km} km</span>
+                  </button>
+                  <button
+                    onClick={e => handleDeleteRoute(r.id, e)}
+                    className="p-1 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded transition-colors"
+                    title="Eliminar"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
       {/* LEGENDA BOTTOM */}
       <div className="px-4 py-2 border-t border-white/5">
         <div className="flex items-center gap-3 text-[10px] text-slate-500 flex-wrap">
@@ -702,7 +695,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
         {/* PANEL LATERAL IZQUIERDO — ancho fijo, scroll propio */}
         {sidebarOpen && (
           <div className="hidden lg:flex w-[360px] xl:w-[400px] flex-shrink-0 bg-slate-950 border-r border-white/[0.04] flex-col">
-            {/* STICKY TOP: search/filters */}
+            {/* STICKY TOP: search/filters + route summary */}
             <div className="sticky top-0 z-20 bg-slate-950 border-b border-white/[0.04] shadow-lg shadow-black/10">
               {activeTab === 'tracks' && (
                 <div className="px-3 pb-2 space-y-1.5">
@@ -754,9 +747,38 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
                       <option value="negro">Negro</option>
                       <option value="doble-negro">Doble negro</option>
                     </select>
-          </div>
-        </div>
-      )}
+                  </div>
+                </div>
+              )}
+              {/* ROUTE SUMMARY BAR — always visible when route is selected */}
+              {builtRoute && selectedTrackIds.length > 0 && (
+                <div className="px-3 py-2 flex items-center justify-between gap-2 border-b border-white/[0.04]">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Route className="w-3.5 h-3.5 text-orange-400 flex-shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-bold text-white truncate">{routeName}</p>
+                      <p className="text-[9px] text-slate-500">
+                        {selectedTrackIds.length} tracks · {builtRoute.distanciaTotalKm} km · +{builtRoute.desnivelPositivoTotal}m
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <button
+                      onClick={() => setActiveTab('ruta')}
+                      className="px-2 py-1 bg-orange-500/15 text-orange-400 rounded text-[8px] font-bold uppercase tracking-wider hover:bg-orange-500/25 transition-colors"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      onClick={handleExportGPX}
+                      className="p-1 bg-slate-800 text-slate-400 rounded hover:text-white transition-colors"
+                      title="Exportar GPX"
+                    >
+                      <Download className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* SCROLLABLE BODY */}
@@ -774,21 +796,32 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
           </div>
         )}
 
-        {/* MAPA PRINCIPAL — ocupa todo el espacio restante */}
-        <div className="flex-1 relative h-full z-0">
-          <MTBMap
-            tracks={effectiveTracks}
-            selectedTrackIds={selectedTrackIds}
-            previewTrackIds={previewTrackIds}
-            hoveredTrackId={hoveredTrackId}
-            fitToTrackId={fitToTrackId}
-            recommendedIds={suggestions.recomendado}
-            cautionIds={suggestions.con_precaucion}
-            notRecommendedIds={suggestions.no_recomendado}
-            builtRoute={builtRoute}
-            onTrackClick={handleTrackClick}
-          />
-
+        {/* ÁREA DERECHA: mapa + perfil de elevación */}
+        <div className="flex-1 flex flex-col h-full min-w-0">
+          <div className="flex-1 relative z-0">
+            <MTBMap
+              tracks={effectiveTracks}
+              selectedTrackIds={selectedTrackIds}
+              previewTrackIds={previewTrackIds}
+              hoveredTrackId={hoveredTrackId}
+              fitToTrackId={fitToTrackId}
+              recommendedIds={suggestions.recomendado}
+              cautionIds={suggestions.con_precaucion}
+              notRecommendedIds={suggestions.no_recomendado}
+              builtRoute={builtRoute}
+              onTrackClick={handleTrackClick}
+            />
+          </div>
+          <div className={`flex-shrink-0 border-t border-white/[0.04] bg-slate-950/50 transition-all duration-300 ${builtRoute && selectedTrackIds.length > 0 ? 'h-[180px] lg:h-[200px]' : 'h-0 overflow-hidden'}`}>
+            {builtRoute && selectedTrackIds.length > 0 && (
+              <ElevationProfile points={builtRoute.pointsCombinados} />
+            )}
+          </div>
+          {(!builtRoute || selectedTrackIds.length === 0) && (
+            <div className="flex-shrink-0 border-t border-white/[0.04] bg-slate-950/50 px-4 py-1.5 text-center">
+              <p className="text-[10px] text-slate-600">Selecciona tracks para ver el perfil de elevación</p>
+            </div>
+          )}
         </div>
       </div>
 
