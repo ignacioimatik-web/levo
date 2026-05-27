@@ -129,6 +129,35 @@ function PitchToggle() {
   return null;
 }
 
+const MAP_STYLES = [
+  { id: 'satellite', label: 'Satélite', url: 'mapbox://styles/mapbox/satellite-streets-v12' },
+  { id: 'outdoors', label: 'Topo', url: 'mapbox://styles/mapbox/outdoors-v12' },
+  { id: 'dark', label: 'Oscuro', url: 'mapbox://styles/mapbox/dark-v11' },
+];
+
+function StyleSwitcher({ current, onChange }: { current: string; onChange: (url: string) => void }) {
+  return (
+    <div className="mapboxgl-ctrl mapboxgl-ctrl-group flex flex-col">
+      {MAP_STYLES.map(s => (
+        <button
+          key={s.id}
+          onClick={() => onChange(s.url)}
+          className="mapboxgl-ctrl-icon"
+          style={{
+            width: 32, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', background: current === s.url ? '#1e293b' : '#0f172a',
+            borderBottom: '1px solid rgba(255,255,255,0.06)', fontSize: 10, fontWeight: 700,
+            color: current === s.url ? '#f97316' : '#94a3b8',
+          }}
+          title={s.label}
+        >
+          {s.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function MTBMap({
   tracks,
   selectedTrackIds,
@@ -154,6 +183,7 @@ export default function MTBMap({
   hoveredRouteKm: number | null;
   onTrackClick: (track: TrackMTB) => void;
 }) {
+  const [mapStyle, setMapStyle] = useState(MAP_STYLES[0].url);
   const hasSelection = selectedTrackIds.length > 0 || previewTrackIds.length > 0;
   const fitTrack = fitToTrackId ? tracks.find(t => t.id === fitToTrackId) || null : null;
 
@@ -170,7 +200,7 @@ export default function MTBMap({
 
   return (
     <Map
-      mapStyle="mapbox://styles/mapbox/satellite-streets-v12"
+      mapStyle={mapStyle}
       mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
       initialViewState={{ latitude: 40.6, longitude: -0.02, zoom: 13, pitch: 40 }}
       terrain={{ source: 'mapbox-dem', exaggeration: 1.0 }}
@@ -183,6 +213,9 @@ export default function MTBMap({
       <NavigationControl visualizePitch={true} position="top-right" />
       <FullscreenControl position="top-right" />
       <PitchToggle />
+      <div className="absolute top-2 left-2 z-10">
+        <StyleSwitcher current={mapStyle} onChange={setMapStyle} />
+      </div>
 
       <FitBounds tracks={tracks} routePoints={builtRoute?.pointsCombinados ?? []} />
       <FlyToTrack track={fitTrack} />
