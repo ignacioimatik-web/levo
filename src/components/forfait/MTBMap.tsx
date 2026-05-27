@@ -170,7 +170,7 @@ export default function MTBMap({
 
   return (
     <Map
-      mapStyle="mapbox://styles/mapbox/outdoors-v12"
+      mapStyle="mapbox://styles/mapbox/dark-v11"
       mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
       initialViewState={{ latitude: 40.6, longitude: -0.02, zoom: 13, pitch: 40 }}
       terrain={{ source: 'mapbox-dem', exaggeration: 1.0 }}
