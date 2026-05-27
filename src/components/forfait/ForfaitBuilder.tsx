@@ -4,7 +4,7 @@ import { useMemo, useState, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import {
   List, AlertTriangle, Download, Plus, Trash2, ArrowUp, ArrowDown,
-  Search, X, MapIcon, Bike, Route, Save, Copy, ChevronUp, ChevronDown, Upload,
+  Search, X, MapIcon, Bike, Route, Save, Copy, ChevronUp, ChevronDown,
 } from 'lucide-react';
 import type { TrackMTB, FiltrosForfait, NivelUsuario, DificultadMTB } from '@/lib/forfait/types';
 import {
@@ -79,8 +79,16 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
   const [authLoading, setAuthLoading] = useState(true);
   const [savedRoutes, setSavedRoutes] = useState<SavedRouteData[]>([]);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const [showSavedList, setShowSavedList] = useState(false);
   const [loadingSaved, setLoadingSaved] = useState(false);
+  const NAME_COUNTER_KEY = 'forfait_route_counter';
+
+  const getNextRouteName = useCallback(() => {
+    if (typeof window === 'undefined') return 'Mi ruta Forfait';
+    const counter = parseInt(localStorage.getItem(NAME_COUNTER_KEY) || '0', 10);
+    const next = counter + 1;
+    localStorage.setItem(NAME_COUNTER_KEY, String(next));
+    return next === 1 ? 'Mi ruta Forfait' : `Mi ruta Forfait ${next}`;
+  }, []);
 
   // Restore saved route from localStorage
   useEffect(() => {
@@ -112,9 +120,15 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
     supabase.auth.getUser().then(({ data }) => {
       setUser(data.user);
       setAuthLoading(false);
+      if (data.user) {
+        fetchSavedRoutes().then(routes => setSavedRoutes(routes));
+      }
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+      if (session?.user) {
+        fetchSavedRoutes().then(routes => setSavedRoutes(routes));
+      }
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -183,9 +197,9 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
 
   const clearRoute = useCallback(() => {
     setSelectedTrackIds([]);
-    setRouteName('Mi ruta Forfait');
+    setRouteName(getNextRouteName());
     clearSavedRoute();
-  }, []);
+  }, [getNextRouteName]);
 
   const handleExportGPX = useCallback(() => {
     if (!builtRoute) return;
@@ -224,7 +238,6 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
     if (error) {
       setTimeout(() => setSaveStatus('idle'), 4000);
     } else {
-      setShowSavedList(true);
       const routes = await fetchSavedRoutes();
       setSavedRoutes(routes);
       setTimeout(() => setSaveStatus('idle'), 3000);
@@ -237,7 +250,6 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
     const routes = await fetchSavedRoutes();
     setSavedRoutes(routes);
     setLoadingSaved(false);
-    setShowSavedList(true);
   }, [user]);
 
   const handleDeleteRoute = useCallback(async (id: string, e: React.MouseEvent) => {
@@ -254,7 +266,6 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
       setSelectedTrackIds(valid);
       setRouteName(saved.name);
       setActiveTab('ruta');
-      setShowSavedList(false);
     }
   }, [tracks]);
 
@@ -535,25 +546,20 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
                   <button onClick={handleCopySummary} className="px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold transition-colors" title="Copiar resumen">
                     <Copy className="w-4 h-4" />
                   </button>
-                  {user && (
-                    <button
-                      onClick={loadSavedRoutesFromCloud}
-                      className="px-3 py-2.5 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 rounded-lg text-xs font-bold transition-colors"
-                      title="Cargar ruta guardada"
-                    >
-                      <Upload className="w-4 h-4" />
-                    </button>
-                  )}
                   <button onClick={clearRoute} className="px-3 py-2.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-xs font-bold transition-colors">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
-                {user && showSavedList && (
+                {user && (
                   <div className="space-y-1">
                     <div className="flex items-center justify-between">
                       <h4 className="text-xs font-bold text-white">Mis rutas guardadas</h4>
-                      <button onClick={() => setShowSavedList(false)} className="text-slate-500 hover:text-white p-1">
-                        <X className="w-3 h-3" />
+                      <button
+                        onClick={loadSavedRoutesFromCloud}
+                        className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+                        title="Refrescar"
+                      >
+                        Refrescar
                       </button>
                     </div>
                     {loadingSaved ? (
