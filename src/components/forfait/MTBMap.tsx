@@ -382,14 +382,20 @@ export default function MTBMap({
       {hoveredRouteKm !== null && builtRoute && (() => {
         const pt = interpolarPuntoEnRuta(builtRoute.pointsCombinados, hoveredRouteKm.km);
         if (!pt) return null;
-        const arrow = hoveredRouteKm.slopePct >= 0 ? '▲' : '▼';
+        const arrow = hoveredRouteKm.trend === 'subiendo' ? '▲' : hoveredRouteKm.trend === 'bajando' ? '▼' : '◆';
         const color = hoveredRouteKm.slopePct >= 5 ? '#ef4444' : hoveredRouteKm.slopePct <= -5 ? '#22c55e' : '#f97316';
         return (
           <Marker longitude={pt.lng} latitude={pt.lat} anchor="bottom">
             <div className="flex flex-col items-center gap-0.5" style={{ pointerEvents: 'none' }}>
-              <div className="px-1.5 py-0.5 rounded bg-slate-950/85 border border-white/15 text-[9px] font-bold whitespace-nowrap flex items-center gap-1 shadow-lg backdrop-blur-sm" style={{ color }}>
-                <span>{arrow}</span>
-                <span>{hoveredRouteKm.slopePct >= 0 ? '+' : ''}{hoveredRouteKm.slopePct.toFixed(1)}%</span>
+              <div className="px-2 py-1 rounded-lg bg-slate-950/85 border border-white/15 shadow-lg backdrop-blur-sm min-w-[90px]">
+                <div className="text-xs font-bold whitespace-nowrap flex items-center gap-1.5 justify-center" style={{ color }}>
+                  <span>{arrow}</span>
+                  <span>{hoveredRouteKm.slopePct >= 0 ? '+' : ''}{hoveredRouteKm.slopePct.toFixed(1)}%</span>
+                </div>
+                <div className="flex items-center gap-2 text-[9px] text-slate-400 justify-center mt-0.5">
+                  <span className="text-green-400">+{hoveredRouteKm.cumulativeGainM.toFixed(0)}m</span>
+                  <span className="text-red-400">-{hoveredRouteKm.cumulativeLossM.toFixed(0)}m</span>
+                </div>
               </div>
               <div style={{
                 width: 12, height: 12, borderRadius: '50%',

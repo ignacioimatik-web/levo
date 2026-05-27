@@ -9,6 +9,8 @@ export interface RouteHoverData {
   elevationM: number;
   slopePct: number;
   trend: 'subiendo' | 'bajando' | 'llano';
+  cumulativeGainM: number;
+  cumulativeLossM: number;
 }
 
 export default function ContinuousProfile({ points, onHoverKm }: {
@@ -94,7 +96,13 @@ export default function ContinuousProfile({ points, onHoverKm }: {
           return (dM / (dKm * 1000)) * 100;
         })()
       : 0;
-    onHoverKm?.({ km: p.km, elevationM: p.elevationM, slopePct: slope, trend: tr });
+    let cumGain = 0, cumLoss = 0;
+    for (let i = 1; i <= idx; i++) {
+      const d = mapped[i].elevationM - mapped[i - 1].elevationM;
+      if (d > 0) cumGain += d;
+      if (d < 0) cumLoss += Math.abs(d);
+    }
+    onHoverKm?.({ km: p.km, elevationM: p.elevationM, slopePct: slope, trend: tr, cumulativeGainM: cumGain, cumulativeLossM: cumLoss });
   }, [mapped, onHoverKm]);
 
   const onMove: MouseEventHandler<SVGSVGElement> = useCallback((ev) => {
