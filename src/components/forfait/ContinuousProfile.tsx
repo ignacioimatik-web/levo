@@ -1,14 +1,29 @@
 'use client';
 
-import { useState, useMemo, useCallback, type MouseEventHandler, type KeyboardEventHandler } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect, type MouseEventHandler, type KeyboardEventHandler } from 'react';
 import type { TrackPoint } from '@/lib/forfait/types';
 import { buildProfileSeries } from '@/lib/forfait/geo-utils';
 
-export default function ContinuousProfile({ points }: { points: TrackPoint[] }) {
+export default function ContinuousProfile({ points, onHoverKm }: {
+  points: TrackPoint[];
+  onHoverKm?: (km: number | null) => void;
+}) {
   const series = useMemo(() => buildProfileSeries(points), [points]);
 
   const [hover, setHover] = useState<{ idx: number; x: number; y: number } | null>(null);
   const [lockedIdx, setLockedIdx] = useState<number | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [cWidth, setCWidth] = useState(760);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(entries => {
+      for (const e of entries) setCWidth(Math.round(e.contentRect.width));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   if (!series.length) {
     return (
@@ -18,17 +33,17 @@ export default function ContinuousProfile({ points }: { points: TrackPoint[] }) 
     );
   }
 
-  const width = 760;
   const height = 180;
-  const padX = 46;
+  const padX = 50;
   const padTop = 20;
   const padBottom = 34;
   const minEle = Math.min(...series.map(p => p.elevationM));
   const maxEle = Math.max(...series.map(p => p.elevationM));
   const maxKm = Math.max(...series.map(p => p.km), 1);
   const rangeEle = Math.max(1, maxEle - minEle);
+  const innerW = cWidth - padX * 2;
 
-  const scaleX = (km: number) => padX + (km / maxKm) * (width - padX * 2);
+  const scaleX = (km: number) => padX + (km / maxKm) * innerW;
   const scaleY = (ele: number) => {
     if (maxEle === minEle) return height / 2;
     return padTop + ((maxEle - ele) / rangeEle) * (height - padTop - padBottom);
@@ -57,20 +72,22 @@ export default function ContinuousProfile({ points }: { points: TrackPoint[] }) 
 
   const mapped = series.map(p => ({ ...p, x: scaleX(p.km), y: scaleY(p.elevationM) }));
 
+  const emitKm = useCallback((km: number | null) => {
+    onHoverKm?.(km);
+  }, [onHoverKm]);
+
   const onMove: MouseEventHandler<SVGSVGElement> = useCallback((ev) => {
     const rect = ev.currentTarget.getBoundingClientRect();
-    const relX = ((ev.clientX - rect.left) / rect.width) * width;
+    const relX = ((ev.clientX - rect.left) / rect.width) * cWidth;
     let best = 0;
     let bestDist = Infinity;
     for (let i = 0; i < mapped.length; i++) {
       const d = Math.abs(mapped[i].x - relX);
-      if (d < bestDist) {
-        best = i;
-        bestDist = d;
-      }
+      if (d < bestDist) { best = i; bestDist = d; }
     }
     setHover({ idx: best, x: mapped[best].x, y: mapped[best].y });
-  }, [mapped]);
+    emitKm(mapped[best].km);
+  }, [mapped, cWidth, emitKm]);
 
   const onClick: MouseEventHandler<SVGSVGElement> = useCallback(() => {
     if (!hover) return;
@@ -79,12 +96,14 @@ export default function ContinuousProfile({ points }: { points: TrackPoint[] }) 
 
   const onLeave = useCallback(() => {
     setHover(null);
-  }, []);
+    if (!lockedIdx) emitKm(null);
+  }, [lockedIdx, emitKm]);
 
   const onKeyDown: KeyboardEventHandler<HTMLDivElement> = useCallback((ev) => {
     if (!mapped.length) return;
     if (ev.key === 'Escape') {
       setLockedIdx(null);
+      emitKm(null);
       return;
     }
     if (ev.key !== 'ArrowLeft' && ev.key !== 'ArrowRight') return;
@@ -94,17 +113,15 @@ export default function ContinuousProfile({ points }: { points: TrackPoint[] }) 
     const next = ev.key === 'ArrowRight' ? Math.min(mapped.length - 1, base + step) : Math.max(0, base - step);
     setLockedIdx(next);
     setHover({ idx: next, x: mapped[next].x, y: mapped[next].y });
-  }, [mapped, lockedIdx, hover?.idx]);
+    emitKm(mapped[next].km);
+  }, [mapped, lockedIdx, hover?.idx, emitKm]);
 
   const activeIdx = hover?.idx ?? lockedIdx ?? null;
   const hoveredPoint = activeIdx !== null ? mapped[activeIdx] : null;
   const prev = activeIdx !== null && activeIdx > 0 ? mapped[activeIdx - 1] : null;
   const trend = prev && hoveredPoint
-    ? hoveredPoint.elevationM > prev.elevationM + 1
-      ? 'subiendo'
-      : hoveredPoint.elevationM < prev.elevationM - 1
-      ? 'bajando'
-      : 'llano'
+    ? hoveredPoint.elevationM > prev.elevationM + 1 ? 'subiendo'
+      : hoveredPoint.elevationM < prev.elevationM - 1 ? 'bajando' : 'llano'
     : 'llano';
 
   const localSlopePct = prev && hoveredPoint
@@ -117,8 +134,7 @@ export default function ContinuousProfile({ points }: { points: TrackPoint[] }) 
 
   const cumulative = useMemo(() => {
     const out: Array<{ gainM: number; lossM: number }> = [];
-    let gain = 0;
-    let loss = 0;
+    let gain = 0, loss = 0;
     for (let i = 0; i < mapped.length; i++) {
       if (i > 0) {
         const d = mapped[i].elevationM - mapped[i - 1].elevationM;
@@ -148,11 +164,11 @@ export default function ContinuousProfile({ points }: { points: TrackPoint[] }) 
   }, [activeIdx, lockedIdx, mapped]);
 
   return (
-    <div className="h-full" tabIndex={0} onKeyDown={onKeyDown}>
-      <div className="flex items-center justify-between mb-1 px-1">
+    <div ref={containerRef} className="h-full" tabIndex={0} onKeyDown={onKeyDown}>
+      <div className="flex items-center justify-between mb-0.5 px-1">
         <h4 className="text-[10px] font-bold text-white uppercase tracking-wider">Perfil altimétrico continuo</h4>
       </div>
-      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-[calc(100%-32px)] cursor-crosshair" role="img" aria-label="Perfil altimétrico" onMouseMove={onMove} onMouseLeave={onLeave} onClick={onClick} preserveAspectRatio="xMidYMid meet">
+      <svg viewBox={`0 0 ${cWidth} ${height}`} className="w-full h-[calc(100%-28px)] cursor-crosshair" role="img" aria-label="Perfil altimétrico" onMouseMove={onMove} onMouseLeave={onLeave} onClick={onClick} preserveAspectRatio="none">
         <defs>
           <linearGradient id="elevLine2" x1="0" x2="1" y1="0" y2="0">
             <stop offset="0%" stopColor="#22c55e" />
@@ -164,12 +180,12 @@ export default function ContinuousProfile({ points }: { points: TrackPoint[] }) 
             <stop offset="100%" stopColor="#f97316" stopOpacity="0.02" />
           </linearGradient>
         </defs>
-        <rect x="0" y="0" width={width} height={height} fill="transparent" />
+        <rect x="0" y="0" width={cWidth} height={height} fill="transparent" />
 
         {yTicks.map((t, i) => (
           <g key={`y-${i}`}>
-            <line x1={padX} y1={t.y} x2={width - padX} y2={t.y} stroke="#334155" strokeWidth="1" strokeDasharray="4 4" />
-            <text x={8} y={t.y + 3} fill="#94a3b8" fontSize="9">{t.ele} m</text>
+            <line x1={padX} y1={t.y} x2={cWidth - padX} y2={t.y} stroke="#334155" strokeWidth="1" strokeDasharray="4 4" />
+            <text x={6} y={t.y + 3} fill="#94a3b8" fontSize="9">{t.ele} m</text>
           </g>
         ))}
 
@@ -206,7 +222,7 @@ export default function ContinuousProfile({ points }: { points: TrackPoint[] }) 
         )}
       </svg>
       {hoveredPoint && (
-        <div className="flex flex-wrap items-center gap-1.5 text-[9px] px-1 pt-1">
+        <div className="flex flex-wrap items-center gap-1.5 text-[9px] px-1 pt-0.5">
           <span className="px-1.5 py-0.5 rounded bg-slate-950/60 border border-white/10 text-slate-200">{hoveredPoint.km.toFixed(2)} km</span>
           <span className="px-1.5 py-0.5 rounded bg-slate-950/60 border border-white/10 text-slate-200">{hoveredPoint.elevationM.toFixed(0)} m</span>
           <span className="px-1.5 py-0.5 rounded bg-slate-950/60 border border-white/10 capitalize text-slate-200">{trend}</span>

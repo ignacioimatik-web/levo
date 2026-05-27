@@ -1,10 +1,42 @@
 'use client';
 
 import { useRef, useEffect, useMemo, useCallback, useState, Fragment } from 'react';
-import { Map, Source, Layer, useMap, useControl, NavigationControl, FullscreenControl } from 'react-map-gl/mapbox';
+import { Map, Source, Layer, useMap, useControl, NavigationControl, FullscreenControl, Marker } from 'react-map-gl/mapbox';
 import type { MapMouseEvent } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import type { TrackMTB, TrackPoint, RutaConstruida } from '@/lib/forfait/types';
+
+function distM(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const R = 6371000;
+  const dLat = (b.lat - a.lat) * Math.PI / 180;
+  const dLng = (b.lng - a.lng) * Math.PI / 180;
+  const sinDLat = Math.sin(dLat / 2);
+  const sinDLng = Math.sin(dLng / 2);
+  const h = sinDLat * sinDLat + Math.cos(a.lat * Math.PI / 180) * Math.cos(b.lat * Math.PI / 180) * sinDLng * sinDLng;
+  return R * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+}
+
+function interpolarPuntoEnRuta(points: TrackPoint[], targetKm: number): { lat: number; lng: number } | null {
+  if (points.length < 2) return null;
+  const cums: number[] = [0];
+  for (let i = 1; i < points.length; i++) {
+    cums.push(cums[i - 1] + distM(points[i - 1], points[i]) / 1000);
+  }
+  const totalKm = cums[cums.length - 1];
+  const clampedKm = Math.max(0, Math.min(targetKm, totalKm));
+  for (let i = 1; i < points.length; i++) {
+    const aKm = cums[i - 1];
+    const bKm = cums[i];
+    if (clampedKm >= aKm && clampedKm <= bKm) {
+      const t = (bKm - aKm) > 0 ? (clampedKm - aKm) / (bKm - aKm) : 0;
+      return {
+        lat: points[i - 1].lat + (points[i].lat - points[i - 1].lat) * t,
+        lng: points[i - 1].lng + (points[i].lng - points[i - 1].lng) * t,
+      };
+    }
+  }
+  return { lat: points[points.length - 1].lat, lng: points[points.length - 1].lng };
+}
 
 const DIFICULTAD_COLORS: Record<string, string> = {
   verde: '#009988',
@@ -107,6 +139,7 @@ export default function MTBMap({
   cautionIds,
   notRecommendedIds,
   builtRoute,
+  hoveredRouteKm,
   onTrackClick,
 }: {
   tracks: TrackMTB[];
@@ -118,6 +151,7 @@ export default function MTBMap({
   cautionIds: string[];
   notRecommendedIds: string[];
   builtRoute: RutaConstruida | null;
+  hoveredRouteKm: number | null;
   onTrackClick: (track: TrackMTB) => void;
 }) {
   const hasSelection = selectedTrackIds.length > 0 || previewTrackIds.length > 0;
@@ -280,6 +314,24 @@ export default function MTBMap({
           />
         </Source>
       )}
+
+      {hoveredRouteKm !== null && builtRoute && (() => {
+        const pt = interpolarPuntoEnRuta(builtRoute.pointsCombinados, hoveredRouteKm);
+        if (!pt) return null;
+        return (
+          <Marker longitude={pt.lng} latitude={pt.lat} anchor="center">
+            <div style={{
+              width: 14,
+              height: 14,
+              borderRadius: '50%',
+              background: '#f97316',
+              border: '3px solid #fff',
+              boxShadow: '0 0 8px rgba(249,115,22,0.6)',
+              pointerEvents: 'none',
+            }} />
+          </Marker>
+        );
+      })()}
     </Map>
   );
 }

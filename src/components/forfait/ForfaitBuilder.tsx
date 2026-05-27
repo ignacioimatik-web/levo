@@ -75,6 +75,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
   const [previewTrackIds, setPreviewTrackIds] = useState<string[]>([]);
   const [hoveredTrackId, setHoveredTrackId] = useState<string | null>(null);
   const [fitToTrackId, setFitToTrackId] = useState<string | null>(null);
+  const [hoveredRouteKm, setHoveredRouteKm] = useState<number | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [savedRoutes, setSavedRoutes] = useState<SavedRouteData[]>([]);
@@ -809,12 +810,13 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
               cautionIds={suggestions.con_precaucion}
               notRecommendedIds={suggestions.no_recomendado}
               builtRoute={builtRoute}
+              hoveredRouteKm={hoveredRouteKm}
               onTrackClick={handleTrackClick}
             />
           </div>
           <div className={`flex-shrink-0 border-t border-white/[0.04] bg-slate-950/50 transition-all duration-300 ${builtRoute && selectedTrackIds.length > 0 ? 'h-[180px] lg:h-[200px]' : 'h-0 overflow-hidden'}`}>
             {builtRoute && selectedTrackIds.length > 0 && (
-              <ElevationProfile points={builtRoute.pointsCombinados} />
+              <ElevationProfile points={builtRoute.pointsCombinados} onHoverKm={setHoveredRouteKm} />
             )}
           </div>
           {(!builtRoute || selectedTrackIds.length === 0) && (
