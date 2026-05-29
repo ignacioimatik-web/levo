@@ -574,78 +574,74 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
             </div>
           </div>
         </div>
-      </section>
 
-      {/* ACTIVE TRACK DETAIL */}
-      {activeTrackId && (() => {
-        const track = trackMap.get(activeTrackId);
-        if (!track) return null;
-        const cfg = getVisualCfg(track);
-        return (
-          <div className="border-b border-white/5 bg-slate-950/60">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: cfg.color }} />
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-white truncate">{track.nombre}</span>
-                    <span className={`text-[10px] font-bold uppercase ${cfg.text}`}>{cfg.label}</span>
+        {/* ── Track detail + Filters inside map at bottom ── */}
+        <div className="absolute bottom-0 left-0 right-0 z-30 flex flex-col">
+          {activeTrackId && (() => {
+            const track = trackMap.get(activeTrackId);
+            if (!track) return null;
+            const cfg = getVisualCfg(track);
+            return (
+              <div className="bg-slate-950/85 backdrop-blur-md border-t border-white/10 px-4 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: cfg.color }} />
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-white truncate">{track.nombre}</span>
+                      <span className={`text-[10px] font-bold uppercase ${cfg.text}`}>{cfg.label}</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      {track.sector} · {track.distanciaKm.toFixed(1)} km · +{track.desnivelPositivo}m / -{track.desnivelNegativo}m
+                    </p>
                   </div>
-                  <p className="text-[11px] text-slate-500">
-                    {track.sector} · {track.distanciaKm.toFixed(1)} km · +{track.desnivelPositivo}m / -{track.desnivelNegativo}m
-                  </p>
                 </div>
-              </div>
-              <button onClick={() => setSelectedTrackIds(prev => prev.includes(activeTrackId) ? [] : [activeTrackId])}
-                className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${
-                  selectedTrackIds.includes(activeTrackId)
-                    ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
-                    : 'bg-slate-800 text-slate-300 border border-white/5 hover:bg-orange-500/15 hover:text-orange-400'
-                }`}
-              >
-                {selectedTrackIds.includes(activeTrackId) ? 'Seleccionado' : 'Añadir a ruta'}
-              </button>
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* FILTERS */}
-      <div className="z-10 bg-slate-950/90 backdrop-blur-md border-b border-white/5">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <button onClick={() => setDifFilter(null)}
-              className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-colors ${
-                !difFilter ? 'bg-orange-500/15 text-orange-400 border border-orange-500/30'
-                  : 'text-slate-500 border border-white/5 hover:text-slate-300'
-              }`}
-            >Todas</button>
-            {ALL_DIFICULTADES.map(d => {
-              const cfg = DIF_CONFIG[d];
-              const active = difFilter === d;
-              return (
-                <button key={d} onClick={() => setDifFilter(active ? null : d)}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-colors ${
-                    active ? `${cfg.color}/15 ${cfg.text} border ${cfg.color}/30`
-                      : 'text-slate-500 border border-white/5 hover:text-slate-300'
+                <button onClick={() => setSelectedTrackIds(prev => prev.includes(activeTrackId) ? [] : [activeTrackId])}
+                  className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                    selectedTrackIds.includes(activeTrackId)
+                      ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                      : 'bg-slate-800 text-slate-300 border border-white/5 hover:bg-orange-500/15 hover:text-orange-400'
                   }`}
                 >
-                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: cfg.color }} />
-                  {cfg.label}
+                  {selectedTrackIds.includes(activeTrackId) ? 'Seleccionado' : 'Añadir a ruta'}
                 </button>
-              );
-            })}
-          </div>
-          <div className="flex items-center gap-2 text-[9px] text-slate-500 flex-wrap">
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#10b981' }} /> Fácil</span>
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#3b82f6' }} /> Media</span>
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#ef4444' }} /> Difícil</span>
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#1e293b', border: '1px solid rgba(255,255,255,0.2)' }} /> Experto</span>
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#f97316' }} /> Enduro</span>
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#64748b' }} /> Cerrado</span>
+              </div>
+            );
+          })()}
+          <div className="bg-slate-950/85 backdrop-blur-md border-t border-white/10 px-4 sm:px-6 py-2 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <button onClick={() => setDifFilter(null)}
+                className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                  !difFilter ? 'bg-orange-500/15 text-orange-400 border border-orange-500/30'
+                    : 'text-slate-500 border border-white/5 hover:text-slate-300'
+                }`}
+              >Todas</button>
+              {ALL_DIFICULTADES.map(d => {
+                const cfg = DIF_CONFIG[d];
+                const active = difFilter === d;
+                return (
+                  <button key={d} onClick={() => setDifFilter(active ? null : d)}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                      active ? `${cfg.color}/15 ${cfg.text} border ${cfg.color}/30`
+                        : 'text-slate-500 border border-white/5 hover:text-slate-300'
+                    }`}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: cfg.color }} />
+                    {cfg.label}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex items-center gap-2 text-[9px] text-slate-500 flex-wrap">
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#10b981' }} /> Fácil</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#3b82f6' }} /> Media</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#ef4444' }} /> Difícil</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#1e293b', border: '1px solid rgba(255,255,255,0.2)' }} /> Experto</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#f97316' }} /> Enduro</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#64748b' }} /> Cerrado</span>
+            </div>
           </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 }
