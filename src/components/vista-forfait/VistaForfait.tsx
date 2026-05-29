@@ -533,6 +533,31 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
             </div>
           )}
 
+          {/* Preset camera buttons */}
+          <div className="absolute top-16 right-12 z-10 hidden sm:flex flex-col gap-1">
+            {[
+              { zoom: 13, pitch: 75, bearing: 80 },
+              { zoom: 15, pitch: 78, bearing: 120 },
+              { zoom: 16, pitch: 81, bearing: 170 },
+            ].map((p, i) => (
+              <button key={i} onClick={() => {
+                if (!mapRef.current) return;
+                const c = mapRef.current.getCenter();
+                mapRef.current.flyTo({
+                  center: [c.lng, c.lat],
+                  zoom: p.zoom,
+                  pitch: p.pitch,
+                  bearing: p.bearing,
+                  duration: 800,
+                });
+              }}
+                className="px-1.5 py-0.5 rounded text-[9px] font-bold font-mono text-slate-400 bg-slate-950/70 backdrop-blur-sm border border-white/5 hover:bg-orange-500/20 hover:text-orange-400 hover:border-orange-500/30 transition-colors"
+              >
+                z{p.zoom} p{p.pitch} b{p.bearing}
+              </button>
+            ))}
+          </div>
+
           {/* Tooltip */}
           {hoveredTrackId && tooltipPos && (() => {
             const track = trackMap.get(hoveredTrackId);
