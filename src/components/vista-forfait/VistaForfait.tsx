@@ -413,7 +413,7 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
 
       {/* ── MAPA 3D ── */}
       <section ref={panoramaRef}
-        className="panorama-container relative w-full overflow-hidden bg-slate-900 max-h-[50vh] sm:max-h-[55vh] lg:max-h-none"
+        className="panorama-container relative w-full overflow-hidden bg-slate-900 max-h-[50vh] sm:max-h-[55vh] lg:max-h-none rounded-xl"
       >
         <div className="relative w-full aspect-[2/1] min-h-[300px]">
           {sectorBounds ? (
@@ -515,6 +515,12 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
               <p className="text-slate-500 text-sm">Cargando mapa...</p>
             </div>
           )}
+
+          {/* Modern frame overlay */}
+          <div className="absolute inset-0 pointer-events-none z-[5] rounded-xl" style={{
+            background: 'linear-gradient(160deg, rgba(255,255,255,0.07) 0%, transparent 4%, transparent 96%, rgba(255,255,255,0.07) 100%)',
+            boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.05), inset 0 0 60px rgba(0,0,0,0.12)',
+          }} />
 
           {/* Sector badge */}
           <div className="absolute top-2 left-2 z-10 pointer-events-none">
