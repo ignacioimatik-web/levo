@@ -1,22 +1,20 @@
 'use client';
 
-import { useMemo, useState, useCallback, useEffect } from 'react';
+import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import type { TrackMTB, DificultadMTB } from '@/lib/forfait/types';
+import type { TrackMTB, DificultadMTB, TrackPoint } from '@/lib/forfait/types';
 import { buildProfileSeries } from '@/lib/forfait/geo-utils';
 
-/* ─── Constants ─── */
-const PANORAMA_IMAGE_URL = '/images/panorama-placeholder.svg';
-const ASPECT_RATIO = 'aspect-[21/9]';
-const STORAGE_KEY = 'forfait-builder-route';
-
-/* ─── Visual mapping: conecta la panorámica con tracks reales ─── */
-interface PanoramaTrackMapping {
-  trackId: string;
-  visualPath: string;
-  sectorLabelPosition: { x: number; y: number } | null;
-  labelPosition: { x: number; y: number };
+/* ─── Types ─── */
+interface Bounds {
+  minLat: number;
+  maxLat: number;
+  minLng: number;
+  maxLng: number;
 }
+
+/* ─── Constants ─── */
+const STORAGE_KEY = 'forfait-builder-route';
 
 const DIF_COLORS: Record<string, string> = {
   verde: '#10b981',
@@ -40,6 +38,7 @@ const DIF_CONFIG: Record<string, VisualConfig> = {
 };
 
 const ALL_DIFICULTADES = ['verde', 'azul', 'rojo', 'negro', 'doble-negro'] as const;
+const MAX_GPX_POINTS = 200;
 
 function getVisualConfig(track: TrackMTB): VisualConfig {
   if (track.estado === 'cerrado') return DIF_CONFIG.gris;
@@ -53,117 +52,182 @@ function getVisualColor(track: TrackMTB): string {
   return DIF_COLORS[track.dificultad] || DIF_COLORS.naranja;
 }
 
-/* ─── Sector regions on 1000x500 viewBox ─── */
-const SECTOR_REGIONS: Record<string, { sx: number; sy: number; ex: number; ey: number; spread: number }> = {
-  Bergantes:       { sx: 40, sy: 70, ex: 80, ey: 330, spread: 70 },
-  Celumbres:       { sx: 190, sy: 50, ex: 230, ey: 310, spread: 65 },
-  'El Riu de les Corces': { sx: 340, sy: 90, ex: 390, ey: 340, spread: 75 },
-  'Peter Rules':   { sx: 510, sy: 60, ex: 560, ey: 320, spread: 70 },
-  'Torre Miró - Xiva': { sx: 690, sy: 80, ex: 750, ey: 330, spread: 80 },
-};
-
-/* ─── Generate a winding mountain trail SVG path ─── */
-function generateTrailPath(
-  region: { sx: number; sy: number; ex: number; ey: number; spread: number },
-  seed: number,
-  total: number,
-): string {
-  const t = seed / Math.max(1, total - 1);
-  const startX = region.sx + t * 120 + (Math.sin(seed * 3.7) * 20);
-  const startY = region.sy + Math.sin(t * 4.1) * 25 + seed * 3;
-  const endX = region.ex + (1 - t) * 100 + (Math.cos(seed * 2.3) * 25);
-  const endY = region.ey + Math.cos(t * 3.3) * 30 + seed * 2;
-  const s = region.spread;
-
-  const segments = [
-    { r: 0.2, wx: Math.sin(seed * 5.1) * s, wy: Math.cos(seed * 4.7) * s * 0.6 },
-    { r: 0.45, wx: Math.cos(seed * 7.3) * s * 1.1, wy: Math.sin(seed * 6.1) * s * 0.7 },
-    { r: 0.7, wx: Math.sin(seed * 9.7) * s * 0.8, wy: Math.cos(seed * 8.3) * s * 0.5 },
-  ];
-
-  let path = `M ${startX.toFixed(1)} ${startY.toFixed(1)}`;
-  let px = startX, py = startY;
-
-  for (const seg of segments) {
-    const mx = startX + (endX - startX) * seg.r + seg.wx;
-    const my = startY + (endY - startY) * seg.r + seg.wy;
-    const cpx1 = px + (mx - px) * 0.3 + seg.wx * 0.4;
-    const cpy1 = py + (my - py) * 0.25 + seg.wy * 0.3;
-    const cpx2 = px + (mx - px) * 0.7 + seg.wx * 0.6;
-    const cpy2 = py + (my - py) * 0.6 + seg.wy * 0.5;
-    path += ` C ${cpx1.toFixed(1)} ${cpy1.toFixed(1)}, ${cpx2.toFixed(1)} ${cpy2.toFixed(1)}, ${mx.toFixed(1)} ${my.toFixed(1)}`;
-    px = mx; py = my;
-  }
-
-  // Final segment to end
-  const fx = endX + Math.sin(seed * 11.3) * 30;
-  const fy = endY + Math.cos(seed * 13.7) * 20;
-  path += ` C ${(px + (fx - px) * 0.5 + (seed * 2.5)).toFixed(1)} ${(py + (fy - py) * 0.4).toFixed(1)}, ${(px + (fx - px) * 0.8 + (seed * 3.1)).toFixed(1)} ${(py + (fy - py) * 0.7).toFixed(1)}, ${fx.toFixed(1)} ${fy.toFixed(1)}`;
-
-  return path;
+/* ─── Geo helpers ─── */
+function downsamplePoints(points: TrackPoint[], max: number): TrackPoint[] {
+  if (points.length <= max) return points;
+  const step = (points.length - 1) / (max - 1);
+  return Array.from({ length: max }, (_, i) => points[Math.round(i * step)]);
 }
 
-/* ─── Build panorama ↔ real-track mapping ─── */
-function buildPanoramaTrackMappings(tracks: TrackMTB[]): PanoramaTrackMapping[] {
-  const trackIndex = new Map<string, TrackMTB>();
-  for (const t of tracks) trackIndex.set(t.id, t);
-
-  const bySector = new Map<string, TrackMTB[]>();
+function computeBounds(tracks: TrackMTB[]): Bounds {
+  let minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
+  let valid = false;
   for (const t of tracks) {
-    const s = t.sector || 'Otros';
-    if (!bySector.has(s)) bySector.set(s, []);
-    bySector.get(s)!.push(t);
-  }
-
-  const result: PanoramaTrackMapping[] = [];
-  for (const [, sectorTracks] of bySector) {
-    const region = SECTOR_REGIONS[sectorTracks[0]?.sector];
-    if (!region) continue;
-    for (let i = 0; i < sectorTracks.length; i++) {
-      const t = sectorTracks[i];
-
-      // Safety: only map if the real track exists
-      if (!trackIndex.has(t.id)) continue;
-
-      const path = generateTrailPath(region, i, sectorTracks.length);
-
-      // Parse endpoint from path for label position
-      const lastCmd = path.split(' ').pop();
-      const nums = lastCmd?.match(/[\d.-]+/g);
-      const ex = nums ? parseFloat(nums[nums.length - 2]) : region.ex;
-      const ey = nums ? parseFloat(nums[nums.length - 1]) : region.ey;
-
-      result.push({
-        trackId: t.id,
-        visualPath: path,
-        sectorLabelPosition: { x: region.sx + 60, y: region.sy - 15 },
-        labelPosition: { x: ex, y: ey },
-      });
+    for (const p of t.points) {
+      minLat = Math.min(minLat, p.lat);
+      maxLat = Math.max(maxLat, p.lat);
+      minLng = Math.min(minLng, p.lng);
+      maxLng = Math.max(maxLng, p.lng);
+      valid = true;
     }
   }
-  return result;
+  if (!valid) return { minLat: 40.6, maxLat: 40.7, minLng: -0.2, maxLng: 0 };
+  const padLat = (maxLat - minLat) * 0.1 || 0.01;
+  const padLng = (maxLng - minLng) * 0.1 || 0.01;
+  return {
+    minLat: minLat - padLat,
+    maxLat: maxLat + padLat,
+    minLng: minLng - padLng,
+    maxLng: maxLng + padLng,
+  };
 }
 
-/* ─── Track label on the panorama ─── */
-function PanoramaTrackLabel({ x, y, label, color }: { x: number; y: number; label: string; color: string }) {
+function geoToViewBox(lng: number, lat: number, bounds: Bounds): { x: number; y: number } {
+  return {
+    x: ((lng - bounds.minLng) / (bounds.maxLng - bounds.minLng)) * 1000,
+    y: ((bounds.maxLat - lat) / (bounds.maxLat - bounds.minLat)) * 500,
+  };
+}
+
+function generateGpxPath(pts: TrackPoint[], bounds: Bounds) {
+  const viewPts = pts.map(p => geoToViewBox(p.lng, p.lat, bounds));
+  const d = viewPts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join('');
+  const last = viewPts[viewPts.length - 1];
+  return { d, endX: last.x, endY: last.y };
+}
+
+/* ─── Sector card ─── */
+function SectorCard({
+  name,
+  trackCount,
+  difficulties,
+  totalKm,
+  onClick,
+}: {
+  name: string;
+  trackCount: number;
+  difficulties: DificultadMTB[];
+  totalKm: number;
+  onClick: () => void;
+}) {
   return (
-    <div
-      className="absolute px-2 py-0.5 rounded-md bg-slate-950/60 backdrop-blur-sm border border-white/10 text-[10px] font-medium text-white shadow-lg pointer-events-none whitespace-nowrap"
-      style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)', borderLeftColor: color, borderLeftWidth: 3 }}
+    <button
+      onClick={onClick}
+      className="relative flex flex-col items-start p-6 sm:p-8 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 border border-white/[0.06] hover:border-orange-500/30 transition-all text-left group cursor-pointer shadow-xl"
     >
-      {label}
-    </div>
+      <h3 className="text-base sm:text-lg font-bold text-white group-hover:text-orange-400 transition-colors">
+        {name}
+      </h3>
+      <p className="text-sm text-slate-400 mt-1.5">
+        {trackCount} {trackCount === 1 ? 'senda' : 'sendas'}
+        <span className="text-slate-600 mx-2">·</span>
+        {totalKm.toFixed(0)} km
+      </p>
+      <div className="flex items-center gap-1.5 mt-3">
+        {difficulties.map(d => (
+          <span key={d} className={`w-2.5 h-2.5 rounded-full ${DIF_CONFIG[d]?.color || 'bg-slate-500'}`} title={DIF_CONFIG[d]?.label || d} />
+        ))}
+      </div>
+    </button>
   );
 }
 
-/* ─── Sector labels in SVG viewBox (estilo mapa de estación) ─── */
-const PANORAMA_SECTORS: { name: string; x: number; y: number }[] = [
-  { name: 'Bergantes', x: 100, y: 55 },
-  { name: 'Celumbres', x: 240, y: 35 },
-  { name: 'El Riu de les Corces', x: 400, y: 65 },
-  { name: 'Peter Rules', x: 570, y: 40 },
-  { name: 'Torre Miró - Xiva', x: 760, y: 55 },
-];
+/* ─── Trail SVG ─── */
+function TrailSvgPath({
+  d,
+  endX,
+  endY,
+  color,
+  isClosed,
+  isHovered,
+  isActive,
+  isSelected,
+}: {
+  d: string;
+  endX: number;
+  endY: number;
+  color: string;
+  isClosed: boolean;
+  isHovered: boolean;
+  isActive: boolean;
+  isSelected: boolean;
+}) {
+  let strokeWidth = 2.5;
+  let opacity = isClosed ? 0.2 : 0.45;
+  let glowOpacity = 0.15;
+  let glowWidth = 6;
+
+  if (isActive) {
+    strokeWidth = 5;
+    opacity = 1;
+    glowOpacity = 0.5;
+    glowWidth = 14;
+  } else if (isHovered) {
+    strokeWidth = 4.5;
+    opacity = 0.9;
+    glowOpacity = 0.4;
+    glowWidth = 12;
+  } else if (isSelected) {
+    strokeWidth = 3.5;
+    opacity = 0.75;
+    glowOpacity = 0.25;
+    glowWidth = 8;
+  }
+
+  const dash = isClosed ? '5,5' : isSelected ? '8,5' : 'none';
+
+  return (
+    <g>
+      <path
+        d={d}
+        fill="none"
+        stroke="#000000"
+        strokeWidth={glowWidth + 4}
+        strokeOpacity={0.35}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={{ filter: 'blur(4px)' }}
+      />
+      {glowOpacity > 0 && (
+        <path
+          d={d}
+          fill="none"
+          stroke={color}
+          strokeWidth={glowWidth}
+          strokeOpacity={glowOpacity}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{ filter: 'blur(3px)' }}
+        />
+      )}
+      <path
+        d={d}
+        fill="none"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeOpacity={opacity}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeDasharray={dash}
+        className="transition-[stroke-width,stroke-opacity] duration-200"
+        vectorEffect="non-scaling-stroke"
+      />
+      {(isHovered || isActive) && (
+        <circle
+          cx={endX}
+          cy={endY}
+          r={isActive ? 5 : 4}
+          fill={color}
+          opacity={0.95}
+          stroke="#000000"
+          strokeWidth={1.5}
+          strokeOpacity={0.5}
+          className="transition-all duration-200"
+        />
+      )}
+    </g>
+  );
+}
 
 /* ─── Mini elevation SVG ─── */
 function MiniElevation({ points }: { points: TrackMTB['points'] }) {
@@ -193,7 +257,7 @@ const ESTADO_STYLES: Record<string, string> = {
   revision: 'bg-orange-500/10 text-orange-400 border-orange-500/30',
 };
 
-/* ─── Track row (compact, responsive) ─── */
+/* ─── Track row ─── */
 function TrackRow({
   track,
   isHovered,
@@ -268,101 +332,6 @@ function TrackRow({
   );
 }
 
-/* ─── Interactive SVG trail ─── */
-function TrailSvgPath({
-  mapping,
-  color,
-  isClosed,
-  isHovered,
-  isActive,
-  isSelected,
-}: {
-  mapping: PanoramaTrackMapping;
-  color: string;
-  isClosed: boolean;
-  isHovered: boolean;
-  isActive: boolean;
-  isSelected: boolean;
-}) {
-  let strokeWidth = 2.5;
-  let opacity = isClosed ? 0.2 : 0.45;
-  let glowOpacity = 0.15;
-  let glowWidth = 6;
-
-  if (isActive) {
-    strokeWidth = 5;
-    opacity = 1;
-    glowOpacity = 0.5;
-    glowWidth = 14;
-  } else if (isHovered) {
-    strokeWidth = 4.5;
-    opacity = 0.9;
-    glowOpacity = 0.4;
-    glowWidth = 12;
-  } else if (isSelected) {
-    strokeWidth = 3.5;
-    opacity = 0.75;
-    glowOpacity = 0.25;
-    glowWidth = 8;
-  }
-
-  const dash = isClosed ? '5,5' : isSelected ? '8,5' : 'none';
-
-  return (
-    <g>
-      {/* Permanent subtle glow so lines stand out over the image */}
-      <path
-        d={mapping.visualPath}
-        fill="none"
-        stroke={isClosed ? '#000000' : '#000000'}
-        strokeWidth={glowWidth + 4}
-        strokeOpacity={0.35}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        style={{ filter: 'blur(4px)' }}
-      />
-      {/* Colored glow */}
-      {(glowOpacity > 0) && (
-        <path
-          d={mapping.visualPath}
-          fill="none"
-          stroke={color}
-          strokeWidth={glowWidth}
-          strokeOpacity={glowOpacity}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          style={{ filter: 'blur(3px)' }}
-        />
-      )}
-      {/* Main path */}
-      <path
-        d={mapping.visualPath}
-        fill="none"
-        stroke={color}
-        strokeWidth={strokeWidth}
-        strokeOpacity={opacity}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeDasharray={dash}
-        className="transition-[stroke-width,stroke-opacity] duration-200"
-        vectorEffect="non-scaling-stroke"
-      />
-      {/* Endpoint dot */}
-      {(isHovered || isActive) && (
-        <circle
-          cx={0} cy={0} r={isActive ? 5 : 4}
-          fill={color}
-          opacity={0.95}
-          stroke="#000000"
-          strokeWidth={1.5}
-          strokeOpacity={0.5}
-          className="transition-all duration-200"
-        />
-      )}
-    </g>
-  );
-}
-
 /* ─── Main component ─── */
 export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
   const [difFilter, setDifFilter] = useState<DificultadMTB | null>(null);
@@ -370,16 +339,70 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
   const [activeTrackId, setActiveTrackId] = useState<string | null>(null);
   const [selectedTrackIds, setSelectedTrackIds] = useState<string[]>([]);
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
-  const [sectorFilter, setSectorFilter] = useState<string | null>(null);
   const [showLegend, setShowLegend] = useState(false);
+  const [activeSector, setActiveSector] = useState<string | null>(null);
+  const panoramaRef = useRef<HTMLDivElement>(null);
 
+  /* ── Computed sector data ── */
+  const sectorsData = useMemo(() => {
+    const map = new Map<string, TrackMTB[]>();
+    for (const t of tracks) {
+      const s = t.sector || 'Otros';
+      if (!map.has(s)) map.set(s, []);
+      map.get(s)!.push(t);
+    }
+    return Array.from(map.entries())
+      .map(([name, st]) => ({
+        name,
+        tracks: st,
+        count: st.length,
+        difficulties: [...new Set(st.map(t => t.dificultad))] as DificultadMTB[],
+        totalKm: st.reduce((sum, t) => sum + t.distanciaKm, 0),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [tracks]);
+
+  /* ── Active sector derived data ── */
+  const sectorTracks = useMemo(
+    () => (activeSector ? tracks.filter(t => t.sector === activeSector) : []),
+    [tracks, activeSector],
+  );
+
+  const sectorBounds = useMemo(
+    () => (sectorTracks.length > 0 ? computeBounds(sectorTracks) : null),
+    [sectorTracks],
+  );
+
+  const mapboxUrl = useMemo(() => {
+    if (!sectorBounds) return '';
+    const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
+    if (!token) return '';
+    const { minLng, minLat, maxLng, maxLat } = sectorBounds;
+    return `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/static/${minLng},${minLat},${maxLng},${maxLat}/1280x640@2x?access_token=${token}&logo=false`;
+  }, [sectorBounds]);
+
+  const gpxPaths = useMemo(() => {
+    if (!sectorBounds || sectorTracks.length === 0) return [];
+    return sectorTracks.map(t => {
+      const pts = downsamplePoints(t.points, MAX_GPX_POINTS);
+      return { trackId: t.id, ...generateGpxPath(pts, sectorBounds) };
+    });
+  }, [sectorTracks, sectorBounds]);
+
+  const trackMap = useMemo(() => {
+    const m = new Map<string, TrackMTB>();
+    for (const t of tracks) m.set(t.id, t);
+    return m;
+  }, [tracks]);
+
+  /* ── Filtered (for TrackRow list) ── */
   const filtered = useMemo(() => {
-    let result = tracks;
+    let result = activeSector ? tracks.filter(t => t.sector === activeSector) : [];
     if (difFilter) result = result.filter(t => t.dificultad === difFilter);
     return result;
-  }, [tracks, difFilter]);
+  }, [tracks, difFilter, activeSector]);
 
-  // Sync selectedTrackIds with ForfaitBuilder's localStorage
+  /* ── localStorage sync with ForfaitBuilder ── */
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -407,149 +430,221 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
     } catch { /* empty */ }
   }, [selectedTrackIds]);
 
-  const sectorsList = useMemo(() => [...new Set(tracks.map(t => t.sector))], [tracks]);
-
-  const trackMappings = useMemo(() => buildPanoramaTrackMappings(tracks), [tracks]);
-
-  const trackMap = useMemo(() => {
-    const m = new Map<string, TrackMTB>();
-    for (const t of tracks) m.set(t.id, t);
-    return m;
-  }, [tracks]);
-
-  const handleTrackHover = useCallback((id: string | null) => {
-    setHoveredTrackId(id);
-  }, []);
-
+  /* ── Handlers ── */
+  const handleTrackHover = useCallback((id: string | null) => setHoveredTrackId(id), []);
   const handleSvgHover = useCallback((id: string | null) => {
     setHoveredTrackId(id);
     if (!id) setTooltipPos(null);
   }, []);
-
-  const handleSvgMove = useCallback((e: React.MouseEvent, trackId: string) => {
+  const handleSvgMove = useCallback((e: React.MouseEvent) => {
     if (!hoveredTrackId) return;
-    const rect = e.currentTarget.closest('.panorama-container')?.getBoundingClientRect();
+    const rect = panoramaRef.current?.getBoundingClientRect();
     if (!rect) return;
     setTooltipPos({
       x: ((e.clientX - rect.left) / rect.width) * 100,
       y: ((e.clientY - rect.top) / rect.height) * 100,
     });
   }, [hoveredTrackId]);
-
   const handleSvgTouch = useCallback((id: string) => {
     setHoveredTrackId(id);
-    setActiveTrackId(prev => prev === id ? null : id);
+    setActiveTrackId(prev => (prev === id ? null : id));
   }, []);
-
   const handleSvgClick = useCallback((id: string) => {
-    setActiveTrackId(prev => prev === id ? null : id);
+    setActiveTrackId(prev => (prev === id ? null : id));
   }, []);
-
   const handleSelectTrack = useCallback((id: string) => {
-    setActiveTrackId(prev => prev === id ? null : id);
+    setActiveTrackId(prev => (prev === id ? null : id));
     setSelectedTrackIds(prev =>
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id],
     );
   }, []);
-
-  const handleSectorClick = useCallback((name: string) => {
-    setSectorFilter(prev => prev === name ? null : name);
+  const handleBackToSectors = useCallback(() => {
+    setActiveSector(null);
+    setActiveTrackId(null);
+    setHoveredTrackId(null);
+    setDifFilter(null);
   }, []);
 
+  /* ── Render: Sector cards ── */
+  if (!activeSector) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col">
+        <nav className="relative z-20 bg-slate-950/90 backdrop-blur-md border-b border-white/5">
+          <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-12 sm:h-14 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <Link
+                href="/forfait"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 sm:px-2.5 sm:py-1 rounded text-[10px] font-bold uppercase tracking-widest transition-colors bg-orange-500/10 text-orange-400 border border-orange-500/25 hover:bg-orange-500/20 flex-shrink-0"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+                <span className="hidden sm:inline">Volver a Forfait</span>
+              </Link>
+              <span className="ml-2 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-widest bg-orange-500/15 text-orange-400">Vista Forfait</span>
+            </div>
+            <span className="text-[11px] text-slate-500">{tracks.length} sendas · {sectorsData.length} sectores</span>
+          </div>
+        </nav>
+
+        <main className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+          <div className="mb-8 sm:mb-10">
+            <h1 className="text-xl sm:text-2xl font-bold text-white">Selecciona un sector</h1>
+            <p className="text-sm text-slate-400 mt-1">Explora las sendas de cada sector del bike resort</p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+            {sectorsData.map(s => (
+              <SectorCard
+                key={s.name}
+                name={s.name}
+                trackCount={s.count}
+                difficulties={s.difficulties}
+                totalKm={s.totalKm}
+                onClick={() => setActiveSector(s.name)}
+              />
+            ))}
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  /* ── Render: Sector detail ── */
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col">
-
       <style>{`.touch-manipulation { touch-action: manipulation; }`}</style>
 
-      {/* ── NAVEGACIÓN RESPONSIVE ── */}
+      {/* ── NAV ── */}
       <nav className="relative z-20 bg-slate-950/90 backdrop-blur-md border-b border-white/5">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-12 sm:h-14 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <Link
-              href="/forfait"
+            <button
+              onClick={handleBackToSectors}
               className="inline-flex items-center gap-1.5 px-2.5 py-1.5 sm:px-2.5 sm:py-1 rounded text-[10px] font-bold uppercase tracking-widest transition-colors bg-orange-500/10 text-orange-400 border border-orange-500/25 hover:bg-orange-500/20 flex-shrink-0"
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
               </svg>
-              <span className="hidden sm:inline">Volver a Forfait</span>
-            </Link>
-            <div className="hidden sm:flex items-center gap-0.5 ml-2">
-              <Link href="/forfait" className="px-2 py-1 rounded text-[10px] font-bold uppercase tracking-widest transition-colors text-slate-500 hover:text-slate-300">Forfait</Link>
-              <span className="text-slate-600 text-[10px] mx-0.5">·</span>
-              <span className="px-2 py-1 rounded text-[10px] font-bold uppercase tracking-widest text-slate-500">Mapa técnico</span>
-              <span className="text-slate-600 text-[10px] mx-0.5">·</span>
-              <span className="px-2 py-1 rounded text-[10px] font-bold uppercase tracking-widest bg-orange-500/15 text-orange-400">Vista Forfait</span>
-            </div>
+              <span className="hidden sm:inline">Sectores</span>
+            </button>
+            <span className="hidden sm:inline text-sm font-bold text-white ml-2 truncate">{activeSector}</span>
           </div>
           <div className="flex items-center gap-2 text-[11px] text-slate-500 flex-shrink-0">
-            <span>{tracks.length}</span>
-            <span className="hidden sm:inline">sendas</span>
+            <span>{sectorTracks.length} sendas</span>
             <span className="hidden xs:inline">·</span>
-            <span className="hidden xs:inline">{sectorsList.length} sectores</span>
+            <span className="hidden xs:inline">{sectorTracks.reduce((s, t) => s + t.distanciaKm, 0).toFixed(0)} km</span>
           </div>
         </div>
       </nav>
 
       {/* ── PANORAMA ── */}
-      <section className="panorama-container relative w-full overflow-hidden bg-slate-900 max-h-[40vh] sm:max-h-[50vh] lg:max-h-none">
-        <div className={`relative w-full h-full min-h-[30vh] sm:min-h-[35vh] lg:min-h-0 ${ASPECT_RATIO}`}>
-          <img
-            src={PANORAMA_IMAGE_URL}
-            alt="Panorámica bike resort"
-            className="absolute inset-0 w-full h-full object-cover"
-          />
+      <section
+        ref={panoramaRef}
+        className="panorama-container relative w-full overflow-hidden bg-slate-900 max-h-[40vh] sm:max-h-[50vh] lg:max-h-none"
+      >
+        <div className="relative w-full h-full min-h-[30vh] sm:min-h-[35vh] lg:min-h-0 aspect-[2/1]">
+          {mapboxUrl ? (
+            <img
+              src={mapboxUrl}
+              alt={`Mapa satélite ${activeSector}`}
+              className="absolute inset-0 w-full h-full object-cover"
+              onError={e => {
+                (e.currentTarget as HTMLImageElement).src = '/images/panorama-placeholder.svg';
+              }}
+            />
+          ) : (
+            <img
+              src="/images/panorama-placeholder.svg"
+              alt="Panorámica"
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+          )}
 
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/10 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-r from-slate-950/40 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/10 to-transparent pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-r from-slate-950/40 to-transparent pointer-events-none" />
 
-          {/* SVG overlay — viewBox fijo 1000x500, escala con el contenedor */}
+          {/* Sector name overlay */}
+          <div className="absolute top-3 left-3 z-20 pointer-events-none">
+            <span className="px-3 py-1 rounded-full bg-slate-950/70 backdrop-blur-sm text-xs font-bold text-orange-400 border border-orange-500/30">
+              {activeSector}
+            </span>
+          </div>
+
+          {/* Mapbox attribution */}
+          <div className="absolute bottom-1 right-1 z-20 pointer-events-none text-[9px] text-white/50">
+            © Mapbox © OpenStreetMap
+          </div>
+
+          {/* SVG overlay */}
           <svg
             className="svg-overlay absolute inset-0 w-full h-full"
             viewBox="0 0 1000 500"
-            preserveAspectRatio="xMidYMid meet"
+            preserveAspectRatio="xMidYMid slice"
           >
-            {trackMappings.map(m => {
-              const track = trackMap.get(m.trackId);
-              // Si no encuentra el track real, no dibuja nada
+            {gpxPaths.map(({ trackId, d, endX, endY }) => {
+              const track = trackMap.get(trackId);
               if (!track) return null;
               if (difFilter && track.dificultad !== difFilter) return null;
-              const hovered = hoveredTrackId === m.trackId;
-              const active = activeTrackId === m.trackId;
-              const dimmed = !!(sectorFilter && track.sector !== sectorFilter);
+              const hovered = hoveredTrackId === trackId;
+              const active = activeTrackId === trackId;
               return (
-                <g key={m.trackId} className={dimmed ? 'opacity-20' : ''}>
-                  {/* Hit area invisble (20px) para hover/click/touch */}
+                <g key={trackId}>
                   <path
-                    d={m.visualPath}
+                    d={d}
                     fill="none"
                     stroke="transparent"
                     strokeWidth={20}
                     className="cursor-pointer touch-manipulation"
-                    onMouseEnter={() => handleSvgHover(m.trackId)}
-                    onMouseMove={e => handleSvgMove(e, m.trackId)}
+                    onMouseEnter={() => handleSvgHover(trackId)}
+                    onMouseMove={handleSvgMove}
                     onMouseLeave={() => handleSvgHover(null)}
-                    onClick={() => handleSvgClick(m.trackId)}
-                    onTouchStart={e => { e.preventDefault(); handleSvgTouch(m.trackId); }}
+                    onClick={() => handleSvgClick(trackId)}
+                    onTouchStart={e => { e.preventDefault(); handleSvgTouch(trackId); }}
                   />
                   <TrailSvgPath
-                    mapping={m}
+                    d={d}
+                    endX={endX}
+                    endY={endY}
                     color={getVisualColor(track)}
                     isClosed={track.estado === 'cerrado'}
                     isHovered={hovered}
                     isActive={active}
-                    isSelected={selectedTrackIds.includes(m.trackId)}
+                    isSelected={selectedTrackIds.includes(trackId)}
                   />
                 </g>
               );
             })}
+
+            {/* Track name labels on hover/active */}
+            {gpxPaths.map(({ trackId, endX, endY }) => {
+              const track = trackMap.get(trackId);
+              if (!track) return null;
+              if (difFilter && track.dificultad !== difFilter) return null;
+              const show = hoveredTrackId === trackId || activeTrackId === trackId;
+              if (!show) return null;
+              return (
+                <text
+                  key={`lbl-${trackId}`}
+                  x={endX + 10}
+                  y={endY - 6}
+                  fill="#ffffff"
+                  fontSize={11}
+                  fontWeight="bold"
+                  fontFamily="system-ui, sans-serif"
+                  pointerEvents="none"
+                  className="drop-shadow-lg"
+                >
+                  {track.nombre}
+                </text>
+              );
+            })}
           </svg>
 
-          {/* Tooltip flotante sobre la imagen (hover SVG) */}
+          {/* Tooltip flotante */}
           {hoveredTrackId && tooltipPos && (() => {
             const track = trackMap.get(hoveredTrackId);
             if (!track) return null;
-            if (sectorFilter && track.sector !== sectorFilter) return null;
             const cfg = getVisualConfig(track);
             return (
               <div
@@ -566,71 +661,10 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
               </div>
             );
           })()}
-
-          {/* Name label for hovered/active (sobre la línea en la imagen) */}
-          {trackMappings.map(m => {
-            const track = trackMap.get(m.trackId);
-            if (!track) return null;
-            if (difFilter && track.dificultad !== difFilter) return null;
-            if (sectorFilter && track.sector !== sectorFilter) return null;
-            const show = hoveredTrackId === m.trackId || activeTrackId === m.trackId;
-            if (!show) return null;
-            const pctX = (m.labelPosition.x / 1000) * 100;
-            const pctY = (m.labelPosition.y / 500) * 100;
-            return (
-              <PanoramaTrackLabel
-                key={`label-${m.trackId}`}
-                x={pctX}
-                y={pctY}
-                label={track.nombre}
-                color={getVisualColor(track)}
-              />
-            );
-          })}
-
-          {/* Sector labels (en SVG, estilo mapa de estación) */}
-          {PANORAMA_SECTORS.map(s => {
-            const active = sectorFilter === s.name;
-            const w = s.name.length * 8 + 28;
-            return (
-              <g
-                key={s.name}
-                className="cursor-pointer"
-                onClick={() => handleSectorClick(s.name)}
-                pointerEvents="bounding-box"
-              >
-                <rect
-                  x={s.x - w / 2}
-                  y={s.y - 15}
-                  width={w}
-                  height={30}
-                  rx={15}
-                  fill={active ? 'rgba(249,115,22,0.25)' : 'rgba(2,6,23,0.65)'}
-                  stroke={active ? '#f97316' : 'rgba(255,255,255,0.12)'}
-                  strokeWidth={active ? 1.5 : 1}
-                  className="transition-all duration-200"
-                />
-                <text
-                  x={s.x}
-                  y={s.y + 5}
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  fill={active ? '#f97316' : 'rgba(255,255,255,0.85)'}
-                  fontSize={11}
-                  fontWeight="bold"
-                  fontFamily="system-ui, sans-serif"
-                  letterSpacing="0.5"
-                  className="transition-colors duration-200"
-                >
-                  {s.name}
-                </text>
-              </g>
-            );
-          })}
         </div>
       </section>
 
-      {/* ── DETALLE ACTIVO ── */}
+      {/* ── ACTIVE TRACK DETAIL ── */}
       {activeTrackId && (() => {
         const track = trackMap.get(activeTrackId);
         if (!track) return null;
@@ -680,11 +714,10 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
         );
       })()}
 
-      {/* ── FILTERS + SECTOR INDICATOR + LEGEND ── */}
+      {/* ── FILTERS + LEGEND ── */}
       <div className={`${activeTrackId ? '' : 'sticky top-0'} z-10 bg-slate-950/90 backdrop-blur-md border-b border-white/5`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-1.5 flex-wrap">
-            {/* Difficulty filter */}
             <button
               onClick={() => setDifFilter(null)}
               className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-colors ${
@@ -713,24 +746,9 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
                 </button>
               );
             })}
-
-            {/* Sector filter indicator */}
-            {sectorFilter && (
-              <button
-                onClick={() => setSectorFilter(null)}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-colors bg-orange-500/10 text-orange-400 border border-orange-500/30"
-              >
-                {sectorFilter}
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            )}
           </div>
 
-          {/* Leyenda: siempre visible en sm+, plegable en móvil */}
           <div className="flex items-center gap-1 sm:gap-3 text-[10px] text-slate-500">
-            {/* Mobile toggle */}
             <button
               onClick={() => setShowLegend(v => !v)}
               className="flex sm:hidden items-center gap-1 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border border-white/5 text-slate-500 hover:text-slate-300 transition-colors"
@@ -741,7 +759,6 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
               </svg>
             </button>
-            {/* Dots on mobile always visible, text only when toggled or on sm+ */}
             <div className={`flex items-center gap-2 sm:gap-3 flex-wrap ${showLegend ? '' : 'hidden'} sm:flex`}>
               <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" /> <span className="hidden sm:inline">Fácil</span></span>
               <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500" /> <span className="hidden sm:inline">Media</span></span>
@@ -754,7 +771,7 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
         </div>
       </div>
 
-      {/* ── TRACK LISTING RESPONSIVE ── */}
+      {/* ── TRACK LIST ── */}
       <section className="flex-1 max-w-7xl mx-auto w-full px-3 sm:px-6 lg:px-8 py-4 sm:py-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
         <div className="flex items-center justify-between mb-3 sm:mb-4">
           <h2 className="text-xs font-bold text-white uppercase tracking-wider">
@@ -770,7 +787,7 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
             <p className="text-sm text-slate-500 text-center py-12">No hay sendas con este filtro.</p>
           ) : (
             filtered.map(t => (
-              <div key={t.id} className={sectorFilter && t.sector !== sectorFilter ? 'opacity-20' : ''}>
+              <div key={t.id}>
                 <TrackRow
                   track={t}
                   isHovered={hoveredTrackId === t.id}
@@ -784,7 +801,6 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
           )}
         </div>
       </section>
-
     </div>
   );
 }
