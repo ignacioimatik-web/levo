@@ -167,8 +167,8 @@ export default function ContinuousProfile({ points, onHoverKm }: {
     for (let i = 0; i < mapped.length; i++) {
       if (i > 0) {
         const d = mapped[i].elevationM - mapped[i - 1].elevationM;
-        if (d > 0) gain += d;
-        if (d < 0) loss += Math.abs(d);
+        if (d > 1) gain += d;
+        if (d < -1) loss += Math.abs(d);
       }
       out.push({ gainM: gain, lossM: loss });
     }

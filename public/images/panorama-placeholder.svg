@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2000 1000">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="60%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#334155"/>
+    </linearGradient>
+    <linearGradient id="mountain1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="mountain2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#334155"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <linearGradient id="mountain3" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#475569"/>
+      <stop offset="100%" stop-color="#334155"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Sky background -->
+  <rect width="2000" height="1000" fill="url(#sky)"/>
+
+  <!-- Stars -->
+  <circle cx="200" cy="80" r="1.5" fill="rgba(255,255,255,0.3)"/>
+  <circle cx="450" cy="120" r="1" fill="rgba(255,255,255,0.2)"/>
+  <circle cx="800" cy="60" r="1.5" fill="rgba(255,255,255,0.25)"/>
+  <circle cx="1100" cy="100" r="1" fill="rgba(255,255,255,0.2)"/>
+  <circle cx="1400" cy="70" r="1.5" fill="rgba(255,255,255,0.3)"/>
+  <circle cx="1700" cy="130" r="1" fill="rgba(255,255,255,0.15)"/>
+  <circle cx="600" cy="150" r="0.8" fill="rgba(255,255,255,0.15)"/>
+  <circle cx="1550" cy="90" r="0.8" fill="rgba(255,255,255,0.2)"/>
+
+  <!-- Far mountains -->
+  <polygon points="0,600 200,250 400,500 600,200 800,450 1000,300 1200,500 1400,280 1600,450 1800,350 2000,550 2000,1000 0,1000" fill="url(#mountain1)" opacity="0.5"/>
+
+  <!-- Mid mountains -->
+  <polygon points="0,700 150,400 350,600 550,350 750,550 950,450 1150,600 1350,400 1550,580 1750,500 1950,650 2000,650 2000,1000 0,1000" fill="url(#mountain2)" opacity="0.7"/>
+
+  <!-- Near terrain -->
+  <polygon points="0,850 100,750 250,800 400,720 550,780 700,700 850,760 1000,710 1150,770 1300,730 1450,790 1600,740 1750,800 1900,760 2000,800 2000,1000 0,1000" fill="url(#mountain3)" opacity="0.9"/>
+
+  <!-- Foreground -->
+  <rect x="0" y="850" width="2000" height="150" fill="#0f172a" opacity="0.95"/>
+
+  <!-- Label -->
+  <rect x="740" y="860" width="520" height="60" rx="8" fill="rgba(249,115,22,0.12)" stroke="rgba(249,115,22,0.3)" stroke-width="1"/>
+  <text x="1000" y="898" text-anchor="middle" font-family="system-ui, sans-serif" font-size="22" font-weight="700" fill="#fb923c" letter-spacing="4">PANORÁMICA</text>
+
+  <!-- Subtle grid/topo pattern -->
+  <g opacity="0.03" stroke="white" stroke-width="0.5" fill="none">
+    <line x1="0" y1="300" x2="2000" y2="300"/>
+    <line x1="0" y1="400" x2="2000" y2="400"/>
+    <line x1="0" y1="500" x2="2000" y2="500"/>
+    <line x1="0" y1="600" x2="2000" y2="600"/>
+    <line x1="0" y1="700" x2="2000" y2="700"/>
+    <line x1="400" y1="0" x2="400" y2="1000"/>
+    <line x1="800" y1="0" x2="800" y2="1000"/>
+    <line x1="1200" y1="0" x2="1200" y2="1000"/>
+    <line x1="1600" y1="0" x2="1600" y2="1000"/>
+  </g>
+</svg>
