@@ -6,8 +6,10 @@ import { Map as MapboxMap, Source, Layer } from 'react-map-gl/mapbox';
 import type { MapRef, MapMouseEvent } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import type { TrackMTB, DificultadMTB } from '@/lib/forfait/types';
-import type { SendaSegment } from '@/lib/forfait/senda-utils';
+import type { SendaSegment, CameraView } from '@/lib/forfait/senda-utils';
 import { splitIntoSendas } from '@/lib/forfait/senda-utils';
+
+const SENDA_VIEWS_KEY = 'vista-forfait-senda-views';
 
 /* ─── Types ─── */
 interface Bounds {
@@ -75,6 +77,8 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
   const [mapReady, setMapReady] = useState(false);
   const [eeTileUrl, setEeTileUrl] = useState<string | null>(null);
   const [eeStatus, setEeStatus] = useState<'loading' | 'ok' | 'error'>('loading');
+  const [cameraView, setCameraView] = useState<CameraView | null>(null);
+  const [showPanel, setShowPanel] = useState(true);
 
   /* ── Fetch EE satellite layer on mount ── */
   useEffect(() => {
@@ -178,6 +182,19 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
     }
   }, [sectorBounds, mapReady]);
 
+  /* ── Restore saved senda views ── */
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(SENDA_VIEWS_KEY);
+      if (!raw) return;
+      const saved: Record<string, CameraView> = JSON.parse(raw);
+      for (const [id, cv] of Object.entries(saved)) {
+        const s = allSendaList.find(s => s.id === id);
+        if (s) s.customView = cv;
+      }
+    } catch {}
+  }, [allSendaList]);
+
   const handleSelectSector = useCallback((name: string) => {
     setActiveSector(name); setActiveTrackId(null); setHoveredTrackId(null);
     setDifFilter(null); setActiveSendaId(null); setExpandedTrackId(null);
@@ -201,6 +218,33 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
     mapRef.current.flyTo({ center: c, zoom: z, pitch: p, bearing: b, duration: 1000 });
     setPitch(p); setBearing(b); setZoom(z);
   }, []);
+
+  /* ── Camera view tracking ── */
+  const handleMoveEnd = useCallback(() => {
+    if (!mapRef.current) return;
+    const m = mapRef.current;
+    const c = m.getCenter();
+    setCameraView({
+      lat: +c.lat.toFixed(6), lng: +c.lng.toFixed(6),
+      zoom: +m.getZoom().toFixed(1),
+      pitch: +m.getPitch().toFixed(0),
+      bearing: +m.getBearing().toFixed(0),
+    });
+  }, []);
+
+  /* ── Save view to senda ── */
+  const saveViewToSenda = useCallback((sendaId: string) => {
+    if (!mapRef.current || !cameraView) return;
+    const s = allSendaList.find(s => s.id === sendaId);
+    if (!s) return;
+    s.customView = { ...cameraView };
+    try {
+      const raw = localStorage.getItem(SENDA_VIEWS_KEY);
+      const saved = raw ? JSON.parse(raw) : {};
+      saved[sendaId] = cameraView;
+      localStorage.setItem(SENDA_VIEWS_KEY, JSON.stringify(saved));
+    } catch {}
+  }, [cameraView, allSendaList]);
 
   /* ── GeoJSON data ── */
   const trackLineIds = useMemo(() => filtered.map(t => `${t.id}-line`), [filtered]);
@@ -299,6 +343,7 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
             setPitch(e.viewState.pitch);
             setBearing(e.viewState.bearing);
           }}
+          onMoveEnd={handleMoveEnd}
           interactiveLayerIds={trackLineIds}
           onMouseMove={e => {
             if (!e.features || e.features.length === 0) { setHoveredTrackId(null); return; }
@@ -369,28 +414,126 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
           </span>
         </div>
 
-        {/* Preset buttons */}
-        <div className="absolute bottom-16 left-2 z-[1000] flex items-center gap-1">
-          {[
-            { zoom: 13, pitch: 75, bearing: 80, label: 'Vista 1' },
-            { zoom: 15, pitch: 78, bearing: 120, label: 'Vista 2' },
-            { zoom: 16, pitch: 81, bearing: 170, label: 'Vista 3' },
-          ].map((p, i) => (
-            <div key={i} className="group relative">
-              <button onClick={() => flyPreset(p.zoom, p.pitch, p.bearing)}
-                className="px-1.5 py-1 rounded text-[9px] font-bold font-mono text-white bg-slate-950/80 backdrop-blur-sm border border-white/10 hover:bg-orange-500/20 hover:text-orange-400 transition-colors"
+        {/* ── Floating senda panel inside map ── */}
+        {showPanel && (
+          <div className="absolute bottom-2 left-2 right-2 sm:left-2 sm:right-auto sm:bottom-2 sm:w-72 z-20 max-h-[40%] overflow-y-auto rounded-xl bg-slate-950/85 backdrop-blur-md border border-white/10 shadow-xl">
+            <div className="sticky top-0 z-10 flex items-center justify-between px-3 py-2 bg-slate-950/90 backdrop-blur-sm border-b border-white/5">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Sendas</span>
+                {([
+                  { zoom: 13, pitch: 75, bearing: 80, label: 'Vista 1' },
+                  { zoom: 15, pitch: 78, bearing: 120, label: 'Vista 2' },
+                  { zoom: 16, pitch: 81, bearing: 170, label: 'Vista 3' },
+                ] as const).map((p, i) => (
+                  <div key={i} className="group relative">
+                    <button onClick={e => {
+                      e.stopPropagation();
+                      if (!mapRef.current) return;
+                      const c = mapRef.current.getCenter();
+                      mapRef.current.flyTo({
+                        center: [c.lng, c.lat],
+                        zoom: p.zoom,
+                        pitch: p.pitch,
+                        bearing: p.bearing,
+                        duration: 800,
+                      });
+                    }}
+                      className="px-1 py-0.5 rounded text-[8px] font-bold font-mono text-white bg-slate-950/80 backdrop-blur-sm border border-white/10 hover:bg-orange-500/20 hover:text-orange-400 hover:border-orange-500/30 transition-colors"
+                    >
+                      V{i + 1}
+                    </button>
+                    <span className="absolute left-1/2 -top-4 -translate-x-1/2 text-[7px] font-bold uppercase tracking-wider text-slate-400 bg-slate-950/90 backdrop-blur-sm px-1 py-0.5 rounded border border-white/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                      {p.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <button onClick={() => setShowPanel(false)}
+                className="p-0.5 text-slate-500 hover:text-white transition-colors"
               >
-                V{i + 1}
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
-              <span className="absolute left-1/2 -top-4 -translate-x-1/2 text-[7px] font-bold uppercase tracking-wider text-slate-400 bg-slate-950/90 backdrop-blur-sm px-1 py-0.5 rounded border border-white/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-                {p.label}
-              </span>
             </div>
-          ))}
-        </div>
+            <div className="py-1">
+              {filtered.map(t => {
+                const sendas = allSendas.get(t.id) || [];
+                const isExpanded = expandedTrackId === t.id;
+                const cfg = getVisualCfg(t);
+                return (
+                  <div key={t.id}>
+                    {/* Track header */}
+                    <button onClick={() => setExpandedTrackId(isExpanded ? null : t.id)}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-white/[0.04] transition-colors"
+                    >
+                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cfg.color }} />
+                      <span className={`flex-1 text-[11px] font-semibold truncate ${
+                        selectedTrackIds.includes(t.id) ? 'text-orange-400' : 'text-white'
+                      }`}>
+                        {t.nombre}
+                      </span>
+                      <span className="text-[9px] text-slate-500">{t.distanciaKm.toFixed(1)} km</span>
+                      <svg className={`w-2.5 h-2.5 text-slate-500 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                    {/* Sendas */}
+                    {isExpanded && sendas.map(s => {
+                      const isActive = activeSendaId === s.id;
+                      return (
+                        <button key={s.id} onClick={() => flyToSenda(s)}
+                          className={`w-full flex items-center gap-2 pl-8 pr-3 py-1.5 text-left transition-colors ${
+                            isActive ? 'bg-orange-500/10' : 'hover:bg-white/[0.03]'
+                          }`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                            isActive ? 'bg-orange-400' : 'bg-slate-600'
+                          }`} />
+                          <span className={`flex-1 text-[11px] truncate ${isActive ? 'text-orange-400 font-semibold' : 'text-slate-400'}`}>
+                            {s.name}
+                          </span>
+                          <span className="text-[9px] text-slate-600">{s.distanceKm.toFixed(1)} km</span>
+                          {/* Save view button */}
+                          <button onClick={e => { e.stopPropagation(); saveViewToSenda(s.id); }}
+                            className="p-0.5 text-slate-600 hover:text-orange-400 transition-colors"
+                            title="Guardar vista actual"
+                          >
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                          </button>
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
-        {/* Pitch/bearing controls (now read-only display, map captures input natively) */}
-        <div className="absolute bottom-2 left-2 z-[1000] flex items-center gap-1.5">
+        {/* Toggle panel button */}
+        {!showPanel && (
+          <button onClick={() => setShowPanel(true)}
+            className="absolute bottom-2 left-2 z-20 px-2.5 py-1.5 rounded-lg bg-slate-950/80 backdrop-blur-sm border border-white/10 text-[10px] font-bold text-orange-400 hover:bg-slate-950 transition-colors"
+          >
+            Sendas
+          </button>
+        )}
+
+        {/* Camera view coordinates */}
+        {cameraView && (
+          <div className="absolute top-2 right-2 z-[1000] px-2 py-1 rounded bg-slate-950/70 backdrop-blur-sm border border-white/10 text-[8px] font-mono text-slate-400 leading-tight pointer-events-none">
+            <div>lat {cameraView.lat} lng {cameraView.lng}</div>
+            <div>zoom {cameraView.zoom} pitch {cameraView.pitch}° bear {cameraView.bearing}°</div>
+          </div>
+        )}
+
+        {/* Pitch/bearing controls at bottom-center */}
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-1.5">
           <div className="flex items-center gap-1 px-2 py-1 rounded bg-slate-950/80 backdrop-blur-sm border border-white/10">
             <span className="text-[8px] font-bold uppercase text-slate-500">Pitch</span>
             <input type="range" min={0} max={85} step={1} value={pitch}
