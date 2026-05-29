@@ -523,9 +523,12 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
           }} />
 
           {/* Sector badge */}
-          <div className="absolute top-2 left-2 z-10 pointer-events-none">
+          <div className="absolute top-2 left-2 z-10 pointer-events-none flex items-center gap-2">
             <span className="px-2.5 py-1 rounded-full bg-slate-950/70 backdrop-blur-sm text-[11px] font-bold text-orange-400 border border-orange-500/30">
               {activeSector}
+            </span>
+            <span className="px-2 py-0.5 rounded-full bg-slate-950/60 backdrop-blur-sm text-[9px] text-slate-500 border border-white/5">
+              control + ratón
             </span>
           </div>
 
@@ -538,36 +541,6 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
               </div>
             </div>
           )}
-
-          {/* Preset camera buttons */}
-          <div className="absolute top-2 left-[18.5rem] z-10 hidden sm:flex flex-col gap-1.5">
-            {([
-              { zoom: 13, pitch: 75, bearing: 80, label: 'Vista 1' },
-              { zoom: 15, pitch: 78, bearing: 120, label: 'Vista 2' },
-              { zoom: 16, pitch: 81, bearing: 170, label: 'Vista 3' },
-            ] as const).map((p, i) => (
-              <div key={i} className="flex items-center gap-1.5">
-                <span className="text-[8px] font-bold uppercase tracking-wider text-slate-500 bg-slate-950/60 backdrop-blur-sm px-1 py-0.5 rounded border border-white/5">
-                  {p.label}
-                </span>
-                <button onClick={() => {
-                  if (!mapRef.current) return;
-                  const c = mapRef.current.getCenter();
-                  mapRef.current.flyTo({
-                    center: [c.lng, c.lat],
-                    zoom: p.zoom,
-                    pitch: p.pitch,
-                    bearing: p.bearing,
-                    duration: 800,
-                  });
-                }}
-                  className="px-1.5 py-0.5 rounded text-[9px] font-bold font-mono text-slate-400 bg-slate-950/70 backdrop-blur-sm border border-white/5 hover:bg-orange-500/20 hover:text-orange-400 hover:border-orange-500/30 transition-colors"
-                >
-                  z{p.zoom} p{p.pitch} b{p.bearing}
-                </button>
-              </div>
-            ))}
-          </div>
 
           {/* Tooltip */}
           {hoveredTrackId && tooltipPos && (() => {
@@ -593,7 +566,36 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
           {showPanel && (
             <div className="absolute bottom-2 left-2 right-2 sm:left-2 sm:right-auto sm:bottom-2 sm:w-72 z-20 max-h-[40%] overflow-y-auto rounded-xl bg-slate-950/85 backdrop-blur-md border border-white/10 shadow-xl">
               <div className="sticky top-0 z-10 flex items-center justify-between px-3 py-2 bg-slate-950/90 backdrop-blur-sm border-b border-white/5">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Sendas</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Sendas</span>
+                  {([
+                    { zoom: 13, pitch: 75, bearing: 80, label: 'Vista 1' },
+                    { zoom: 15, pitch: 78, bearing: 120, label: 'Vista 2' },
+                    { zoom: 16, pitch: 81, bearing: 170, label: 'Vista 3' },
+                  ] as const).map((p, i) => (
+                    <div key={i} className="group relative">
+                      <button onClick={e => {
+                        e.stopPropagation();
+                        if (!mapRef.current) return;
+                        const c = mapRef.current.getCenter();
+                        mapRef.current.flyTo({
+                          center: [c.lng, c.lat],
+                          zoom: p.zoom,
+                          pitch: p.pitch,
+                          bearing: p.bearing,
+                          duration: 800,
+                        });
+                      }}
+                        className="px-1 py-0.5 rounded text-[8px] font-bold font-mono text-white bg-slate-950/80 backdrop-blur-sm border border-white/10 hover:bg-orange-500/20 hover:text-orange-400 hover:border-orange-500/30 transition-colors"
+                      >
+                        z{p.zoom} p{p.pitch} b{p.bearing}
+                      </button>
+                      <span className="absolute left-1/2 -top-4 -translate-x-1/2 text-[7px] font-bold uppercase tracking-wider text-slate-400 bg-slate-950/90 backdrop-blur-sm px-1 py-0.5 rounded border border-white/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                        {p.label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
                 <button onClick={() => setShowPanel(false)}
                   className="p-0.5 text-slate-500 hover:text-white transition-colors"
                 >
