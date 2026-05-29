@@ -534,27 +534,32 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
           )}
 
           {/* Preset camera buttons */}
-          <div className="absolute bottom-2 left-[18.5rem] z-10 hidden sm:flex flex-col gap-1">
-            {[
-              { zoom: 13, pitch: 75, bearing: 80 },
-              { zoom: 15, pitch: 78, bearing: 120 },
-              { zoom: 16, pitch: 81, bearing: 170 },
-            ].map((p, i) => (
-              <button key={i} onClick={() => {
-                if (!mapRef.current) return;
-                const c = mapRef.current.getCenter();
-                mapRef.current.flyTo({
-                  center: [c.lng, c.lat],
-                  zoom: p.zoom,
-                  pitch: p.pitch,
-                  bearing: p.bearing,
-                  duration: 800,
-                });
-              }}
-                className="px-1.5 py-0.5 rounded text-[9px] font-bold font-mono text-slate-400 bg-slate-950/70 backdrop-blur-sm border border-white/5 hover:bg-orange-500/20 hover:text-orange-400 hover:border-orange-500/30 transition-colors"
-              >
-                z{p.zoom} p{p.pitch} b{p.bearing}
-              </button>
+          <div className="absolute bottom-2 left-[18.5rem] z-10 hidden sm:flex flex-col gap-1.5">
+            {([
+              { zoom: 13, pitch: 75, bearing: 80, label: 'Vista 1' },
+              { zoom: 15, pitch: 78, bearing: 120, label: 'Vista 2' },
+              { zoom: 16, pitch: 81, bearing: 170, label: 'Vista 3' },
+            ] as const).map((p, i) => (
+              <div key={i} className="flex items-center gap-1.5">
+                <span className="text-[8px] font-bold uppercase tracking-wider text-slate-500 bg-slate-950/60 backdrop-blur-sm px-1 py-0.5 rounded border border-white/5">
+                  {p.label}
+                </span>
+                <button onClick={() => {
+                  if (!mapRef.current) return;
+                  const c = mapRef.current.getCenter();
+                  mapRef.current.flyTo({
+                    center: [c.lng, c.lat],
+                    zoom: p.zoom,
+                    pitch: p.pitch,
+                    bearing: p.bearing,
+                    duration: 800,
+                  });
+                }}
+                  className="px-1.5 py-0.5 rounded text-[9px] font-bold font-mono text-slate-400 bg-slate-950/70 backdrop-blur-sm border border-white/5 hover:bg-orange-500/20 hover:text-orange-400 hover:border-orange-500/30 transition-colors"
+                >
+                  z{p.zoom} p{p.pitch} b{p.bearing}
+                </button>
+              </div>
             ))}
           </div>
 
