@@ -533,45 +533,45 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
           </button>
         )}
 
-        {/* Camera view coordinates */}
-        {cameraView && (
-          <div className="absolute top-2 right-2 z-[1000] px-2 py-1 rounded bg-slate-950/70 backdrop-blur-sm border border-white/10 text-[8px] font-mono text-slate-400 leading-tight pointer-events-none">
-            <div>lat {cameraView.lat} lng {cameraView.lng}</div>
-            <div>zoom {cameraView.zoom} pitch {cameraView.pitch}° bear {cameraView.bearing}°</div>
-          </div>
-        )}
-
-        {/* Pitch/bearing controls at bottom-center */}
-        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-1.5">
-          <div className="flex items-center gap-1 px-2 py-1 rounded bg-slate-950/80 backdrop-blur-sm border border-white/10">
-            <span className="text-[8px] font-bold uppercase text-slate-500">Pitch</span>
-            <input type="range" min={0} max={85} step={1} value={pitch}
-              onChange={e => {
-                const v = +e.target.value;
-                setPitch(v);
-                if (mapRef.current) mapRef.current.setPitch(v);
-              }}
-              className="w-16 h-1 accent-orange-500 cursor-pointer"
-            />
-            <span className="text-[9px] font-mono text-slate-400 w-6 text-right">{Math.round(pitch)}°</span>
-            <button onClick={() => { setPitch(0); if (mapRef.current) mapRef.current.setPitch(0); }}
-              className="px-1 py-0.5 rounded text-[8px] font-bold text-slate-500 hover:text-white transition-colors"
-            >0</button>
-          </div>
-          <div className="flex items-center gap-1 px-2 py-1 rounded bg-slate-950/80 backdrop-blur-sm border border-white/10">
-            <span className="text-[8px] font-bold uppercase text-slate-500">Bear</span>
-            <input type="range" min={-180} max={180} step={1} value={bearing > 180 ? bearing - 360 : bearing}
-              onChange={e => {
-                const v = +e.target.value < 0 ? +e.target.value + 360 : +e.target.value;
-                setBearing(v);
-                if (mapRef.current) mapRef.current.setBearing(+e.target.value);
-              }}
-              className="w-16 h-1 accent-orange-500 cursor-pointer"
-            />
-            <span className="text-[9px] font-mono text-slate-400 w-8 text-right">{Math.round(bearing)}°</span>
-            <button onClick={() => { setBearing(0); if (mapRef.current) mapRef.current.setBearing(0); }}
-              className="px-1 py-0.5 rounded text-[8px] font-bold text-slate-500 hover:text-white transition-colors"
-            >0</button>
+        {/* Camera view coordinates + Pitch/bearing controls at top */}
+        <div className="absolute top-2 right-2 z-[1000] flex flex-col items-end gap-1">
+          {cameraView && (
+            <div className="px-2 py-1 rounded bg-slate-950/70 backdrop-blur-sm border border-white/10 text-[8px] font-mono text-slate-400 leading-tight pointer-events-none">
+              <div>lat {cameraView.lat} lng {cameraView.lng}</div>
+              <div>zoom {cameraView.zoom} pitch {cameraView.pitch}° bear {cameraView.bearing}°</div>
+            </div>
+          )}
+          <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1 px-2 py-1 rounded bg-slate-950/80 backdrop-blur-sm border border-white/10">
+              <span className="text-[8px] font-bold uppercase text-slate-500">Pitch</span>
+              <input type="range" min={0} max={85} step={1} value={pitch}
+                onChange={e => {
+                  const v = +e.target.value;
+                  setPitch(v);
+                  if (mapRef.current) mapRef.current.setPitch(v);
+                }}
+                className="w-16 h-1 accent-orange-500 cursor-pointer"
+              />
+              <span className="text-[9px] font-mono text-slate-400 w-6 text-right">{Math.round(pitch)}°</span>
+              <button onClick={() => { setPitch(0); if (mapRef.current) mapRef.current.setPitch(0); }}
+                className="px-1 py-0.5 rounded text-[8px] font-bold text-slate-500 hover:text-white transition-colors"
+              >0</button>
+            </div>
+            <div className="flex items-center gap-1 px-2 py-1 rounded bg-slate-950/80 backdrop-blur-sm border border-white/10">
+              <span className="text-[8px] font-bold uppercase text-slate-500">Bear</span>
+              <input type="range" min={-180} max={180} step={1} value={bearing > 180 ? bearing - 360 : bearing}
+                onChange={e => {
+                  const v = +e.target.value < 0 ? +e.target.value + 360 : +e.target.value;
+                  setBearing(v);
+                  if (mapRef.current) mapRef.current.setBearing(+e.target.value);
+                }}
+                className="w-16 h-1 accent-orange-500 cursor-pointer"
+              />
+              <span className="text-[9px] font-mono text-slate-400 w-8 text-right">{Math.round(bearing)}°</span>
+              <button onClick={() => { setBearing(0); if (mapRef.current) mapRef.current.setBearing(0); }}
+                className="px-1 py-0.5 rounded text-[8px] font-bold text-slate-500 hover:text-white transition-colors"
+              >0</button>
+            </div>
           </div>
         </div>
       </section>
@@ -585,7 +585,7 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
           <div className="border-b border-white/5 bg-slate-950/60">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
-                <div className={`w-3 h-3 rounded-full flex-shrink-0`} style={{ backgroundColor: cfg.color }} />
+                <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: cfg.color }} />
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-bold text-white truncate">{track.nombre}</span>
