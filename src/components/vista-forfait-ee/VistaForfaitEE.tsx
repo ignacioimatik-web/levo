@@ -60,6 +60,23 @@ function FlyToControl({ target }: { target: { lat: number; lng: number; zoom: nu
   return null;
 }
 
+/* ─── Map pitch/bearing transform ─── */
+function MapTransform({ pitch, bearing }: { pitch: number; bearing: number }) {
+  const map = useMap();
+  useEffect(() => {
+    const el = map.getContainer();
+    const p = pitch * 0.4;
+    const b = bearing;
+    if (p === 0 && b === 0) {
+      el.style.transform = '';
+    } else {
+      el.style.transform = `perspective(800px) rotateX(${p}deg) rotateZ(${b}deg)`;
+      el.style.transformOrigin = 'center center';
+    }
+  }, [pitch, bearing, map]);
+  return null;
+}
+
 /* ─── Main component ─── */
 export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
   const [difFilter, setDifFilter] = useState<DificultadMTB | null>(null);
@@ -69,7 +86,9 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
   const [activeSector, setActiveSector] = useState<string | null>(null);
   const [activeSendaId, setActiveSendaId] = useState<string | null>(null);
   const [expandedTrackId, setExpandedTrackId] = useState<string | null>(null);
-  const [flyTarget, setFlyTarget] = useState<{ lat: number; lng: number; zoom: number } | null>(null);
+  const [flyTarget, setFlyTarget] = useState<{ lat: number; lng: number; zoom: number; pitch?: number; bearing?: number } | null>(null);
+  const [pitch, setPitch] = useState(0);
+  const [bearing, setBearing] = useState(0);
   const mapRef = useRef<L.Map | null>(null);
 
   /* ── Sector data ── */
@@ -164,10 +183,12 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
   }, []);
 
   /* ── Preset fly ── */
-  const flyPreset = useCallback((zoom: number) => {
+  const flyPreset = useCallback((z: number, p: number, b: number) => {
     if (!mapRef.current) return;
     const c = mapRef.current.getCenter();
-    setFlyTarget({ lat: c.lat, lng: c.lng, zoom });
+    setFlyTarget({ lat: c.lat, lng: c.lng, zoom: z, pitch: p, bearing: b });
+    setPitch(p);
+    setBearing(b);
   }, []);
 
   /* ── GeoJSON styles ── */
@@ -265,6 +286,8 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
             );
           })}
 
+          <MapTransform pitch={pitch} bearing={bearing} />
+
           {/* Active senda highlight */}
           {activeSenda && (
             <GeoJSON key="active-senda"
@@ -285,14 +308,14 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
         </div>
 
         {/* Preset buttons */}
-        <div className="absolute bottom-2 left-2 z-[1000] flex items-center gap-1">
+        <div className="absolute bottom-16 left-2 z-[1000] flex items-center gap-1">
           {[
-            { zoom: 13, label: 'Vista 1' },
-            { zoom: 15, label: 'Vista 2' },
-            { zoom: 16, label: 'Vista 3' },
+            { zoom: 13, pitch: 75, bearing: 80, label: 'Vista 1' },
+            { zoom: 15, pitch: 78, bearing: 120, label: 'Vista 2' },
+            { zoom: 16, pitch: 81, bearing: 170, label: 'Vista 3' },
           ].map((p, i) => (
             <div key={i} className="group relative">
-              <button onClick={() => flyPreset(p.zoom)}
+              <button onClick={() => flyPreset(p.zoom, p.pitch, p.bearing)}
                 className="px-1.5 py-1 rounded text-[9px] font-bold font-mono text-white bg-slate-950/80 backdrop-blur-sm border border-white/10 hover:bg-orange-500/20 hover:text-orange-400 transition-colors"
               >
                 V{i + 1}
@@ -302,6 +325,30 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
               </span>
             </div>
           ))}
+        </div>
+
+        {/* Pitch/bearing controls */}
+        <div className="absolute bottom-2 left-2 z-[1000] flex items-center gap-1.5">
+          <div className="flex items-center gap-1 px-2 py-1 rounded bg-slate-950/80 backdrop-blur-sm border border-white/10">
+            <span className="text-[8px] font-bold uppercase text-slate-500">Pitch</span>
+            <input type="range" min={0} max={90} value={pitch} onChange={e => setPitch(+e.target.value)}
+              className="w-16 h-1 accent-orange-500 cursor-pointer"
+            />
+            <span className="text-[9px] font-mono text-slate-400 w-6 text-right">{pitch}°</span>
+            <button onClick={() => setPitch(0)}
+              className="px-1 py-0.5 rounded text-[8px] font-bold text-slate-500 hover:text-white transition-colors"
+            >0</button>
+          </div>
+          <div className="flex items-center gap-1 px-2 py-1 rounded bg-slate-950/80 backdrop-blur-sm border border-white/10">
+            <span className="text-[8px] font-bold uppercase text-slate-500">Bear</span>
+            <input type="range" min={0} max={360} value={bearing} onChange={e => setBearing(+e.target.value)}
+              className="w-16 h-1 accent-orange-500 cursor-pointer"
+            />
+            <span className="text-[9px] font-mono text-slate-400 w-8 text-right">{bearing}°</span>
+            <button onClick={() => setBearing(0)}
+              className="px-1 py-0.5 rounded text-[8px] font-bold text-slate-500 hover:text-white transition-colors"
+            >0</button>
+          </div>
         </div>
       </section>
 
