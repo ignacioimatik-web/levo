@@ -1,8 +1,11 @@
 'use client';
 
-import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
+import { useMemo, useState, useCallback, useEffect, useRef, Fragment } from 'react';
 import Link from 'next/link';
-import type { TrackMTB, DificultadMTB, TrackPoint } from '@/lib/forfait/types';
+import { Map as MapboxMap, Source, Layer, NavigationControl } from 'react-map-gl/mapbox';
+import type { MapRef, MapMouseEvent } from 'react-map-gl/mapbox';
+import 'mapbox-gl/dist/mapbox-gl.css';
+import type { TrackMTB, DificultadMTB } from '@/lib/forfait/types';
 import { buildProfileSeries } from '@/lib/forfait/geo-utils';
 
 /* ─── Types ─── */
@@ -38,7 +41,6 @@ const DIF_CONFIG: Record<string, VisualConfig> = {
 };
 
 const ALL_DIFICULTADES = ['verde', 'azul', 'rojo', 'negro', 'doble-negro'] as const;
-const MAX_GPX_POINTS = 200;
 
 function getVisualConfig(track: TrackMTB): VisualConfig {
   if (track.estado === 'cerrado') return DIF_CONFIG.gris;
@@ -52,13 +54,7 @@ function getVisualColor(track: TrackMTB): string {
   return DIF_COLORS[track.dificultad] || DIF_COLORS.naranja;
 }
 
-/* ─── Geo helpers ─── */
-function downsamplePoints(points: TrackPoint[], max: number): TrackPoint[] {
-  if (points.length <= max) return points;
-  const step = (points.length - 1) / (max - 1);
-  return Array.from({ length: max }, (_, i) => points[Math.round(i * step)]);
-}
-
+/* ─── Helpers ─── */
 function computeBounds(tracks: TrackMTB[]): Bounds {
   let minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
   let valid = false;
@@ -72,28 +68,14 @@ function computeBounds(tracks: TrackMTB[]): Bounds {
     }
   }
   if (!valid) return { minLat: 40.6, maxLat: 40.7, minLng: -0.2, maxLng: 0 };
-  const padLat = (maxLat - minLat) * 0.1 || 0.01;
-  const padLng = (maxLng - minLng) * 0.1 || 0.01;
+  const padLat = (maxLat - minLat) * 0.15 || 0.01;
+  const padLng = (maxLng - minLng) * 0.15 || 0.01;
   return {
     minLat: minLat - padLat,
     maxLat: maxLat + padLat,
     minLng: minLng - padLng,
     maxLng: maxLng + padLng,
   };
-}
-
-function geoToViewBox(lng: number, lat: number, bounds: Bounds): { x: number; y: number } {
-  return {
-    x: ((lng - bounds.minLng) / (bounds.maxLng - bounds.minLng)) * 1000,
-    y: ((bounds.maxLat - lat) / (bounds.maxLat - bounds.minLat)) * 500,
-  };
-}
-
-function generateGpxPath(pts: TrackPoint[], bounds: Bounds) {
-  const viewPts = pts.map(p => geoToViewBox(p.lng, p.lat, bounds));
-  const d = viewPts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join('');
-  const last = viewPts[viewPts.length - 1];
-  return { d, endX: last.x, endY: last.y };
 }
 
 /* ─── Sector card ─── */
@@ -129,103 +111,6 @@ function SectorCard({
         ))}
       </div>
     </button>
-  );
-}
-
-/* ─── Trail SVG ─── */
-function TrailSvgPath({
-  d,
-  endX,
-  endY,
-  color,
-  isClosed,
-  isHovered,
-  isActive,
-  isSelected,
-}: {
-  d: string;
-  endX: number;
-  endY: number;
-  color: string;
-  isClosed: boolean;
-  isHovered: boolean;
-  isActive: boolean;
-  isSelected: boolean;
-}) {
-  let strokeWidth = 2.5;
-  let opacity = isClosed ? 0.2 : 0.45;
-  let glowOpacity = 0.15;
-  let glowWidth = 6;
-
-  if (isActive) {
-    strokeWidth = 5;
-    opacity = 1;
-    glowOpacity = 0.5;
-    glowWidth = 14;
-  } else if (isHovered) {
-    strokeWidth = 4.5;
-    opacity = 0.9;
-    glowOpacity = 0.4;
-    glowWidth = 12;
-  } else if (isSelected) {
-    strokeWidth = 3.5;
-    opacity = 0.75;
-    glowOpacity = 0.25;
-    glowWidth = 8;
-  }
-
-  const dash = isClosed ? '5,5' : isSelected ? '8,5' : 'none';
-
-  return (
-    <g>
-      <path
-        d={d}
-        fill="none"
-        stroke="#000000"
-        strokeWidth={glowWidth + 4}
-        strokeOpacity={0.35}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        style={{ filter: 'blur(4px)' }}
-      />
-      {glowOpacity > 0 && (
-        <path
-          d={d}
-          fill="none"
-          stroke={color}
-          strokeWidth={glowWidth}
-          strokeOpacity={glowOpacity}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          style={{ filter: 'blur(3px)' }}
-        />
-      )}
-      <path
-        d={d}
-        fill="none"
-        stroke={color}
-        strokeWidth={strokeWidth}
-        strokeOpacity={opacity}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeDasharray={dash}
-        className="transition-[stroke-width,stroke-opacity] duration-200"
-        vectorEffect="non-scaling-stroke"
-      />
-      {(isHovered || isActive) && (
-        <circle
-          cx={endX}
-          cy={endY}
-          r={isActive ? 5 : 4}
-          fill={color}
-          opacity={0.95}
-          stroke="#000000"
-          strokeWidth={1.5}
-          strokeOpacity={0.5}
-          className="transition-all duration-200"
-        />
-      )}
-    </g>
   );
 }
 
@@ -341,17 +226,18 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null);
   const [showLegend, setShowLegend] = useState(false);
   const [activeSector, setActiveSector] = useState<string | null>(null);
+  const mapRef = useRef<MapRef>(null);
   const panoramaRef = useRef<HTMLDivElement>(null);
 
   /* ── Computed sector data ── */
   const sectorsData = useMemo(() => {
-    const map = new Map<string, TrackMTB[]>();
+    const bySector = new Map<string, TrackMTB[]>();
     for (const t of tracks) {
       const s = t.sector || 'Otros';
-      if (!map.has(s)) map.set(s, []);
-      map.get(s)!.push(t);
+      if (!bySector.has(s)) bySector.set(s, []);
+      bySector.get(s)!.push(t);
     }
-    return Array.from(map.entries())
+    return Array.from(bySector.entries())
       .map(([name, st]) => ({
         name,
         tracks: st,
@@ -373,21 +259,18 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
     [sectorTracks],
   );
 
-  const mapboxUrl = useMemo(() => {
-    if (!sectorBounds) return '';
-    const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
-    if (!token) return '';
-    const { minLng, minLat, maxLng, maxLat } = sectorBounds;
-    return `https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/static/${minLng},${minLat},${maxLng},${maxLat}/1280x640@2x?access_token=${token}&logo=false`;
+  const sectorCenter = useMemo(() => {
+    if (!sectorBounds) return { lat: 40.6, lng: -0.02, zoom: 12 };
+    const lat = (sectorBounds.minLat + sectorBounds.maxLat) / 2;
+    const lng = (sectorBounds.minLng + sectorBounds.maxLng) / 2;
+    return { lat, lng, zoom: 12 };
   }, [sectorBounds]);
 
-  const gpxPaths = useMemo(() => {
-    if (!sectorBounds || sectorTracks.length === 0) return [];
-    return sectorTracks.map(t => {
-      const pts = downsamplePoints(t.points, MAX_GPX_POINTS);
-      return { trackId: t.id, ...generateGpxPath(pts, sectorBounds) };
-    });
-  }, [sectorTracks, sectorBounds]);
+  /* ── Track line layer IDs (for map interaction) ── */
+  const trackLineIds = useMemo(
+    () => sectorTracks.map(t => `line-${t.id}`),
+    [sectorTracks],
+  );
 
   const trackMap = useMemo(() => {
     const m = new Map<string, TrackMTB>();
@@ -430,34 +313,64 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
     } catch { /* empty */ }
   }, [selectedTrackIds]);
 
+  /* ── Fit map to sector bounds ── */
+  useEffect(() => {
+    if (!sectorBounds || !mapRef.current) return;
+    const map = mapRef.current;
+    const doFit = () => {
+      map.fitBounds(
+        [[sectorBounds.minLng, sectorBounds.minLat], [sectorBounds.maxLng, sectorBounds.maxLat]],
+        { padding: 50, pitch: 50, duration: 800 },
+      );
+    };
+    if (map.isStyleLoaded()) {
+      doFit();
+    } else {
+      map.once('style.load', doFit);
+    }
+  }, [sectorBounds]);
+
   /* ── Handlers ── */
   const handleTrackHover = useCallback((id: string | null) => setHoveredTrackId(id), []);
-  const handleSvgHover = useCallback((id: string | null) => {
-    setHoveredTrackId(id);
-    if (!id) setTooltipPos(null);
-  }, []);
-  const handleSvgMove = useCallback((e: React.MouseEvent) => {
-    if (!hoveredTrackId) return;
+  const handleMapHover = useCallback((e: MapMouseEvent) => {
+    const feature = e.features?.[0];
+    if (!feature) {
+      setHoveredTrackId(null);
+      setTooltipPos(null);
+      return;
+    }
+    const trackId = feature.properties?.trackId as string;
+    if (!trackId) return;
+    setHoveredTrackId(trackId);
     const rect = panoramaRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    setTooltipPos({
-      x: ((e.clientX - rect.left) / rect.width) * 100,
-      y: ((e.clientY - rect.top) / rect.height) * 100,
-    });
-  }, [hoveredTrackId]);
-  const handleSvgTouch = useCallback((id: string) => {
-    setHoveredTrackId(id);
-    setActiveTrackId(prev => (prev === id ? null : id));
+    if (rect) {
+      setTooltipPos({
+        x: ((e.originalEvent.clientX - rect.left) / rect.width) * 100,
+        y: ((e.originalEvent.clientY - rect.top) / rect.height) * 100,
+      });
+    }
   }, []);
-  const handleSvgClick = useCallback((id: string) => {
-    setActiveTrackId(prev => (prev === id ? null : id));
+
+  const handleMapLeave = useCallback(() => {
+    setHoveredTrackId(null);
+    setTooltipPos(null);
   }, []);
+
+  const handleMapClick = useCallback((e: MapMouseEvent) => {
+    const feature = e.features?.[0];
+    if (!feature) return;
+    const trackId = feature.properties?.trackId as string;
+    if (!trackId) return;
+    setActiveTrackId(prev => (prev === trackId ? null : trackId));
+  }, []);
+
   const handleSelectTrack = useCallback((id: string) => {
     setActiveTrackId(prev => (prev === id ? null : id));
     setSelectedTrackIds(prev =>
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id],
     );
   }, []);
+
   const handleBackToSectors = useCallback(() => {
     setActiveSector(null);
     setActiveTrackId(null);
@@ -513,8 +426,6 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
   /* ── Render: Sector detail ── */
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col">
-      <style>{`.touch-manipulation { touch-action: manipulation; }`}</style>
-
       {/* ── NAV ── */}
       <nav className="relative z-20 bg-slate-950/90 backdrop-blur-md border-b border-white/5">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-12 sm:h-14 flex items-center justify-between gap-2">
@@ -538,110 +449,134 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
         </div>
       </nav>
 
-      {/* ── PANORAMA ── */}
+      {/* ── MAPA 3D ── */}
       <section
         ref={panoramaRef}
-        className="panorama-container relative w-full overflow-hidden bg-slate-900 max-h-[40vh] sm:max-h-[50vh] lg:max-h-none"
+        className="panorama-container relative w-full overflow-hidden bg-slate-900 max-h-[40vh] sm:max-h-[50vh] lg:max-h-[60vh]"
       >
-        <div className="relative w-full h-full min-h-[30vh] sm:min-h-[35vh] lg:min-h-0 aspect-[2/1]">
-          {mapboxUrl ? (
-            <img
-              src={mapboxUrl}
-              alt={`Mapa satélite ${activeSector}`}
-              className="absolute inset-0 w-full h-full object-cover"
-              onError={e => {
-                (e.currentTarget as HTMLImageElement).src = '/images/panorama-placeholder.svg';
+        <div className="relative w-full h-full min-h-[30vh] sm:min-h-[35vh] lg:min-h-[400px]">
+          {sectorBounds && (
+            <MapboxMap
+              ref={mapRef}
+              mapStyle="mapbox://styles/mapbox/satellite-streets-v12"
+              mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
+              initialViewState={{
+                latitude: sectorCenter.lat,
+                longitude: sectorCenter.lng,
+                zoom: sectorCenter.zoom,
+                pitch: 50,
               }}
-            />
-          ) : (
-            <img
-              src="/images/panorama-placeholder.svg"
-              alt="Panorámica"
-              className="absolute inset-0 w-full h-full object-cover"
-            />
+              terrain={{ source: 'mapbox-dem', exaggeration: 1.5 }}
+              interactiveLayerIds={trackLineIds}
+              onMouseMove={handleMapHover}
+              onClick={handleMapClick}
+              onMouseLeave={handleMapLeave}
+              style={{ width: '100%', height: '100%' }}
+              attributionControl={false}
+            >
+              {/* Terrain DEM source */}
+              <Source id="mapbox-dem" type="raster-dem" url="mapbox://mapbox.mapbox-terrain-dem-v1" />
+
+              {/* Navigation control with pitch */}
+              <NavigationControl visualizePitch={true} position="top-right" />
+
+              {/* Track layers */}
+              {sectorTracks
+                .filter(t => !difFilter || t.dificultad === difFilter)
+                .map(track => {
+                  const isClosed = track.estado === 'cerrado';
+                  const isHov = hoveredTrackId === track.id;
+                  const isAct = activeTrackId === track.id;
+                  const isSel = selectedTrackIds.includes(track.id);
+
+                  const color = getVisualColor(track);
+                  let weight = isAct ? 5 : isHov ? 4.5 : isSel ? 3.5 : 2.5;
+                  let opacity = isClosed ? 0.2 : isAct ? 1 : isHov ? 0.9 : isSel ? 0.75 : 0.45;
+                  const dash = isClosed ? [5, 5] : isSel ? [8, 5] : null;
+
+                  const coords: [number, number][] = track.points.map(p => [p.lng, p.lat]);
+
+                  return (
+                    <Fragment key={track.id}>
+                      <Source id={`src-${track.id}`} type="geojson" data={{
+                        type: 'Feature',
+                        geometry: { type: 'LineString', coordinates: coords },
+                        properties: { trackId: track.id },
+                      }}>
+                        {/* Glow layer (only on hover/active) */}
+                        <Layer
+                          id={`glow-${track.id}`}
+                          type="line"
+                          source={`src-${track.id}`}
+                          paint={{
+                            'line-color': color,
+                            'line-width': weight + 10,
+                            'line-opacity': isHov || isAct ? 0.4 : 0,
+                            'line-blur': 5,
+                          }}
+                        />
+                        {/* Main line */}
+                        <Layer
+                          id={`line-${track.id}`}
+                          type="line"
+                          source={`src-${track.id}`}
+                          paint={{
+                            'line-color': color,
+                            'line-width': weight,
+                            'line-opacity': opacity,
+                            ...(dash ? { 'line-dasharray': dash } : {}),
+                          }}
+                        />
+                      </Source>
+                    </Fragment>
+                  );
+                })}
+
+              {/* Start point markers */}
+              {sectorTracks
+                .filter(t => !difFilter || t.dificultad === difFilter)
+                .map(track => {
+                  const isAct = activeTrackId === track.id;
+                  const isHov = hoveredTrackId === track.id;
+                  return (
+                    <Source key={`start-${track.id}`} id={`start-${track.id}`} type="geojson" data={{
+                      type: 'Feature',
+                      geometry: { type: 'Point', coordinates: [track.startPoint.lng, track.startPoint.lat] },
+                      properties: {},
+                    }}>
+                      <Layer
+                        id={`start-${track.id}`}
+                        type="circle"
+                        source={`start-${track.id}`}
+                        paint={{
+                          'circle-color': '#22c55e',
+                          'circle-radius': isAct || isHov ? 5 : 3.5,
+                          'circle-opacity': 0.85,
+                          'circle-stroke-color': '#ffffff',
+                          'circle-stroke-width': 1.5,
+                        }}
+                      />
+                    </Source>
+                  );
+                })}
+            </MapboxMap>
           )}
 
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/10 to-transparent pointer-events-none" />
-          <div className="absolute inset-0 bg-gradient-to-r from-slate-950/40 to-transparent pointer-events-none" />
+          {/* Fallback while map loads */}
+          {!sectorBounds && (
+            <div className="absolute inset-0 flex items-center justify-center bg-slate-900">
+              <p className="text-slate-500 text-sm">Cargando mapa...</p>
+            </div>
+          )}
 
-          {/* Sector name overlay */}
-          <div className="absolute top-3 left-3 z-20 pointer-events-none">
+          {/* Sector name badge */}
+          <div className="absolute top-3 left-3 z-10 pointer-events-none">
             <span className="px-3 py-1 rounded-full bg-slate-950/70 backdrop-blur-sm text-xs font-bold text-orange-400 border border-orange-500/30">
               {activeSector}
             </span>
           </div>
 
-          {/* Mapbox attribution */}
-          <div className="absolute bottom-1 right-1 z-20 pointer-events-none text-[9px] text-white/50">
-            © Mapbox © OpenStreetMap
-          </div>
-
-          {/* SVG overlay */}
-          <svg
-            className="svg-overlay absolute inset-0 w-full h-full"
-            viewBox="0 0 1000 500"
-            preserveAspectRatio="xMidYMid slice"
-          >
-            {gpxPaths.map(({ trackId, d, endX, endY }) => {
-              const track = trackMap.get(trackId);
-              if (!track) return null;
-              if (difFilter && track.dificultad !== difFilter) return null;
-              const hovered = hoveredTrackId === trackId;
-              const active = activeTrackId === trackId;
-              return (
-                <g key={trackId}>
-                  <path
-                    d={d}
-                    fill="none"
-                    stroke="transparent"
-                    strokeWidth={20}
-                    className="cursor-pointer touch-manipulation"
-                    onMouseEnter={() => handleSvgHover(trackId)}
-                    onMouseMove={handleSvgMove}
-                    onMouseLeave={() => handleSvgHover(null)}
-                    onClick={() => handleSvgClick(trackId)}
-                    onTouchStart={e => { e.preventDefault(); handleSvgTouch(trackId); }}
-                  />
-                  <TrailSvgPath
-                    d={d}
-                    endX={endX}
-                    endY={endY}
-                    color={getVisualColor(track)}
-                    isClosed={track.estado === 'cerrado'}
-                    isHovered={hovered}
-                    isActive={active}
-                    isSelected={selectedTrackIds.includes(trackId)}
-                  />
-                </g>
-              );
-            })}
-
-            {/* Track name labels on hover/active */}
-            {gpxPaths.map(({ trackId, endX, endY }) => {
-              const track = trackMap.get(trackId);
-              if (!track) return null;
-              if (difFilter && track.dificultad !== difFilter) return null;
-              const show = hoveredTrackId === trackId || activeTrackId === trackId;
-              if (!show) return null;
-              return (
-                <text
-                  key={`lbl-${trackId}`}
-                  x={endX + 10}
-                  y={endY - 6}
-                  fill="#ffffff"
-                  fontSize={11}
-                  fontWeight="bold"
-                  fontFamily="system-ui, sans-serif"
-                  pointerEvents="none"
-                  className="drop-shadow-lg"
-                >
-                  {track.nombre}
-                </text>
-              );
-            })}
-          </svg>
-
-          {/* Tooltip flotante */}
+          {/* Floating tooltip */}
           {hoveredTrackId && tooltipPos && (() => {
             const track = trackMap.get(hoveredTrackId);
             if (!track) return null;
