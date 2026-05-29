@@ -38,7 +38,7 @@ function computeBounds(points: TrackPoint[]) {
 function computeView(bounds: SendaSegment['bounds']): CameraView {
   const lat = (bounds.minLat + bounds.maxLat) / 2;
   const lng = (bounds.minLng + bounds.maxLng) / 2;
-  return { lat: +lat.toFixed(6), lng: +lng.toFixed(6), zoom: 14, pitch: 67, bearing: 171 };
+  return { lat: +lat.toFixed(6), lng: +lng.toFixed(6), zoom: 15.3, pitch: 78, bearing: 170 };
 }
 
 export function splitIntoSendas(track: TrackMTB, maxSegments = 5): SendaSegment[] {
