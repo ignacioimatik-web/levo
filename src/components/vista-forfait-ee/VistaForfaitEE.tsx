@@ -467,7 +467,7 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
 
         {/* ── Floating senda panel inside map ── */}
         {showPanel && (
-          <div className="absolute bottom-2 left-2 right-2 sm:left-2 sm:right-auto sm:bottom-2 sm:w-72 z-20 max-h-[40%] overflow-y-auto rounded-xl bg-slate-950/85 backdrop-blur-md border border-white/10 shadow-xl">
+          <div className="absolute bottom-0 left-0 right-0 sm:left-2 sm:right-auto sm:bottom-2 sm:w-72 z-20 max-h-[30%] sm:max-h-[40%] overflow-y-auto rounded-none sm:rounded-xl bg-slate-950/85 backdrop-blur-md border-t sm:border border-white/10 shadow-xl">
             <div className="sticky top-0 z-10 flex items-center justify-between px-3 py-2 bg-slate-950/90 backdrop-blur-sm border-b border-white/5">
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Sendas</span>
@@ -582,40 +582,41 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
         )}
 
         {/* Camera view coordinates + Pitch/bearing controls at top */}
-        <div className="absolute top-2 right-2 z-[1000] flex flex-col items-end gap-1">
+        <div className="absolute top-2 right-2 left-2 sm:left-auto z-[1000] flex flex-col sm:items-end gap-1">
           {cameraView && (
-            <div className="px-2 py-1 rounded bg-slate-950/70 backdrop-blur-sm border border-white/10 text-[8px] font-mono text-slate-400 leading-tight pointer-events-none">
+            <div className="hidden sm:block px-2 py-1 rounded bg-slate-950/70 backdrop-blur-sm border border-white/10 text-[8px] font-mono text-slate-400 leading-tight pointer-events-none whitespace-nowrap">
               <div>lat {cameraView.lat} lng {cameraView.lng}</div>
               <div>zoom {cameraView.zoom} pitch {cameraView.pitch}° bear {cameraView.bearing}°</div>
             </div>
           )}
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap justify-end gap-1">
             <div className="flex items-center gap-1 px-2 py-1 rounded bg-slate-950/80 backdrop-blur-sm border border-white/10">
-              <span className="text-[8px] font-bold uppercase text-slate-500">Pitch</span>
+              <span className="text-[8px] font-bold uppercase text-slate-500">P</span>
               <input type="range" min={0} max={85} step={1} value={pitch}
                 onChange={e => {
                   const v = +e.target.value;
                   setPitch(v);
                   if (mapRef.current) mapRef.current.setPitch(v);
                 }}
-                className="w-16 h-1 accent-orange-500 cursor-pointer"
+                className="w-12 sm:w-16 h-1 accent-orange-500 cursor-pointer"
               />
-              <span className="text-[9px] font-mono text-slate-400 w-6 text-right">{Math.round(pitch)}°</span>
+              <span className="text-[9px] font-mono text-slate-400 w-5 sm:w-6 text-right">{Math.round(pitch)}°</span>
               <button onClick={() => { setPitch(0); if (mapRef.current) mapRef.current.setPitch(0); }}
                 className="px-1 py-0.5 rounded text-[8px] font-bold text-slate-500 hover:text-white transition-colors"
               >0</button>
             </div>
             <div className="flex items-center gap-1 px-2 py-1 rounded bg-slate-950/80 backdrop-blur-sm border border-white/10">
-              <span className="text-[8px] font-bold uppercase text-slate-500">Bear</span>
+              <span className="text-[8px] font-bold uppercase text-slate-500 hidden sm:inline">Bear</span>
+              <span className="text-[8px] font-bold uppercase text-slate-500 sm:hidden">B</span>
               <input type="range" min={-180} max={180} step={1} value={bearing > 180 ? bearing - 360 : bearing}
                 onChange={e => {
                   const v = +e.target.value < 0 ? +e.target.value + 360 : +e.target.value;
                   setBearing(v);
                   if (mapRef.current) mapRef.current.setBearing(+e.target.value);
                 }}
-                className="w-16 h-1 accent-orange-500 cursor-pointer"
+                className="w-12 sm:w-16 h-1 accent-orange-500 cursor-pointer"
               />
-              <span className="text-[9px] font-mono text-slate-400 w-8 text-right">{Math.round(bearing)}°</span>
+              <span className="text-[9px] font-mono text-slate-400 w-7 sm:w-8 text-right">{Math.round(bearing)}°</span>
               <button onClick={() => { setBearing(0); if (mapRef.current) mapRef.current.setBearing(0); }}
                 className="px-1 py-0.5 rounded text-[8px] font-bold text-slate-500 hover:text-white transition-colors"
               >0</button>
@@ -624,27 +625,27 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
         </div>
 
         {/* ── Track detail + Filters inside map at bottom ── */}
-        <div className="absolute bottom-0 left-0 right-0 z-30 flex flex-col">
+        <div className="absolute bottom-0 left-0 right-0 z-30 flex flex-col pointer-events-none">
           {activeTrackId && (() => {
             const track = trackMap.get(activeTrackId);
             if (!track) return null;
             const cfg = getVisualCfg(track);
             return (
-              <div className="bg-slate-950/85 backdrop-blur-md border-t border-white/10 px-4 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: cfg.color }} />
-                  <div className="min-w-0">
+              <div className="bg-slate-950/85 backdrop-blur-md border-t border-white/10 px-3 sm:px-6 py-2 sm:py-2.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pointer-events-auto">
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0 w-full sm:w-auto">
+                  <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full flex-shrink-0" style={{ backgroundColor: cfg.color }} />
+                  <div className="min-w-0 flex-1 sm:flex-initial">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-white truncate">{track.nombre}</span>
-                      <span className={`text-[10px] font-bold uppercase ${cfg.text}`}>{cfg.label}</span>
+                      <span className="text-xs sm:text-sm font-bold text-white truncate max-w-[160px] sm:max-w-none">{track.nombre}</span>
+                      <span className={`text-[9px] sm:text-[10px] font-bold uppercase ${cfg.text} whitespace-nowrap`}>{cfg.label}</span>
                     </div>
-                    <p className="text-[11px] text-slate-500">
+                    <p className="text-[10px] sm:text-[11px] text-slate-500 truncate">
                       {track.sector} · {track.distanciaKm.toFixed(1)} km · +{track.desnivelPositivo}m / -{track.desnivelNegativo}m
                     </p>
                   </div>
                 </div>
                 <button onClick={() => setSelectedTrackIds(prev => prev.includes(activeTrackId) ? [] : [activeTrackId])}
-                  className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                  className={`w-full sm:w-auto px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors pointer-events-auto ${
                     selectedTrackIds.includes(activeTrackId)
                       ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
                       : 'bg-slate-800 text-slate-300 border border-white/5 hover:bg-orange-500/15 hover:text-orange-400'
@@ -655,10 +656,10 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
               </div>
             );
           })()}
-          <div className="bg-slate-950/85 backdrop-blur-md border-t border-white/10 px-4 sm:px-6 py-2 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="bg-slate-950/85 backdrop-blur-md border-t border-white/10 px-3 sm:px-6 py-1.5 sm:py-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5 sm:gap-2 pointer-events-auto">
+            <div className="flex items-center gap-1 flex-wrap w-full sm:w-auto">
               <button onClick={() => setDifFilter(null)}
-                className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                className={`px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[9px] sm:text-[10px] font-bold uppercase tracking-wider transition-colors ${
                   !difFilter ? 'bg-orange-500/15 text-orange-400 border border-orange-500/30'
                     : 'text-slate-500 border border-white/5 hover:text-slate-300'
                 }`}
@@ -668,7 +669,7 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
                 const active = difFilter === d;
                 return (
                   <button key={d} onClick={() => setDifFilter(active ? null : d)}
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                    className={`inline-flex items-center gap-1.5 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[9px] sm:text-[10px] font-bold uppercase tracking-wider transition-colors ${
                       active ? `${cfg.color}/15 ${cfg.text} border ${cfg.color}/30`
                         : 'text-slate-500 border border-white/5 hover:text-slate-300'
                     }`}
@@ -679,7 +680,7 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
                 );
               })}
             </div>
-            <div className="flex items-center gap-2 text-[9px] text-slate-500 flex-wrap">
+            <div className="hidden sm:flex items-center gap-2 text-[9px] text-slate-500 flex-wrap">
               <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#10b981' }} /> Fácil</span>
               <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#3b82f6' }} /> Media</span>
               <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#ef4444' }} /> Difícil</span>
