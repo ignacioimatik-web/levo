@@ -588,7 +588,7 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
                       }}
                         className="px-1 py-0.5 rounded text-[8px] font-bold font-mono text-white bg-slate-950/80 backdrop-blur-sm border border-white/10 hover:bg-orange-500/20 hover:text-orange-400 hover:border-orange-500/30 transition-colors"
                       >
-                        z{p.zoom} p{p.pitch} b{p.bearing}
+                        V{i + 1}
                       </button>
                       <span className="absolute left-1/2 -top-4 -translate-x-1/2 text-[7px] font-bold uppercase tracking-wider text-slate-400 bg-slate-950/90 backdrop-blur-sm px-1 py-0.5 rounded border border-white/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
                         {p.label}
