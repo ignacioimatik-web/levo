@@ -134,8 +134,8 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
     [sectorTracks],
   );
   const sectorCenter = useMemo(() => {
-    if (!sectorBounds) return { lat: 40.6, lng: -0.02, zoom: 12 };
-    return { lat: (sectorBounds.minLat + sectorBounds.maxLat) / 2, lng: (sectorBounds.minLng + sectorBounds.maxLng) / 2, zoom: 12 };
+    if (!sectorBounds) return { lat: 40.6, lng: -0.02, zoom: 14 };
+    return { lat: (sectorBounds.minLat + sectorBounds.maxLat) / 2, lng: (sectorBounds.minLng + sectorBounds.maxLng) / 2, zoom: 14 };
   }, [sectorBounds]);
 
   /* ── Sendas ── */
@@ -220,7 +220,7 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
     const doFit = () => {
       map.fitBounds(
         [[sectorBounds.minLng, sectorBounds.minLat], [sectorBounds.maxLng, sectorBounds.maxLat]],
-        { padding: 50, pitch: 50, duration: 800 },
+        { padding: 50, pitch: 67, bearing: 171, duration: 800 },
       );
     };
     if (map.isStyleLoaded()) doFit();
@@ -407,7 +407,7 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
             <MapboxMap ref={mapRef}
               mapStyle="mapbox://styles/mapbox/satellite-streets-v12"
               mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
-              initialViewState={{ latitude: sectorCenter.lat, longitude: sectorCenter.lng, zoom: sectorCenter.zoom, pitch: 50 }}
+              initialViewState={{ latitude: sectorCenter.lat, longitude: sectorCenter.lng, zoom: sectorCenter.zoom, pitch: 67, bearing: 171 }}
               terrain={{ source: 'mapbox-dem', exaggeration: 1.5 }}
               interactiveLayerIds={trackLineIds}
               onMouseMove={handleMapHover}
