@@ -286,6 +286,30 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
     'line-dasharray': [6, 4] as [number, number],
   };
 
+  /* ── Route overview (flag style) ── */
+  const routeOverview = useMemo(() => {
+    const sel = selectedTrackIds.map(id => tracks.find(t => t.id === id)).filter(Boolean) as TrackMTB[];
+    if (sel.length === 0) return null;
+    const ordered: TrackMTB[] = [sel[0]];
+    const remaining = sel.slice(1);
+    while (remaining.length > 0) {
+      const last = ordered[ordered.length - 1];
+      const lastPt = last.points[last.points.length - 1];
+      let bestIdx = 0, bestDist = Infinity;
+      for (let i = 0; i < remaining.length; i++) {
+        const firstPt = remaining[i].points[0];
+        const d = Math.sqrt(
+          ((firstPt.lat - lastPt.lat) * 111320) ** 2 +
+          ((firstPt.lng - lastPt.lng) * 111320 * Math.cos(firstPt.lat * Math.PI / 180)) ** 2
+        );
+        if (d < bestDist) { bestDist = d; bestIdx = i; }
+      }
+      ordered.push(remaining[bestIdx]);
+      remaining.splice(bestIdx, 1);
+    }
+    return ordered.flatMap(t => t.points.map(p => [p.lng, p.lat] as [number, number]));
+  }, [selectedTrackIds, tracks]);
+
   /* ── Render ── */
   if (!activeSector) {
     return (
@@ -405,6 +429,23 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
             <Source id="active-senda" type="geojson" data={activeSendaGeoJson.data}>
               <Layer id="active-senda-line" type="line" source="active-senda"
                 paint={sendaPaint as any}
+              />
+            </Source>
+          )}
+
+          {/* Selected route overview (flag style) */}
+          {routeOverview && routeOverview.length > 1 && (
+            <Source id="route-overview" type="geojson" data={{
+              type: 'Feature' as const, geometry: { type: 'LineString' as const, coordinates: routeOverview }, properties: {},
+            }}>
+              <Layer id="route-blue-glow" type="line" source="route-overview"
+                paint={{ 'line-color': '#3b82f6', 'line-width': 10, 'line-opacity': 0.25, 'line-blur': 8 } as any}
+              />
+              <Layer id="route-white" type="line" source="route-overview"
+                paint={{ 'line-color': '#ffffff', 'line-width': 5, 'line-opacity': 0.85 } as any}
+              />
+              <Layer id="route-black-dash" type="line" source="route-overview"
+                paint={{ 'line-color': '#1e293b', 'line-width': 5, 'line-opacity': 0.9, 'line-dasharray': [6, 6] } as any}
               />
             </Source>
           )}
