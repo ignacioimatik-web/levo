@@ -42,6 +42,7 @@ const MINIMAL_STYLE = {
 };
 
 const GOOGLE_SATELLITE_URL = 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}';
+const GOOGLE_LABELS_URL = 'https://mt1.google.com/vt/lyrs=h&x={x}&y={y}&z={z}';
 
 function getVisualCfg(track: TrackMTB): VisualConfig {
   if (track.estado === 'cerrado') return DIF_CONFIG.gris;
@@ -379,6 +380,14 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
             tileSize={256}
           >
             <Layer id="satellite-layer" type="raster" />
+          </Source>
+
+          {/* Labels overlay (transparent Google hybrid labels) */}
+          <Source id="labels" type="raster"
+            tiles={[GOOGLE_LABELS_URL]}
+            tileSize={256}
+          >
+            <Layer id="labels-layer" type="raster" />
           </Source>
 
           {/* Track layers */}
