@@ -2,13 +2,12 @@
 
 import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { MapContainer, TileLayer, GeoJSON, useMap } from 'react-leaflet';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
+import { Map as MapboxMap, Source, Layer } from 'react-map-gl/mapbox';
+import type { MapRef, MapMouseEvent } from 'react-map-gl/mapbox';
+import 'mapbox-gl/dist/mapbox-gl.css';
 import type { TrackMTB, DificultadMTB } from '@/lib/forfait/types';
 import type { SendaSegment } from '@/lib/forfait/senda-utils';
 import { splitIntoSendas } from '@/lib/forfait/senda-utils';
-import type { Feature, LineString } from 'geojson';
 
 /* ─── Types ─── */
 interface Bounds {
@@ -34,6 +33,23 @@ const DIF_CONFIG: Record<string, VisualConfig> = {
 
 const ALL_DIFICULTADES = ['verde', 'azul', 'rojo', 'negro', 'doble-negro'] as const;
 
+const GOOGLE_SATELLITE_STYLE = {
+  version: 8 as const,
+  sources: {
+    'google-satellite': {
+      type: 'raster' as const,
+      tiles: ['https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}'],
+      tileSize: 256,
+      attribution: 'Google',
+    },
+  },
+  layers: [{
+    id: 'google-satellite',
+    type: 'raster' as const,
+    source: 'google-satellite',
+  }],
+};
+
 function getVisualCfg(track: TrackMTB): VisualConfig {
   if (track.estado === 'cerrado') return DIF_CONFIG.gris;
   if (track.dificultad === 'doble-negro') return DIF_CONFIG.naranja;
@@ -51,32 +67,6 @@ function computeBounds(tracks: TrackMTB[]): Bounds {
   return { minLat: minLat - padLat, maxLat: maxLat + padLat, minLng: minLng - padLng, maxLng: maxLng + padLng };
 }
 
-/* ─── FlyTo control ─── */
-function FlyToControl({ target }: { target: { lat: number; lng: number; zoom: number } | null }) {
-  const map = useMap();
-  useEffect(() => {
-    if (target) map.flyTo([target.lat, target.lng], target.zoom, { duration: 1 });
-  }, [target, map]);
-  return null;
-}
-
-/* ─── Map pitch/bearing transform ─── */
-function MapTransform({ pitch, bearing }: { pitch: number; bearing: number }) {
-  const map = useMap();
-  useEffect(() => {
-    const el = map.getContainer();
-    const p = pitch * 0.4;
-    const b = bearing;
-    if (p === 0 && b === 0) {
-      el.style.transform = '';
-    } else {
-      el.style.transform = `perspective(800px) rotateX(${p}deg) rotateZ(${b}deg)`;
-      el.style.transformOrigin = 'center center';
-    }
-  }, [pitch, bearing, map]);
-  return null;
-}
-
 /* ─── Main component ─── */
 export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
   const [difFilter, setDifFilter] = useState<DificultadMTB | null>(null);
@@ -86,10 +76,12 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
   const [activeSector, setActiveSector] = useState<string | null>(null);
   const [activeSendaId, setActiveSendaId] = useState<string | null>(null);
   const [expandedTrackId, setExpandedTrackId] = useState<string | null>(null);
-  const [flyTarget, setFlyTarget] = useState<{ lat: number; lng: number; zoom: number; pitch?: number; bearing?: number } | null>(null);
-  const [pitch, setPitch] = useState(0);
+  const [pitch, setPitch] = useState(60);
   const [bearing, setBearing] = useState(0);
-  const mapRef = useRef<L.Map | null>(null);
+  const [zoom, setZoom] = useState(15.3);
+  const [viewState, setViewState] = useState({ latitude: 40.6, longitude: -0.02, zoom: 15.3, pitch: 60, bearing: 0 });
+  const mapRef = useRef<MapRef>(null);
+  const [mapReady, setMapReady] = useState(false);
 
   /* ── Sector data ── */
   const sectorsData = useMemo(() => {
@@ -118,8 +110,8 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
   );
 
   const sectorCenter = useMemo(() => {
-    if (!sectorBounds) return { lat: 40.6, lng: -0.02, zoom: 15.3 };
-    return { lat: (sectorBounds.minLat + sectorBounds.maxLat) / 2, lng: (sectorBounds.minLng + sectorBounds.maxLng) / 2, zoom: 15.3 };
+    if (!sectorBounds) return { latitude: 40.6, longitude: -0.02 };
+    return { latitude: (sectorBounds.minLat + sectorBounds.maxLat) / 2, longitude: (sectorBounds.minLng + sectorBounds.maxLng) / 2 };
   }, [sectorBounds]);
 
   /* ── Sendas ── */
@@ -165,10 +157,13 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
 
   /* ── Fly to sector bounds ── */
   useEffect(() => {
-    if (sectorBounds) {
-      setFlyTarget({ lat: sectorCenter.lat, lng: sectorCenter.lng, zoom: 15.3 });
+    if (sectorBounds && mapReady) {
+      mapRef.current?.flyTo({
+        center: [sectorCenter.longitude, sectorCenter.latitude],
+        zoom: 15.3, pitch: 60, bearing: 0, duration: 1500,
+      });
     }
-  }, [sectorBounds]);
+  }, [sectorBounds, mapReady]);
 
   const handleSelectSector = useCallback((name: string) => {
     setActiveSector(name); setActiveTrackId(null); setHoveredTrackId(null);
@@ -177,7 +172,11 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
 
   const flyToSenda = useCallback((senda: SendaSegment) => {
     const view = senda.customView || senda.suggestedView;
-    setFlyTarget({ lat: view.lat, lng: view.lng, zoom: view.zoom });
+    if (mapRef.current) {
+      mapRef.current.flyTo({
+        center: [view.lng, view.lat], zoom: view.zoom, pitch: view.pitch ?? 60, bearing: view.bearing ?? 0, duration: 1200,
+      });
+    }
     setActiveSendaId(senda.id);
     setExpandedTrackId(senda.trackId);
   }, []);
@@ -186,13 +185,24 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
   const flyPreset = useCallback((z: number, p: number, b: number) => {
     if (!mapRef.current) return;
     const c = mapRef.current.getCenter();
-    setFlyTarget({ lat: c.lat, lng: c.lng, zoom: z, pitch: p, bearing: b });
-    setPitch(p);
-    setBearing(b);
+    mapRef.current.flyTo({ center: c, zoom: z, pitch: p, bearing: b, duration: 1000 });
+    setPitch(p); setBearing(b); setZoom(z);
   }, []);
 
-  /* ── GeoJSON styles ── */
-  const trackStyle = useCallback((track: TrackMTB) => {
+  /* ── GeoJSON data ── */
+  const trackLineIds = useMemo(() => filtered.map(t => `${t.id}-line`), [filtered]);
+
+  const trackGeoJsons = useMemo(() => filtered.map(t => ({
+    id: t.id,
+    data: { type: 'Feature' as const, geometry: { type: 'LineString' as const, coordinates: t.points.map(p => [p.lng, p.lat]) }, properties: { trackId: t.id } },
+  })), [filtered]);
+
+  const activeSendaGeoJson = useMemo(() => activeSenda ? {
+    data: { type: 'Feature' as const, geometry: { type: 'LineString' as const, coordinates: activeSenda.points.map(p => [p.lng, p.lat]) }, properties: {} },
+  } : null, [activeSenda]);
+
+  /* ── Layer paint/layout helpers ── */
+  const trackPaint = useCallback((track: TrackMTB) => {
     const isClosed = track.estado === 'cerrado';
     const isHov = hoveredTrackId === track.id;
     const isAct = activeTrackId === track.id;
@@ -202,10 +212,20 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
     const color = isClosed ? DIF_COLORS.gris : track.dificultad === 'doble-negro' ? DIF_COLORS.naranja : DIF_COLORS[track.dificultad] || DIF_COLORS.naranja;
     const weight = isAct ? 5 : isHov ? 4.5 : isSel ? 3.5 : 2.5;
     const opacity = isClosed ? 0.2 : isAct ? 1 : isHov ? 0.9 : isSel ? 0.75 : isDimmed ? 0.12 : 0.45;
-    return { color, weight, opacity, dashArray: isClosed ? '5 5' : isSel ? '8 5' : '' };
+    return {
+      'line-color': color,
+      'line-width': weight,
+      'line-opacity': opacity,
+      'line-dasharray': isClosed ? [5, 5] as [number, number] : isSel ? [8, 5] as [number, number] : undefined,
+    };
   }, [hoveredTrackId, activeTrackId, selectedTrackIds, activeSendaId, activeSenda]);
 
-  const sendaStyle: L.PathOptions = { color: '#f97316', weight: 4, opacity: 0.9, dashArray: '6 4' };
+  const sendaPaint = {
+    'line-color': '#f97316',
+    'line-width': 4,
+    'line-opacity': 0.9,
+    'line-dasharray': [6, 4] as [number, number],
+  };
 
   /* ── Render ── */
   if (!activeSector) {
@@ -254,48 +274,61 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
 
       {/* MAP */}
       <section className="relative mx-3 sm:mx-6 lg:mx-8 overflow-hidden rounded-xl bg-slate-900 flex-1 min-h-[300px]">
-        <MapContainer center={[sectorCenter.lat, sectorCenter.lng]} zoom={15.3}
-          className="w-full h-full absolute inset-0"
-          zoomControl={false}
-          ref={mapRef as any}
+        <MapboxMap
+          ref={mapRef}
+          mapStyle={GOOGLE_SATELLITE_STYLE}
+          mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
+          initialViewState={{ latitude: sectorCenter.latitude, longitude: sectorCenter.longitude, zoom: 15.3, pitch: 60, bearing: 0 }}
+          onMove={e => {
+            setViewState(e.viewState);
+            setZoom(e.viewState.zoom);
+            setPitch(e.viewState.pitch);
+            setBearing(e.viewState.bearing);
+          }}
+          interactiveLayerIds={trackLineIds}
+          onMouseMove={e => {
+            if (!e.features || e.features.length === 0) { setHoveredTrackId(null); return; }
+            const trackId = e.features[0].properties?.trackId as string;
+            if (trackId) setHoveredTrackId(trackId);
+            else setHoveredTrackId(null);
+          }}
+          onClick={(e: MapMouseEvent) => {
+            if (!e.features || e.features.length === 0) return;
+            const trackId = e.features[0].properties?.trackId as string;
+            if (trackId) {
+              setActiveTrackId(trackId);
+              setExpandedTrackId(trackId);
+              setSelectedTrackIds([trackId]);
+            }
+          }}
+          onLoad={() => setMapReady(true)}
+          style={{ width: '100%', height: '100%', position: 'absolute', inset: 0 }}
+          attributionControl={false}
+          scrollZoom={{ around: 'center' }}
+          dragRotate={true}
+          touchPitch={true}
+          touchZoomRotate={true}
+          doubleClickZoom={true}
+          keyboard={true}
         >
-          <TileLayer
-            url="https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}"
-            maxZoom={20}
-            attribution='Google'
-          />
-          <FlyToControl target={flyTarget} />
-
           {/* Track layers */}
-          {filtered.map(track => {
-            const coords = track.points.map(p => [p.lat, p.lng] as [number, number]);
-            return (
-              <GeoJSON key={track.id}
-                data={{ type: 'Feature', geometry: { type: 'LineString', coordinates: coords.map(c => [c[1], c[0]]) }, properties: {} } as Feature<LineString>}
-                pathOptions={trackStyle(track)}
-                eventHandlers={{
-                  mouseover: () => setHoveredTrackId(track.id),
-                  mouseout: () => setHoveredTrackId(null),
-                  click: () => {
-                    setActiveTrackId(track.id);
-                    setExpandedTrackId(track.id);
-                    setSelectedTrackIds([track.id]);
-                  },
-                }}
+          {trackGeoJsons.map(t => (
+            <Source key={t.id} id={t.id} type="geojson" data={t.data}>
+              <Layer id={`${t.id}-line`} type="line" source={t.id}
+                paint={trackPaint(trackMap.get(t.id)!) as any}
               />
-            );
-          })}
-
-          <MapTransform pitch={pitch} bearing={bearing} />
+            </Source>
+          ))}
 
           {/* Active senda highlight */}
-          {activeSenda && (
-            <GeoJSON key="active-senda"
-              data={{ type: 'Feature', geometry: { type: 'LineString', coordinates: activeSenda.points.map(p => [p.lng, p.lat]) }, properties: {} } as Feature<LineString>}
-              pathOptions={sendaStyle}
-            />
+          {activeSendaGeoJson && (
+            <Source id="active-senda" type="geojson" data={activeSendaGeoJson.data}>
+              <Layer id="active-senda-line" type="line" source="active-senda"
+                paint={sendaPaint as any}
+              />
+            </Source>
           )}
-        </MapContainer>
+        </MapboxMap>
 
         {/* Sector badge */}
         <div className="absolute top-2 left-2 z-[1000] pointer-events-none flex items-center gap-2">
@@ -327,25 +360,35 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
           ))}
         </div>
 
-        {/* Pitch/bearing controls */}
+        {/* Pitch/bearing controls (now read-only display, map captures input natively) */}
         <div className="absolute bottom-2 left-2 z-[1000] flex items-center gap-1.5">
           <div className="flex items-center gap-1 px-2 py-1 rounded bg-slate-950/80 backdrop-blur-sm border border-white/10">
             <span className="text-[8px] font-bold uppercase text-slate-500">Pitch</span>
-            <input type="range" min={0} max={90} value={pitch} onChange={e => setPitch(+e.target.value)}
+            <input type="range" min={0} max={85} step={1} value={pitch}
+              onChange={e => {
+                const v = +e.target.value;
+                setPitch(v);
+                if (mapRef.current) mapRef.current.setPitch(v);
+              }}
               className="w-16 h-1 accent-orange-500 cursor-pointer"
             />
-            <span className="text-[9px] font-mono text-slate-400 w-6 text-right">{pitch}°</span>
-            <button onClick={() => setPitch(0)}
+            <span className="text-[9px] font-mono text-slate-400 w-6 text-right">{Math.round(pitch)}°</span>
+            <button onClick={() => { setPitch(0); if (mapRef.current) mapRef.current.setPitch(0); }}
               className="px-1 py-0.5 rounded text-[8px] font-bold text-slate-500 hover:text-white transition-colors"
             >0</button>
           </div>
           <div className="flex items-center gap-1 px-2 py-1 rounded bg-slate-950/80 backdrop-blur-sm border border-white/10">
             <span className="text-[8px] font-bold uppercase text-slate-500">Bear</span>
-            <input type="range" min={0} max={360} value={bearing} onChange={e => setBearing(+e.target.value)}
+            <input type="range" min={-180} max={180} step={1} value={bearing > 180 ? bearing - 360 : bearing}
+              onChange={e => {
+                const v = +e.target.value < 0 ? +e.target.value + 360 : +e.target.value;
+                setBearing(v);
+                if (mapRef.current) mapRef.current.setBearing(+e.target.value);
+              }}
               className="w-16 h-1 accent-orange-500 cursor-pointer"
             />
-            <span className="text-[9px] font-mono text-slate-400 w-8 text-right">{bearing}°</span>
-            <button onClick={() => setBearing(0)}
+            <span className="text-[9px] font-mono text-slate-400 w-8 text-right">{Math.round(bearing)}°</span>
+            <button onClick={() => { setBearing(0); if (mapRef.current) mapRef.current.setBearing(0); }}
               className="px-1 py-0.5 rounded text-[8px] font-bold text-slate-500 hover:text-white transition-colors"
             >0</button>
           </div>
