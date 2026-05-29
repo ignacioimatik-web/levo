@@ -289,8 +289,9 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
     if (!feature) return;
     const trackId = feature.properties?.trackId as string;
     if (!trackId) return;
-    setActiveTrackId(prev => (prev === trackId ? null : trackId));
+    setActiveTrackId(trackId);
     setExpandedTrackId(trackId);
+    setSelectedTrackIds([trackId]);
   }, []);
 
   const handleMoveEnd = useCallback(() => {
@@ -308,7 +309,7 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
   const handleSelectTrack = useCallback((id: string) => {
     setActiveTrackId(prev => (prev === id ? null : id));
     setSelectedTrackIds(prev =>
-      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id],
+      prev.includes(id) ? [] : [id],
     );
   }, []);
 
