@@ -534,7 +534,7 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
           )}
 
           {/* Preset camera buttons */}
-          <div className="absolute bottom-2 left-[18.5rem] z-10 hidden sm:flex flex-col gap-1.5">
+          <div className="absolute top-2 left-[18.5rem] z-10 hidden sm:flex flex-col gap-1.5">
             {([
               { zoom: 13, pitch: 75, bearing: 80, label: 'Vista 1' },
               { zoom: 15, pitch: 78, bearing: 120, label: 'Vista 2' },
