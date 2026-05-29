@@ -413,7 +413,7 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
 
       {/* ── MAPA 3D ── */}
       <section ref={panoramaRef}
-        className="panorama-container relative w-full overflow-hidden bg-slate-900 max-h-[50vh] sm:max-h-[55vh] lg:max-h-none rounded-xl"
+        className="panorama-container relative mx-3 sm:mx-6 lg:mx-8 overflow-hidden bg-slate-900 max-h-[50vh] sm:max-h-[55vh] lg:max-h-none rounded-xl"
       >
         <div className="relative w-full aspect-[2/1] min-h-[300px]">
           {sectorBounds ? (
