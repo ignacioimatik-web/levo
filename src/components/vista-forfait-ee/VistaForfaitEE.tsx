@@ -210,6 +210,7 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
     }
     setActiveSendaId(senda.id);
     setExpandedTrackId(senda.trackId);
+    setActiveTrackId(senda.trackId);
   }, []);
 
   /* ── Preset fly ── */
@@ -473,7 +474,10 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
                 return (
                   <div key={t.id}>
                     {/* Track header */}
-                    <button onClick={() => setExpandedTrackId(isExpanded ? null : t.id)}
+                    <button onClick={() => {
+                      setExpandedTrackId(isExpanded ? null : t.id);
+                      setActiveTrackId(t.id);
+                    }}
                       className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-white/[0.04] transition-colors"
                     >
                       <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cfg.color }} />
@@ -492,7 +496,10 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
                     {isExpanded && sendas.map(s => {
                       const isActive = activeSendaId === s.id;
                       return (
-                        <button key={s.id} onClick={() => flyToSenda(s)}
+                        <button key={s.id} onClick={() => {
+                          flyToSenda(s);
+                          setActiveTrackId(s.trackId);
+                        }}
                           className={`w-full flex items-center gap-2 pl-8 pr-3 py-1.5 text-left transition-colors ${
                             isActive ? 'bg-orange-500/10' : 'hover:bg-white/[0.03]'
                           }`}
