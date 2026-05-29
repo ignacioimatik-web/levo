@@ -152,6 +152,19 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
     [allSendas],
   );
 
+  /* ── Auto-expand first track + show first senda ── */
+  useEffect(() => {
+    if (sectorTracks.length > 0) {
+      const firstTrack = sectorTracks[0];
+      setExpandedTrackId(firstTrack.id);
+      setActiveTrackId(firstTrack.id);
+      const sendas = allSendas.get(firstTrack.id);
+      if (sendas && sendas.length > 0) {
+        setActiveSendaId(sendas[0].id);
+      }
+    }
+  }, [activeSector]);
+
   const activeSenda = useMemo(
     () => allSendaList.find(s => s.id === activeSendaId) || null,
     [allSendaList, activeSendaId],
