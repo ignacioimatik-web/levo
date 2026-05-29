@@ -6,8 +6,8 @@ import { Map as MapboxMap, Source, Layer, NavigationControl } from 'react-map-gl
 import type { MapRef, MapMouseEvent } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import type { TrackMTB, DificultadMTB } from '@/lib/forfait/types';
-import { buildProfileSeries } from '@/lib/forfait/geo-utils';
-import { splitIntoSendas, type SendaSegment, type CameraView } from '@/lib/forfait/senda-utils';
+import type { SendaSegment, CameraView } from '@/lib/forfait/senda-utils';
+import { splitIntoSendas } from '@/lib/forfait/senda-utils';
 
 /* ─── Types ─── */
 interface Bounds {
@@ -62,37 +62,6 @@ function computeBounds(tracks: TrackMTB[]): Bounds {
   return { minLat: minLat - padLat, maxLat: maxLat + padLat, minLng: minLng - padLng, maxLng: maxLng + padLng };
 }
 
-/* ─── Sector card ─── */
-function SectorCard({ name, trackCount, difficulties, totalKm, onClick }: {
-  name: string; trackCount: number; difficulties: DificultadMTB[]; totalKm: number; onClick: () => void;
-}) {
-  return (
-    <button onClick={onClick}
-      className="relative flex flex-col items-start p-6 sm:p-8 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 border border-white/[0.06] hover:border-orange-500/30 transition-all text-left group cursor-pointer shadow-xl"
-    >
-      <h3 className="text-base sm:text-lg font-bold text-white group-hover:text-orange-400 transition-colors">{name}</h3>
-      <p className="text-sm text-slate-400 mt-1.5">
-        {trackCount} {trackCount === 1 ? 'senda' : 'sendas'}
-        <span className="text-slate-600 mx-2">·</span>
-        {totalKm.toFixed(0)} km
-      </p>
-      <div className="flex items-center gap-1.5 mt-3">
-        {difficulties.map(d => (
-          <span key={d} className={`w-2.5 h-2.5 rounded-full ${DIF_CONFIG[d]?.color || 'bg-slate-500'}`} />
-        ))}
-      </div>
-    </button>
-  );
-}
-
-/* ─── Badge styles ─── */
-const ESTADO_STYLES: Record<string, string> = {
-  abierto: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
-  cerrado: 'bg-slate-500/10 text-slate-400 border-slate-500/30',
-  precaucion: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
-  revision: 'bg-orange-500/10 text-orange-400 border-orange-500/30',
-};
-
 /* ─── Main component ─── */
 export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
   const [difFilter, setDifFilter] = useState<DificultadMTB | null>(null);
@@ -105,6 +74,7 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
   const [expandedTrackId, setExpandedTrackId] = useState<string | null>(null);
   const [cameraView, setCameraView] = useState<CameraView | null>(null);
   const [showPanel, setShowPanel] = useState(true);
+  const [sectorSelectorOpen, setSectorSelectorOpen] = useState(false);
   const mapRef = useRef<MapRef>(null);
   const panoramaRef = useRef<HTMLDivElement>(null);
 
@@ -137,6 +107,20 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
     if (!sectorBounds) return { lat: 40.6, lng: -0.02, zoom: 14 };
     return { lat: (sectorBounds.minLat + sectorBounds.maxLat) / 2, lng: (sectorBounds.minLng + sectorBounds.maxLng) / 2, zoom: 14 };
   }, [sectorBounds]);
+
+  /* ── Auto-select first sector ── */
+  useEffect(() => {
+    if (!activeSector && sectorsData.length > 0) {
+      setActiveSector(sectorsData[0].name);
+    }
+  }, [sectorsData, activeSector]);
+
+  /* ── Auto-expand first track ── */
+  useEffect(() => {
+    if (sectorTracks.length > 0 && !expandedTrackId) {
+      setExpandedTrackId(sectorTracks[0].id);
+    }
+  }, [sectorTracks, expandedTrackId]);
 
   /* ── Sendas ── */
   const allSendas = useMemo(() => {
@@ -299,9 +283,10 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
     );
   }, []);
 
-  const handleBackToSectors = useCallback(() => {
-    setActiveSector(null); setActiveTrackId(null); setHoveredTrackId(null);
+  const handleSelectSector = useCallback((name: string) => {
+    setActiveSector(name); setActiveTrackId(null); setHoveredTrackId(null);
     setDifFilter(null); setActiveSendaId(null); setExpandedTrackId(null);
+    setSectorSelectorOpen(false);
   }, []);
 
   /* ── Compute selected route GeoJSON for overview ── */
@@ -333,45 +318,7 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
     return coords;
   }, [selectedTrackIds, tracks]);
 
-  /* ── Render: Sector cards ── */
-  if (!activeSector) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex flex-col">
-        <nav className="relative z-20 bg-slate-950/90 backdrop-blur-md border-b border-white/5">
-          <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-12 sm:h-14 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <Link href="/forfait"
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 sm:px-2.5 sm:py-1 rounded text-[10px] font-bold uppercase tracking-widest transition-colors bg-orange-500/10 text-orange-400 border border-orange-500/25 hover:bg-orange-500/20 flex-shrink-0"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                </svg>
-                <span className="hidden sm:inline">Volver a Forfait</span>
-              </Link>
-              <span className="ml-2 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-widest bg-orange-500/15 text-orange-400">Vista Forfait</span>
-            </div>
-            <span className="text-[11px] text-slate-500">{tracks.length} sendas · {sectorsData.length} sectores</span>
-          </div>
-        </nav>
-        <main className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
-          <div className="mb-8 sm:mb-10">
-            <h1 className="text-xl sm:text-2xl font-bold text-white">Selecciona un sector</h1>
-            <p className="text-sm text-slate-400 mt-1">Explora las sendas de cada sector del bike resort</p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-            {sectorsData.map(s => (
-              <SectorCard key={s.name} name={s.name} trackCount={s.count}
-                difficulties={s.difficulties} totalKm={s.totalKm}
-                onClick={() => setActiveSector(s.name)}
-              />
-            ))}
-          </div>
-        </main>
-      </div>
-    );
-  }
-
-  /* ── Render: Sector detail ── */
+  /* ── Render ── */
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col">
       <style>{`.mapboxgl-ctrl-attrib { display: none !important; }`}</style>
@@ -380,18 +327,46 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
       <nav className="relative z-20 bg-slate-950/90 backdrop-blur-md border-b border-white/5">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-12 sm:h-14 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <button onClick={handleBackToSectors}
+            <Link href="/forfait"
               className="inline-flex items-center gap-1.5 px-2.5 py-1.5 sm:px-2.5 sm:py-1 rounded text-[10px] font-bold uppercase tracking-widest transition-colors bg-orange-500/10 text-orange-400 border border-orange-500/25 hover:bg-orange-500/20 flex-shrink-0"
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
               </svg>
-              <span className="hidden sm:inline">Sectores</span>
-            </button>
-            <span className="hidden sm:inline text-sm font-bold text-white ml-2 truncate">{activeSector}</span>
+              <span className="hidden sm:inline">Volver a Forfait</span>
+            </Link>
+            <span className="ml-2 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-widest bg-orange-500/15 text-orange-400 hidden sm:inline">Vista Forfait</span>
+            {/* Sector selector */}
+            <div className="relative ml-2">
+              <button onClick={() => setSectorSelectorOpen(o => !o)}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-bold text-white bg-white/[0.06] border border-white/10 hover:bg-white/[0.1] transition-colors"
+              >
+                {activeSector}
+                <svg className={`w-3 h-3 text-slate-400 transition-transform ${sectorSelectorOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {sectorSelectorOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setSectorSelectorOpen(false)} />
+                  <div className="absolute top-full left-0 mt-1 z-20 w-48 rounded-xl bg-slate-900 border border-white/10 shadow-2xl overflow-hidden">
+                    {sectorsData.map(s => (
+                      <button key={s.name} onClick={() => handleSelectSector(s.name)}
+                        className={`w-full flex items-center justify-between px-3 py-2 text-left text-[11px] transition-colors hover:bg-white/[0.04] ${
+                          s.name === activeSector ? 'text-orange-400 bg-orange-500/10' : 'text-white'
+                        }`}
+                      >
+                        <span className="font-semibold">{s.name}</span>
+                        <span className="text-slate-500">{s.count}</span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-2 text-[11px] text-slate-500 flex-shrink-0">
-            <span>{sectorTracks.length} sendas</span>
+            <span>{sectorTracks.length} tracks</span>
             <span className="hidden xs:inline">·</span>
             <span className="hidden xs:inline">{sectorTracks.reduce((s, t) => s + t.distanciaKm, 0).toFixed(0)} km</span>
           </div>
@@ -400,7 +375,7 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
 
       {/* ── MAPA 3D ── */}
       <section ref={panoramaRef}
-        className="panorama-container relative w-full overflow-hidden bg-slate-900 max-h-[50vh] sm:max-h-[55vh] lg:max-h-none"
+        className="panorama-container relative w-full overflow-hidden bg-slate-900 max-h-[50vh] sm:max-h-[55vh]"
       >
         <div className="relative w-full aspect-[2/1] min-h-[300px]">
           {sectorBounds ? (
@@ -544,7 +519,7 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
           {showPanel && (
             <div className="absolute bottom-2 left-2 right-2 sm:left-2 sm:right-auto sm:bottom-2 sm:w-72 z-20 max-h-[40%] overflow-y-auto rounded-xl bg-slate-950/85 backdrop-blur-md border border-white/10 shadow-xl">
               <div className="sticky top-0 z-10 flex items-center justify-between px-3 py-2 bg-slate-950/90 backdrop-blur-sm border-b border-white/5">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Sendas</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Tracks</span>
                 <button onClick={() => setShowPanel(false)}
                   className="p-0.5 text-slate-500 hover:text-white transition-colors"
                 >
@@ -617,7 +592,7 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
             <button onClick={() => setShowPanel(true)}
               className="absolute bottom-2 left-2 z-20 px-2.5 py-1.5 rounded-lg bg-slate-950/80 backdrop-blur-sm border border-white/10 text-[10px] font-bold text-orange-400 hover:bg-slate-950 transition-colors"
             >
-              Sendas
+              Tracks
             </button>
           )}
         </div>
