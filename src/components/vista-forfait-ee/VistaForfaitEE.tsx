@@ -33,22 +33,13 @@ const DIF_CONFIG: Record<string, VisualConfig> = {
 
 const ALL_DIFICULTADES = ['verde', 'azul', 'rojo', 'negro', 'doble-negro'] as const;
 
-const GOOGLE_SATELLITE_STYLE = {
+const MINIMAL_STYLE = {
   version: 8 as const,
-  sources: {
-    'google-satellite': {
-      type: 'raster' as const,
-      tiles: ['https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}'],
-      tileSize: 256,
-      attribution: 'Google',
-    },
-  },
-  layers: [{
-    id: 'google-satellite',
-    type: 'raster' as const,
-    source: 'google-satellite',
-  }],
+  sources: {},
+  layers: [],
 };
+
+const GOOGLE_SATELLITE_URL = 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}';
 
 function getVisualCfg(track: TrackMTB): VisualConfig {
   if (track.estado === 'cerrado') return DIF_CONFIG.gris;
@@ -82,6 +73,28 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
   const [viewState, setViewState] = useState({ latitude: 40.6, longitude: -0.02, zoom: 15.3, pitch: 60, bearing: 0 });
   const mapRef = useRef<MapRef>(null);
   const [mapReady, setMapReady] = useState(false);
+  const [eeTileUrl, setEeTileUrl] = useState<string | null>(null);
+  const [eeStatus, setEeStatus] = useState<'loading' | 'ok' | 'error'>('loading');
+
+  /* ── Fetch EE satellite layer on mount ── */
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const res = await fetch('/api/ee/map');
+        if (!res.ok) throw new Error('EE API error');
+        const data = await res.json();
+        if (!cancelled && data.tileUrlTemplate) {
+          setEeTileUrl(data.tileUrlTemplate);
+          setEeStatus('ok');
+        }
+      } catch {
+        if (!cancelled) setEeStatus('error');
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, []);
 
   /* ── Sector data ── */
   const sectorsData = useMemo(() => {
@@ -276,7 +289,7 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
       <section className="relative mx-3 sm:mx-6 lg:mx-8 overflow-hidden rounded-xl bg-slate-900 flex-1 min-h-[300px]">
         <MapboxMap
           ref={mapRef}
-          mapStyle={GOOGLE_SATELLITE_STYLE}
+          mapStyle={MINIMAL_STYLE}
           mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
           initialViewState={{ latitude: sectorCenter.latitude, longitude: sectorCenter.longitude, zoom: 15.3, pitch: 60, bearing: 0 }}
           onMove={e => {
@@ -311,6 +324,14 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
           doubleClickZoom={true}
           keyboard={true}
         >
+          {/* Base satellite layer (Earth Engine or Google fallback) */}
+          <Source id="satellite" type="raster"
+            tiles={[eeTileUrl || GOOGLE_SATELLITE_URL]}
+            tileSize={256}
+          >
+            <Layer id="satellite-layer" type="raster" />
+          </Source>
+
           {/* Track layers */}
           {trackGeoJsons.map(t => (
             <Source key={t.id} id={t.id} type="geojson" data={t.data}>
@@ -335,8 +356,12 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
           <span className="px-2.5 py-1 rounded-full bg-slate-950/70 backdrop-blur-sm text-[11px] font-bold text-orange-400 border border-orange-500/30">
             {activeSector}
           </span>
-          <span className="px-2 py-0.5 rounded-full bg-slate-950/60 backdrop-blur-sm text-[9px] text-slate-500 border border-white/5">
-            Earth Engine
+          <span className={`px-2 py-0.5 rounded-full backdrop-blur-sm text-[9px] font-mono border ${
+            eeStatus === 'ok' ? 'bg-emerald-950/60 text-emerald-400 border-emerald-500/30' :
+            eeStatus === 'loading' ? 'bg-slate-950/60 text-slate-500 border-white/5' :
+            'bg-amber-950/60 text-amber-400 border-amber-500/30'
+          }`}>
+            {eeStatus === 'ok' ? 'EE ✓' : eeStatus === 'loading' ? 'EE …' : 'Google'}
           </span>
         </div>
 
