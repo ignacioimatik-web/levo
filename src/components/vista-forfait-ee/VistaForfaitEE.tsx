@@ -761,6 +761,11 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
               </button>
             </div>
             <div className="py-1">
+              {filtered.length > 0 && (
+                <div className="px-3 py-1 text-[9px] text-slate-600 font-mono">
+                  {filtered.length} rutas
+                </div>
+              )}
               {filtered.map(t => {
                 const sendas = allSendas.get(t.id) || [];
                 const isExpanded = expandedTrackId === t.id;
