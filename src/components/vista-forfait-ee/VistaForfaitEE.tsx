@@ -94,14 +94,28 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
 }
 
 /* ── Elevation profile mini SVG ── */
-function MiniProfile({ points, width, height }: { points: TrackPoint[]; width: number; height: number }) {
+function MiniProfile({ points }: { points: TrackPoint[] }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [cWidth, setCWidth] = useState(160);
+  const height = 56;
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(entries => {
+      for (const e of entries) setCWidth(Math.round(e.contentRect.width));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   const series = useMemo(() => buildProfileSeries(points), [points]);
   if (!series.length || series.every(p => p.elevationM === 0)) return null;
 
   const padX = 4;
-  const padTop = 4;
-  const padBottom = 12;
-  const innerW = width - padX * 2;
+  const padTop = 2;
+  const padBottom = 10;
+  const innerW = cWidth - padX * 2;
   const innerH = height - padTop - padBottom;
   const minEle = Math.min(...series.map(p => p.elevationM));
   const maxEle = Math.max(...series.map(p => p.elevationM));
@@ -124,29 +138,31 @@ function MiniProfile({ points, width, height }: { points: TrackPoint[]; width: n
   });
 
   return (
-    <svg width={width} height={height} className="block">
-      <defs>
-        <linearGradient id="mp-elev-line" x1="0" x2="1" y1="0" y2="0">
-          <stop offset="0%" stopColor="#22c55e" />
-          <stop offset="50%" stopColor="#f59e0b" />
-          <stop offset="100%" stopColor="#ef4444" />
-        </linearGradient>
-        <linearGradient id="mp-elev-area" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="#f97316" stopOpacity="0.2" />
-          <stop offset="100%" stopColor="#f97316" stopOpacity="0.02" />
-        </linearGradient>
-      </defs>
-      <rect x="0" y="0" width={width} height={height} fill="transparent" />
-      {yTicks.map((t, i) => (
-        <line key={i} x1={padX} y1={t.y} x2={width - padX} y2={t.y} stroke="#334155" strokeWidth="0.5" strokeDasharray="2 3" />
-      ))}
-      <path d={areaPath} fill="url(#mp-elev-area)" stroke="none" />
-      <path d={path} fill="none" stroke="url(#mp-elev-line)" strokeWidth="1.5" strokeLinecap="round" />
-      {yTicks.map((t, i) => (
-        <text key={i} x={0} y={t.y + 2} fill="#64748b" fontSize="7">{t.ele}</text>
-      ))}
-      <text x={width - padX} y={height - 1} fill="#64748b" fontSize="7" textAnchor="end">{maxKm.toFixed(1)} km</text>
-    </svg>
+    <div ref={containerRef} className="w-full">
+      <svg width={cWidth} height={height} className="block">
+        <defs>
+          <linearGradient id="mp-elev-line" x1="0" x2="1" y1="0" y2="0">
+            <stop offset="0%" stopColor="#22c55e" />
+            <stop offset="50%" stopColor="#f59e0b" />
+            <stop offset="100%" stopColor="#ef4444" />
+          </linearGradient>
+          <linearGradient id="mp-elev-area" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="#f97316" stopOpacity="0.2" />
+            <stop offset="100%" stopColor="#f97316" stopOpacity="0.02" />
+          </linearGradient>
+        </defs>
+        <rect x="0" y="0" width={cWidth} height={height} fill="transparent" />
+        {yTicks.map((t, i) => (
+          <line key={i} x1={padX} y1={t.y} x2={cWidth - padX} y2={t.y} stroke="#334155" strokeWidth="0.5" strokeDasharray="2 3" />
+        ))}
+        <path d={areaPath} fill="url(#mp-elev-area)" stroke="none" />
+        <path d={path} fill="none" stroke="url(#mp-elev-line)" strokeWidth="1.5" strokeLinecap="round" />
+        {yTicks.map((t, i) => (
+          <text key={i} x={0} y={t.y + 2} fill="#64748b" fontSize="7">{t.ele}</text>
+        ))}
+        <text x={cWidth - padX} y={height - 1} fill="#64748b" fontSize="7" textAnchor="end">{maxKm.toFixed(1)} km</text>
+      </svg>
+    </div>
   );
 }
 
@@ -511,7 +527,7 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
     <div className="min-h-screen bg-slate-950 flex flex-col">
       {/* NAV */}
       <nav className="z-20 bg-slate-950/90 backdrop-blur-md border-b border-white/5">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-12 sm:h-14 flex items-center justify-between gap-2">
+        <div className="px-3 sm:px-6 lg:px-8 2xl:px-16 h-12 sm:h-14 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <Link href="/forfait"
               className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded text-[10px] font-bold uppercase tracking-widest transition-colors bg-orange-500/10 text-orange-400 border border-orange-500/25 hover:bg-orange-500/20"
@@ -544,7 +560,7 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
       </nav>
 
       {/* MAP */}
-      <section ref={mapContainerRef} className="relative mx-3 sm:mx-6 lg:mx-8 overflow-hidden rounded-xl bg-slate-900 flex-1 min-h-[300px]">
+      <section ref={mapContainerRef} className="relative mx-3 sm:mx-6 lg:mx-8 2xl:mx-16 overflow-hidden rounded-xl bg-slate-900 flex-1 min-h-[300px]">
         <MapboxMap
           ref={mapRef}
           mapStyle={MINIMAL_STYLE}
@@ -704,7 +720,7 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
 
         {/* ── Floating senda panel inside map ── */}
         {showPanel && (
-          <div className="absolute bottom-0 left-0 right-0 sm:left-2 sm:right-auto sm:bottom-2 sm:w-72 z-20 max-h-[30%] sm:max-h-[40%] overflow-y-auto rounded-none sm:rounded-xl bg-slate-950/85 backdrop-blur-md border-t sm:border border-white/10 shadow-xl">
+          <div className="absolute bottom-0 left-0 right-0 sm:left-2 sm:right-auto sm:bottom-2 sm:w-72 lg:w-80 2xl:w-96 z-20 max-h-[30%] sm:max-h-[40%] overflow-y-auto rounded-none sm:rounded-xl bg-slate-950/85 backdrop-blur-md border-t sm:border border-white/10 shadow-xl">
             <div className="sticky top-0 z-10 flex items-center justify-between px-3 py-2 bg-slate-950/90 backdrop-blur-sm border-b border-white/5">
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Sendas</span>
@@ -931,11 +947,11 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
 
         {/* ── Elevation profile overlay (bottom-right) ── */}
         {selectedProfilePoints && selectedProfilePoints.length > 1 && (
-          <div className="absolute bottom-32 sm:bottom-24 right-2 z-40 w-[180px] sm:w-[220px] bg-slate-950/85 backdrop-blur-md border border-white/10 rounded-lg p-1.5 pointer-events-none">
+          <div className="absolute bottom-32 sm:bottom-24 right-2 z-40 w-[180px] sm:w-[220px] 2xl:w-[300px] bg-slate-950/85 backdrop-blur-md border border-white/10 rounded-lg p-1.5 pointer-events-none">
             <div className="text-[8px] font-bold uppercase tracking-wider text-slate-500 mb-0.5 px-0.5">
               Perfil {selectedTrackIds.length > 1 ? `(${selectedTrackIds.length} rutas)` : ''}
             </div>
-            <MiniProfile points={selectedProfilePoints} width={200} height={60} />
+            <MiniProfile points={selectedProfilePoints} />
           </div>
         )}
       </section>
