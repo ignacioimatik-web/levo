@@ -59,8 +59,13 @@ export async function loadRealTracks(routes: MTBRoute[]): Promise<TrackMTB[]> {
     const points = parseGPX(xml);
     if (points.length < 2) continue;
 
-    // Use all points for detailed map rendering
-    const sampledPoints = points;
+    // Downsample to keep RSC payload under Vercel's 4.5 MB limit
+    const MAX_TRACK_POINTS = 800;
+    const sampledPoints = points.length <= MAX_TRACK_POINTS
+      ? points
+      : Array.from({ length: MAX_TRACK_POINTS }, (_, i) =>
+          points[Math.round((i / (MAX_TRACK_POINTS - 1)) * (points.length - 1))]
+        );
 
     tracks.push({
       id: `real-${String(idCounter++).padStart(2, '0')}`,
