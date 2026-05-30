@@ -793,7 +793,6 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
                         <button key={s.id} onClick={() => {
                           flyToSenda(s);
                           setActiveTrackId(s.trackId);
-                          setShowPanel(false);
                         }}
                           className={`w-full flex items-center gap-2 pl-8 pr-3 py-1.5 text-left transition-colors ${
                             isActive ? 'bg-orange-500/10' : 'hover:bg-white/[0.03]'
