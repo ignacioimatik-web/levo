@@ -60,7 +60,7 @@ export async function loadRealTracks(routes: MTBRoute[]): Promise<TrackMTB[]> {
     if (points.length < 2) continue;
 
     // Downsample to keep RSC payload under Vercel's 4.5 MB limit
-    const MAX_TRACK_POINTS = 800;
+    const MAX_TRACK_POINTS = 300;
     const sampledPoints = points.length <= MAX_TRACK_POINTS
       ? points
       : Array.from({ length: MAX_TRACK_POINTS }, (_, i) =>

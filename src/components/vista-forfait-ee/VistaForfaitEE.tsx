@@ -761,9 +761,7 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
               </button>
             </div>
             <div className="py-1">
-              {/* DEBUG: total filtered count */}
-              <div className="px-3 py-1 text-[9px] text-slate-600 font-mono">{filtered.length} rutas en filtered</div>
-              {filtered.map((t, i) => {
+              {filtered.map(t => {
                 const sendas = allSendas.get(t.id) || [];
                 const isExpanded = expandedTrackId === t.id;
                 const cfg = getVisualCfg(t);
@@ -776,7 +774,6 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
                     }}
                       className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-white/[0.04] transition-colors"
                     >
-                      <span className="text-[9px] text-slate-600 font-mono w-4">{i + 1}.</span>
                       <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cfg.color }} />
                       <span className={`flex-1 text-[11px] font-semibold truncate ${
                         selectedTrackIds.includes(t.id) ? 'text-orange-400' : 'text-white'
