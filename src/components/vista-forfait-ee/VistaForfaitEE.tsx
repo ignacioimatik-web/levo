@@ -612,6 +612,18 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
             <Layer id="labels-layer" type="raster" />
           </Source>
 
+          {/* 3D Buildings */}
+          <Source id="3d-buildings" type="vector" url="mapbox://mapbox.3d-buildings">
+            <Layer id="buildings-3d" type="fill-extrusion" source-layer="building"
+              paint={{
+                'fill-extrusion-color': '#94a3b8',
+                'fill-extrusion-height': ['get', 'height'],
+                'fill-extrusion-base': ['get', 'min_height'],
+                'fill-extrusion-opacity': 0.5,
+              } as any}
+            />
+          </Source>
+
           {/* Track layers */}
           {trackGeoJsons.map(t => (
             <Source key={t.id} id={t.id} type="geojson" data={t.data}>
