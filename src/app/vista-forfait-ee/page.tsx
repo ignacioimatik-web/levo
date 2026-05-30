@@ -14,5 +14,11 @@ export const metadata = {
 
 export default async function VistaForfaitEEPage() {
   const allTracks = await loadRealTracks(routes);
-  return <VistaForfaitEEDynamic tracks={allTracks} />;
+  const bergantesCount = allTracks.filter(t => t.sector === 'Bergantes').length;
+  return (
+    <>
+      <div id="debug-info" style={{ display: 'none' }} data-total={allTracks.length} data-bergantes={bergantesCount} data-downsampled={allTracks[0]?.points.length || 0} />
+      <VistaForfaitEEDynamic tracks={allTracks} />
+    </>
+  );
 }
