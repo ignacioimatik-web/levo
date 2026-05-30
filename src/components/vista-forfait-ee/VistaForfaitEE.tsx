@@ -931,7 +931,7 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
 
         {/* ── Elevation profile overlay (bottom-right) ── */}
         {selectedProfilePoints && selectedProfilePoints.length > 1 && (
-          <div className="absolute bottom-24 sm:bottom-16 right-2 z-40 w-[180px] sm:w-[220px] bg-slate-950/85 backdrop-blur-md border border-white/10 rounded-lg p-1.5 pointer-events-none">
+          <div className="absolute bottom-32 sm:bottom-24 right-2 z-40 w-[180px] sm:w-[220px] bg-slate-950/85 backdrop-blur-md border border-white/10 rounded-lg p-1.5 pointer-events-none">
             <div className="text-[8px] font-bold uppercase tracking-wider text-slate-500 mb-0.5 px-0.5">
               Perfil {selectedTrackIds.length > 1 ? `(${selectedTrackIds.length} rutas)` : ''}
             </div>
