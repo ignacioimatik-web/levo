@@ -241,11 +241,13 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
     return { latitude: (sectorBounds.minLat + sectorBounds.maxLat) / 2, longitude: (sectorBounds.minLng + sectorBounds.maxLng) / 2 };
   }, [sectorBounds]);
 
-  /* ── Weather fetch on sector change ── */
+  /* ── Weather fetch on sector change (AEMET → Open-Meteo fallback) ── */
   useEffect(() => {
     if (!mapReady || !sectorBounds) return;
     setWeatherData(null);
-    fetch(`/api/forfait/weather?lat=${sectorCenter.latitude.toFixed(4)}&lng=${sectorCenter.longitude.toFixed(4)}`)
+    const lat = sectorCenter.latitude.toFixed(4);
+    const lng = sectorCenter.longitude.toFixed(4);
+    fetch(`/api/forfait/weather?lat=${lat}&lng=${lng}`)
       .then(r => r.json())
       .then(d => {
         if (d && !d.error) setWeatherData({
@@ -254,6 +256,19 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
           stationName: d.stationName,
           stationDistanceKm: d.stationDistanceKm,
         });
+      })
+      .catch(() => {});
+    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,wind_speed_10m,relative_humidity_2m`)
+      .then(r => r.json())
+      .then(d => {
+        if (d?.current) {
+          setWeatherData(prev => ({
+            temperatureC: prev?.temperatureC ?? d.current.temperature_2m,
+            windKmh: prev?.windKmh ?? d.current.wind_speed_10m,
+            stationName: prev?.stationName ?? 'Open-Meteo',
+            stationDistanceKm: prev?.stationDistanceKm,
+          }));
+        }
       })
       .catch(() => {});
   }, [sectorCenter, mapReady]);
@@ -916,7 +931,7 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
 
         {/* ── Elevation profile overlay (bottom-right) ── */}
         {selectedProfilePoints && selectedProfilePoints.length > 1 && (
-          <div className="absolute bottom-16 sm:bottom-2 right-2 z-30 w-[180px] sm:w-[220px] bg-slate-950/85 backdrop-blur-md border border-white/10 rounded-lg p-1.5 pointer-events-none">
+          <div className="absolute bottom-24 sm:bottom-16 right-2 z-40 w-[180px] sm:w-[220px] bg-slate-950/85 backdrop-blur-md border border-white/10 rounded-lg p-1.5 pointer-events-none">
             <div className="text-[8px] font-bold uppercase tracking-wider text-slate-500 mb-0.5 px-0.5">
               Perfil {selectedTrackIds.length > 1 ? `(${selectedTrackIds.length} rutas)` : ''}
             </div>
