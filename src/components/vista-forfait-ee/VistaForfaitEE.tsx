@@ -390,7 +390,7 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
   }, [cameraView, allSendaList]);
 
   /* ── GeoJSON data ── */
-  const trackLineIds = useMemo(() => filtered.map(t => `${t.id}-line`), [filtered]);
+  const trackHitIds = useMemo(() => filtered.map(t => `${t.id}-hit`), [filtered]);
 
   const trackGeoJsons = useMemo(() => filtered.map(t => ({
     id: t.id,
@@ -475,31 +475,16 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
 
   /* ── Hover tooltip data ── */
   const hoverTooltip = useMemo(() => {
-    if (!hoveredTrackId || !cursorPos) return null;
+    if (!hoveredTrackId) return null;
     const track = trackMap.get(hoveredTrackId);
     if (!track || track.points.length < 2) return null;
-    const pts = track.points;
-    const centerLng = viewState.longitude;
-    const centerLat = viewState.latitude;
-    let minDist = Infinity;
-    let nearestIdx = 0;
-    for (let i = 0; i < pts.length; i++) {
-      const d = Math.sqrt(
-        ((pts[i].lat - centerLat) * 111320) ** 2 +
-        ((pts[i].lng - centerLng) * 111320 * Math.cos(centerLat * Math.PI / 180)) ** 2
-      );
-      if (d < minDist) { minDist = d; nearestIdx = i; }
-    }
-    const info = inclineAtPoint(pts, nearestIdx);
     return {
       trackName: track.nombre,
-      nearestIdx,
-      inclinePct: info.inclinePct,
-      gainM: Math.round(info.gainM),
-      lossM: Math.round(info.lossM),
-      elevationM: pts[nearestIdx].elevation ?? 0,
+      gainM: track.desnivelPositivo,
+      lossM: track.desnivelNegativo,
+      inclinePct: track.distanciaKm > 0 ? (track.desnivelPositivo / (track.distanciaKm * 1000)) * 100 : 0,
     };
-  }, [hoveredTrackId, cursorPos, trackMap, viewState]);
+  }, [hoveredTrackId, trackMap]);
 
   /* ── Combined profile for selected tracks ── */
   const selectedProfilePoints = useCombinedProfile(tracks, selectedTrackIds);
@@ -573,7 +558,7 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
             setBearing(e.viewState.bearing);
           }}
           onMoveEnd={handleMoveEnd}
-          interactiveLayerIds={trackLineIds}
+          interactiveLayerIds={trackHitIds}
           onMouseMove={handleMapMouseMove}
           onClick={(e: MapMouseEvent) => {
             if (!e.features || e.features.length === 0) return;
@@ -627,6 +612,9 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
           {/* Track layers */}
           {trackGeoJsons.map(t => (
             <Source key={t.id} id={t.id} type="geojson" data={t.data}>
+              <Layer id={`${t.id}-hit`} type="line" source={t.id}
+                paint={{ 'line-color': 'transparent', 'line-width': 22, 'line-opacity': 0 } as any}
+              />
               <Layer id={`${t.id}-line`} type="line" source={t.id}
                 paint={trackPaint(trackMap.get(t.id)!) as any}
               />
