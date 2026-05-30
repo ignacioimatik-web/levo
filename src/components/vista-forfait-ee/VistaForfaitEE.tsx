@@ -2,18 +2,26 @@
 
 import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { Map as MapboxMap, Source, Layer } from 'react-map-gl/mapbox';
+import { Map as MapboxMap, Source, Layer, Popup } from 'react-map-gl/mapbox';
 import type { MapRef, MapMouseEvent } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import type { TrackMTB, DificultadMTB } from '@/lib/forfait/types';
+import type { TrackMTB, DificultadMTB, TrackPoint } from '@/lib/forfait/types';
 import type { SendaSegment, CameraView } from '@/lib/forfait/senda-utils';
 import { splitIntoSendas } from '@/lib/forfait/senda-utils';
+import { buildProfileSeries } from '@/lib/forfait/geo-utils';
 
 const SENDA_VIEWS_KEY = 'vista-forfait-senda-views';
 
 /* ─── Types ─── */
 interface Bounds {
   minLat: number; maxLat: number; minLng: number; maxLng: number;
+}
+
+interface WeatherData {
+  temperatureC?: number;
+  windKmh?: number;
+  stationName?: string;
+  stationDistanceKm?: number;
 }
 
 /* ─── Constants ─── */
@@ -61,7 +69,105 @@ function computeBounds(tracks: TrackMTB[]): Bounds {
   return { minLat: minLat - padLat, maxLat: maxLat + padLat, minLng: minLng - padLng, maxLng: maxLng + padLng };
 }
 
-/* ─── Main component ─── */
+function inclineAtPoint(points: TrackPoint[], idx: number): { inclinePct: number; gainM: number; lossM: number } {
+  let gain = 0, loss = 0;
+  for (let i = 1; i <= idx; i++) {
+    const d = (points[i].elevation ?? 0) - (points[i - 1].elevation ?? 0);
+    if (d > 1) gain += d;
+    if (d < -1) loss += Math.abs(d);
+  }
+  const distKm = idx > 0 ? points.slice(0, idx + 1).reduce((sum, p, i) => {
+    if (i === 0) return 0;
+    const prev = points[i - 1];
+    return sum + haversineKm(prev.lat, prev.lng, p.lat, p.lng);
+  }, 0) : 0;
+  const inclinePct = distKm > 0 ? (gain / (distKm * 1000)) * 100 : 0;
+  return { inclinePct, gainM: gain, lossM: loss };
+}
+
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/* ── Elevation profile mini SVG ── */
+function MiniProfile({ points, width, height }: { points: TrackPoint[]; width: number; height: number }) {
+  const series = useMemo(() => buildProfileSeries(points), [points]);
+  if (!series.length || series.every(p => p.elevationM === 0)) return null;
+
+  const padX = 4;
+  const padTop = 4;
+  const padBottom = 12;
+  const innerW = width - padX * 2;
+  const innerH = height - padTop - padBottom;
+  const minEle = Math.min(...series.map(p => p.elevationM));
+  const maxEle = Math.max(...series.map(p => p.elevationM));
+  const maxKm = Math.max(...series.map(p => p.km), 1);
+  const rangeEle = Math.max(1, maxEle - minEle);
+
+  const scaleX = (km: number) => padX + (km / maxKm) * innerW;
+  const scaleY = (ele: number) => padTop + ((maxEle - ele) / rangeEle) * innerH;
+
+  const path = series.map((p, i) =>
+    `${i === 0 ? 'M' : 'L'}${scaleX(p.km).toFixed(1)} ${scaleY(p.elevationM).toFixed(1)}`
+  ).join(' ');
+
+  const areaPath = `${path}L${scaleX(maxKm).toFixed(1)} ${(height - padBottom).toFixed(1)}L${padX.toFixed(1)} ${(height - padBottom).toFixed(1)}Z`;
+
+  const yTicks = Array.from({ length: 3 }, (_, i) => {
+    const pct = i / 2;
+    const ele = maxEle - rangeEle * pct;
+    return { ele: Math.round(ele), y: scaleY(ele) };
+  });
+
+  return (
+    <svg width={width} height={height} className="block">
+      <defs>
+        <linearGradient id="mp-elev-line" x1="0" x2="1" y1="0" y2="0">
+          <stop offset="0%" stopColor="#22c55e" />
+          <stop offset="50%" stopColor="#f59e0b" />
+          <stop offset="100%" stopColor="#ef4444" />
+        </linearGradient>
+        <linearGradient id="mp-elev-area" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="#f97316" stopOpacity="0.2" />
+          <stop offset="100%" stopColor="#f97316" stopOpacity="0.02" />
+        </linearGradient>
+      </defs>
+      <rect x="0" y="0" width={width} height={height} fill="transparent" />
+      {yTicks.map((t, i) => (
+        <line key={i} x1={padX} y1={t.y} x2={width - padX} y2={t.y} stroke="#334155" strokeWidth="0.5" strokeDasharray="2 3" />
+      ))}
+      <path d={areaPath} fill="url(#mp-elev-area)" stroke="none" />
+      <path d={path} fill="none" stroke="url(#mp-elev-line)" strokeWidth="1.5" strokeLinecap="round" />
+      {yTicks.map((t, i) => (
+        <text key={i} x={0} y={t.y + 2} fill="#64748b" fontSize="7">{t.ele}</text>
+      ))}
+      <text x={width - padX} y={height - 1} fill="#64748b" fontSize="7" textAnchor="end">{maxKm.toFixed(1)} km</text>
+    </svg>
+  );
+}
+
+/* ── Combined profile from multiple tracks ── */
+function useCombinedProfile(tracks: TrackMTB[], ids: string[]) {
+  return useMemo(() => {
+    const sel = ids.map(id => tracks.find(t => t.id === id)).filter(Boolean) as TrackMTB[];
+    if (sel.length === 0) return null;
+    const allPoints: TrackPoint[] = [];
+    for (const t of sel) {
+      if (allPoints.length > 0 && t.points.length > 0) {
+        const last = allPoints[allPoints.length - 1];
+        allPoints.push({ lat: last.lat, lng: last.lng, elevation: t.points[0].elevation });
+      }
+      allPoints.push(...t.points);
+    }
+    return allPoints;
+  }, [tracks, ids]);
+}
+
+/* ── Main component ── */
 export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
   const [difFilter, setDifFilter] = useState<DificultadMTB | null>(null);
   const [hoveredTrackId, setHoveredTrackId] = useState<string | null>(null);
@@ -80,6 +186,9 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
   const [eeStatus, setEeStatus] = useState<'loading' | 'ok' | 'error'>('loading');
   const [cameraView, setCameraView] = useState<CameraView | null>(null);
   const [showPanel, setShowPanel] = useState(true);
+  const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
+  const [cursorPos, setCursorPos] = useState<{ x: number; y: number } | null>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
 
   /* ── Fetch EE satellite layer on mount ── */
   useEffect(() => {
@@ -131,6 +240,23 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
     if (!sectorBounds) return { latitude: 40.6, longitude: -0.02 };
     return { latitude: (sectorBounds.minLat + sectorBounds.maxLat) / 2, longitude: (sectorBounds.minLng + sectorBounds.maxLng) / 2 };
   }, [sectorBounds]);
+
+  /* ── Weather fetch on sector change ── */
+  useEffect(() => {
+    if (!mapReady || !sectorBounds) return;
+    setWeatherData(null);
+    fetch(`/api/forfait/weather?lat=${sectorCenter.latitude.toFixed(4)}&lng=${sectorCenter.longitude.toFixed(4)}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d && !d.error) setWeatherData({
+          temperatureC: d.temperatureC,
+          windKmh: d.windKmh,
+          stationName: d.stationName,
+          stationDistanceKm: d.stationDistanceKm,
+        });
+      })
+      .catch(() => {});
+  }, [sectorCenter, mapReady]);
 
   /* ── Sendas ── */
   const allSendas = useMemo(() => {
@@ -256,6 +382,15 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
     data: { type: 'Feature' as const, geometry: { type: 'LineString' as const, coordinates: t.points.map(p => [p.lng, p.lat]) }, properties: { trackId: t.id } },
   })), [filtered]);
 
+  /* ── Selected track GeoJSON for individual highlight layers ── */
+  const selectedGeoJsons = useMemo(() => {
+    const sel = selectedTrackIds.map(id => tracks.find(t => t.id === id)).filter(Boolean) as TrackMTB[];
+    return sel.filter(t => filtered.some(ft => ft.id === t.id)).map(t => ({
+      id: t.id,
+      data: { type: 'Feature' as const, geometry: { type: 'LineString' as const, coordinates: t.points.map(p => [p.lng, p.lat]) }, properties: {} },
+    }));
+  }, [selectedTrackIds, tracks, filtered]);
+
   const activeSendaGeoJson = useMemo(() => activeSenda ? {
     data: { type: 'Feature' as const, geometry: { type: 'LineString' as const, coordinates: activeSenda.points.map(p => [p.lng, p.lat]) }, properties: {} },
   } : null, [activeSenda]);
@@ -275,7 +410,7 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
       'line-color': color,
       'line-width': weight,
       'line-opacity': opacity,
-      'line-dasharray': isClosed ? [5, 5] as [number, number] : isSel ? [8, 5] as [number, number] : undefined,
+      'line-dasharray': isClosed ? [5, 5] as [number, number] : isSel ? [6, 4] as [number, number] : undefined,
     };
   }, [hoveredTrackId, activeTrackId, selectedTrackIds, activeSendaId, activeSenda]);
 
@@ -284,6 +419,19 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
     'line-width': 4,
     'line-opacity': 0.9,
     'line-dasharray': [6, 4] as [number, number],
+  };
+
+  const selectedGlowPaint = {
+    'line-color': '#3b82f6',
+    'line-width': 8,
+    'line-opacity': 0.2,
+    'line-blur': 4,
+  };
+
+  const selectedLinePaint = {
+    'line-color': '#ffffff',
+    'line-width': 3,
+    'line-opacity': 0.85,
   };
 
   /* ── Route overview (flag style) ── */
@@ -309,6 +457,46 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
     }
     return ordered.flatMap(t => t.points.map(p => [p.lng, p.lat] as [number, number]));
   }, [selectedTrackIds, tracks]);
+
+  /* ── Hover tooltip data ── */
+  const hoverTooltip = useMemo(() => {
+    if (!hoveredTrackId || !cursorPos) return null;
+    const track = trackMap.get(hoveredTrackId);
+    if (!track || track.points.length < 2) return null;
+    const pts = track.points;
+    const centerLng = viewState.longitude;
+    const centerLat = viewState.latitude;
+    let minDist = Infinity;
+    let nearestIdx = 0;
+    for (let i = 0; i < pts.length; i++) {
+      const d = Math.sqrt(
+        ((pts[i].lat - centerLat) * 111320) ** 2 +
+        ((pts[i].lng - centerLng) * 111320 * Math.cos(centerLat * Math.PI / 180)) ** 2
+      );
+      if (d < minDist) { minDist = d; nearestIdx = i; }
+    }
+    const info = inclineAtPoint(pts, nearestIdx);
+    return {
+      trackName: track.nombre,
+      nearestIdx,
+      inclinePct: info.inclinePct,
+      gainM: Math.round(info.gainM),
+      lossM: Math.round(info.lossM),
+      elevationM: pts[nearestIdx].elevation ?? 0,
+    };
+  }, [hoveredTrackId, cursorPos, trackMap, viewState]);
+
+  /* ── Combined profile for selected tracks ── */
+  const selectedProfilePoints = useCombinedProfile(tracks, selectedTrackIds);
+
+  /* ── Cursor tracking for hover tooltip ── */
+  const handleMapMouseMove = useCallback((e: MapMouseEvent) => {
+    setCursorPos({ x: e.point.x, y: e.point.y });
+    if (!e.features || e.features.length === 0) { setHoveredTrackId(null); return; }
+    const trackId = e.features[0].properties?.trackId as string;
+    if (trackId) setHoveredTrackId(trackId);
+    else setHoveredTrackId(null);
+  }, []);
 
   /* ── Render ── */
   if (!activeSector) {
@@ -356,7 +544,7 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
       </nav>
 
       {/* MAP */}
-      <section className="relative mx-3 sm:mx-6 lg:mx-8 overflow-hidden rounded-xl bg-slate-900 flex-1 min-h-[300px]">
+      <section ref={mapContainerRef} className="relative mx-3 sm:mx-6 lg:mx-8 overflow-hidden rounded-xl bg-slate-900 flex-1 min-h-[300px]">
         <MapboxMap
           ref={mapRef}
           mapStyle={MINIMAL_STYLE}
@@ -371,19 +559,13 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
           }}
           onMoveEnd={handleMoveEnd}
           interactiveLayerIds={trackLineIds}
-          onMouseMove={e => {
-            if (!e.features || e.features.length === 0) { setHoveredTrackId(null); return; }
-            const trackId = e.features[0].properties?.trackId as string;
-            if (trackId) setHoveredTrackId(trackId);
-            else setHoveredTrackId(null);
-          }}
+          onMouseMove={handleMapMouseMove}
           onClick={(e: MapMouseEvent) => {
             if (!e.features || e.features.length === 0) return;
             const trackId = e.features[0].properties?.trackId as string;
             if (trackId) {
               setActiveTrackId(trackId);
               setExpandedTrackId(trackId);
-              setSelectedTrackIds([trackId]);
             }
           }}
           onLoad={() => setMapReady(true)}
@@ -424,6 +606,18 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
             </Source>
           ))}
 
+          {/* Selected track individual highlight layers */}
+          {selectedGeoJsons.map(t => (
+            <Source key={`sel-glow-${t.id}`} id={`sel-glow-${t.id}`} type="geojson" data={t.data}>
+              <Layer id={`sel-${t.id}-glow`} type="line" source={`sel-glow-${t.id}`}
+                paint={selectedGlowPaint as any}
+              />
+              <Layer id={`sel-${t.id}-line`} type="line" source={`sel-glow-${t.id}`}
+                paint={selectedLinePaint as any}
+              />
+            </Source>
+          ))}
+
           {/* Active senda highlight */}
           {activeSendaGeoJson && (
             <Source id="active-senda" type="geojson" data={activeSendaGeoJson.data}>
@@ -450,6 +644,34 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
             </Source>
           )}
         </MapboxMap>
+
+        {/* Hover tooltip */}
+        {hoverTooltip && cursorPos && (
+          <div
+            className="absolute z-[2000] pointer-events-none bg-slate-950/85 backdrop-blur-md border border-white/10 rounded-lg px-2.5 py-1.5 text-[10px] leading-tight shadow-xl"
+            style={{
+              left: Math.min(cursorPos.x + 14, (mapContainerRef.current?.clientWidth ?? 800) - 180),
+              top: Math.max(cursorPos.y - 10, 4),
+            }}
+          >
+            <div className="font-bold text-white truncate max-w-[160px]">{hoverTooltip.trackName}</div>
+            <div className="flex items-center gap-2 text-slate-400 mt-0.5">
+              <span className="text-emerald-400">+{hoverTooltip.gainM}m</span>
+              <span className="text-red-400">-{hoverTooltip.lossM}m</span>
+              <span>{hoverTooltip.inclinePct.toFixed(1)}%</span>
+            </div>
+            {weatherData && (
+              <div className="text-slate-500 mt-0.5">
+                <span>{weatherData.temperatureC !== undefined ? `${Math.round(weatherData.temperatureC)}°C` : '—'}</span>
+                <span className="mx-1">·</span>
+                <span>{weatherData.windKmh !== undefined ? `${Math.round(weatherData.windKmh)} km/h` : '—'}</span>
+                {weatherData.stationName && (
+                  <span className="ml-1 text-slate-600">({weatherData.stationDistanceKm}km)</span>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Sector badge */}
         <div className="absolute top-2 left-2 z-[1000] pointer-events-none flex items-center gap-2">
@@ -518,7 +740,6 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
                     <button onClick={() => {
                       setExpandedTrackId(isExpanded ? null : t.id);
                       setActiveTrackId(t.id);
-                      setShowPanel(false);
                     }}
                       className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-white/[0.04] transition-colors"
                     >
@@ -646,7 +867,7 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
                     </p>
                   </div>
                 </div>
-                <button onClick={() => setSelectedTrackIds(prev => prev.includes(activeTrackId) ? [] : [activeTrackId])}
+                <button onClick={() => setSelectedTrackIds(prev => prev.includes(activeTrackId) ? prev.filter(id => id !== activeTrackId) : [...prev, activeTrackId])}
                   className={`w-full sm:w-auto px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors pointer-events-auto ${
                     selectedTrackIds.includes(activeTrackId)
                       ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
@@ -692,6 +913,16 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
             </div>
           </div>
         </div>
+
+        {/* ── Elevation profile overlay (bottom-right) ── */}
+        {selectedProfilePoints && selectedProfilePoints.length > 1 && (
+          <div className="absolute bottom-16 sm:bottom-2 right-2 z-30 w-[180px] sm:w-[220px] bg-slate-950/85 backdrop-blur-md border border-white/10 rounded-lg p-1.5 pointer-events-none">
+            <div className="text-[8px] font-bold uppercase tracking-wider text-slate-500 mb-0.5 px-0.5">
+              Perfil {selectedTrackIds.length > 1 ? `(${selectedTrackIds.length} rutas)` : ''}
+            </div>
+            <MiniProfile points={selectedProfilePoints} width={200} height={60} />
+          </div>
+        )}
       </section>
     </div>
   );
