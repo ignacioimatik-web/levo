@@ -7,7 +7,7 @@ export async function GET() {
 
     if (!layer) {
       return NextResponse.json(
-        { error: 'Failed to create EE layer. Verify EE_PROJECT_ID and GOOGLE_EARTH_ENGINE_API_KEY.' },
+        { error: 'EE not available. Set EE_PROJECT_ID and EE_SERVICE_ACCOUNT_KEY in Vercel env.' },
         { status: 502 },
       );
     }

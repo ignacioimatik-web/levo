@@ -49,7 +49,7 @@ const MINIMAL_STYLE = {
   layers: [],
 };
 
-const GOOGLE_SATELLITE_URL = 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}';
+const FALLBACK_SATELLITE_URL = 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
 const GOOGLE_LABELS_URL = 'https://mt1.google.com/vt/lyrs=h&x={x}&y={y}&z={z}';
 
 function getVisualCfg(track: TrackMTB): VisualConfig {
@@ -598,7 +598,7 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
 
           {/* Base satellite layer (Earth Engine or Google fallback) */}
           <Source id="satellite" type="raster"
-            tiles={[eeTileUrl || GOOGLE_SATELLITE_URL]}
+            tiles={[eeTileUrl || FALLBACK_SATELLITE_URL]}
             tileSize={256}
           >
             <Layer id="satellite-layer" type="raster" />
@@ -710,7 +710,7 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
             eeStatus === 'loading' ? 'bg-slate-950/60 text-slate-500 border-white/5' :
             'bg-amber-950/60 text-amber-400 border-amber-500/30'
           }`}>
-            {eeStatus === 'ok' ? 'EE ✓' : eeStatus === 'loading' ? 'EE …' : 'Google'}
+            {eeStatus === 'ok' ? 'EE ✓' : eeStatus === 'loading' ? 'EE …' : 'ESRI'}
           </span>
         </div>
 
