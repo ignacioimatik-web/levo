@@ -18,7 +18,9 @@ const SectionHeading = ({ title, subtitle, align = 'left', actions }: SectionHea
         {actions && <div className="mt-2">{actions}</div>}
       </div>
       {subtitle && (
-        <p className="text-slate-400 text-lg max-w-2xl mx-auto">{subtitle}</p>
+        <p className={`text-slate-400 text-lg max-w-2xl ${align === 'center' ? 'mx-auto' : ''}`}>
+          {subtitle}
+        </p>
       )}
     </div>
   );
