@@ -86,6 +86,7 @@ export default async function Home() {
           <SectionHeading 
             title="Rutas por Sectores" 
             subtitle="Explora las diferentes zonas que hacen de Morella un destino único."
+            align="center"
           />
           
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
