@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Map, { Layer, Marker, NavigationControl, Source } from 'react-map-gl/mapbox';
 import type { MapRef } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import type { RidePoint } from '@/lib/activities/types';
 import { MapPinned } from 'lucide-react';
+import { DEFAULT_OPEN_MAP_STYLE } from '@/lib/open-map-styles';
 
 function SchematicMap({ points }: { points: RidePoint[] }) {
   const path = useMemo(() => {
@@ -37,7 +38,7 @@ function SchematicMap({ points }: { points: RidePoint[] }) {
 
 export default function ActivityMap({ points }: { points: RidePoint[] }) {
   const mapRef = useRef<MapRef>(null);
-  const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+  const [mapFailed, setMapFailed] = useState(false);
   const route = useMemo(() => ({
     type: 'Feature' as const,
     properties: {},
@@ -65,22 +66,20 @@ export default function ActivityMap({ points }: { points: RidePoint[] }) {
     );
   }
 
-  if (!token) return <SchematicMap points={points} />;
+  if (mapFailed) return <SchematicMap points={points} />;
 
   return (
     <Map
       ref={mapRef}
-      mapboxAccessToken={token}
       initialViewState={{
         longitude: points[0].longitude,
         latitude: points[0].latitude,
         zoom: 12,
       }}
-      mapStyle="mapbox://styles/mapbox/outdoors-v12"
-      terrain={{ source: 'mapbox-dem', exaggeration: 1.15 }}
+      mapStyle={DEFAULT_OPEN_MAP_STYLE}
       attributionControl={false}
+      onError={() => setMapFailed(true)}
     >
-      <Source id="mapbox-dem" type="raster-dem" url="mapbox://mapbox.mapbox-terrain-dem-v1" tileSize={512} />
       <Source id="activity-route" type="geojson" data={route}>
         <Layer
           id="activity-route-shadow"

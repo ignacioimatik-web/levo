@@ -5,9 +5,10 @@ import Map, {
   FullscreenControl, GeolocateControl, Layer, Marker, NavigationControl, Source,
 } from 'react-map-gl/mapbox';
 import type { MapRef } from 'react-map-gl/mapbox';
-import { Layers3, MapPinned } from 'lucide-react';
+import { Layers3 } from 'lucide-react';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import type { PlannedRoutePoint } from '@/lib/navigation/types';
+import { OPEN_MAP_STYLES } from '@/lib/open-map-styles';
 
 function routeFeature(points: PlannedRoutePoint[]) {
   return {
@@ -20,12 +21,6 @@ function routeFeature(points: PlannedRoutePoint[]) {
   };
 }
 
-const MAP_STYLES = [
-  { label: 'Topo', url: 'mapbox://styles/mapbox/outdoors-v12' },
-  { label: 'Satélite', url: 'mapbox://styles/mapbox/satellite-streets-v12' },
-  { label: 'Oscuro', url: 'mapbox://styles/mapbox/dark-v11' },
-] as const;
-
 export default function UniversalRouteMap({
   points,
   drawing,
@@ -37,7 +32,6 @@ export default function UniversalRouteMap({
 }) {
   const mapRef = useRef<MapRef>(null);
   const [styleIndex, setStyleIndex] = useState(0);
-  const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
   const route = useMemo(() => routeFeature(points), [points]);
 
   useEffect(() => {
@@ -52,25 +46,12 @@ export default function UniversalRouteMap({
     else mapRef.current.once('load', fit);
   }, [points]);
 
-  if (!token) {
-    return (
-      <div className="grid h-full place-items-center bg-slate-900 px-8 text-center">
-        <div>
-          <MapPinned className="mx-auto h-9 w-9 text-orange-400" />
-          <p className="mt-3 font-black">Mapbox no está configurado</p>
-          <p className="mt-1 text-xs text-slate-500">Todavía puedes importar un GPX y analizarlo.</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="relative h-full">
       <Map
       ref={mapRef}
-      mapboxAccessToken={token}
       initialViewState={{ longitude: -3.7, latitude: 40.25, zoom: 5.4 }}
-      mapStyle={MAP_STYLES[styleIndex].url}
+      mapStyle={OPEN_MAP_STYLES[styleIndex].style}
       attributionControl={false}
       cursor={drawing ? 'crosshair' : 'grab'}
       onClick={(event) => {
@@ -123,11 +104,11 @@ export default function UniversalRouteMap({
       </Map>
       <button
         type="button"
-        aria-label={`Mapa ${MAP_STYLES[styleIndex].label}. Cambiar estilo`}
-        onClick={() => setStyleIndex((index) => (index + 1) % MAP_STYLES.length)}
+        aria-label={`Mapa ${OPEN_MAP_STYLES[styleIndex].label}. Cambiar estilo`}
+        onClick={() => setStyleIndex((index) => (index + 1) % OPEN_MAP_STYLES.length)}
         className="absolute bottom-3 right-3 z-10 flex min-h-11 items-center gap-2 rounded-xl border border-white/15 bg-slate-950/90 px-3 text-[10px] font-black uppercase text-white shadow-xl backdrop-blur"
       >
-        <Layers3 className="h-4 w-4 text-orange-400" /> {MAP_STYLES[styleIndex].label}
+        <Layers3 className="h-4 w-4 text-orange-400" /> {OPEN_MAP_STYLES[styleIndex].label}
       </button>
     </div>
   );

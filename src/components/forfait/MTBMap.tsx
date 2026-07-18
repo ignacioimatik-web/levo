@@ -3,10 +3,12 @@
 import { useRef, useEffect, useMemo, useCallback, useState, Fragment } from 'react';
 import { Map, Source, Layer, useMap, useControl, NavigationControl, FullscreenControl, Marker } from 'react-map-gl/mapbox';
 import type { MapMouseEvent } from 'react-map-gl/mapbox';
+import type { StyleSpecification } from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import type { TrackMTB, TrackPoint, RutaConstruida } from '@/lib/forfait/types';
 import type { RouteHoverData } from '@/components/forfait/ContinuousProfile';
 import { MapPinned } from 'lucide-react';
+import { OPEN_MAP_STYLES } from '@/lib/open-map-styles';
 
 function distM(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
   const R = 6371000;
@@ -139,13 +141,7 @@ function PitchToggle() {
   return null;
 }
 
-const MAP_STYLES = [
-  { id: 'satellite', label: 'Satélite', url: 'mapbox://styles/mapbox/satellite-streets-v12' },
-  { id: 'outdoors', label: 'Topo', url: 'mapbox://styles/mapbox/outdoors-v12' },
-  { id: 'dark', label: 'Oscuro', url: 'mapbox://styles/mapbox/dark-v11' },
-];
-
-function StyleSwitcherControl({ current, onChange }: { current: string; onChange: (url: string) => void }) {
+function StyleSwitcherControl({ current, onChange }: { current: StyleSpecification; onChange: (style: StyleSpecification) => void }) {
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -165,13 +161,13 @@ function StyleSwitcherControl({ current, onChange }: { current: string; onChange
 
       const panel = document.createElement('div');
       panel.style.cssText = 'position:absolute;top:0;right:34px;display:none;flex-direction:column;background:#0f172a;border:1px solid rgba(255,255,255,0.1);border-radius:4px;overflow:hidden';
-      MAP_STYLES.forEach(s => {
+      OPEN_MAP_STYLES.forEach(s => {
         const b = document.createElement('button');
         b.textContent = s.label;
         b.style.cssText = 'padding:6px 10px;font-size:10px;font-weight:700;cursor:pointer;border:none;border-bottom:1px solid rgba(255,255,255,0.06);color:#94a3b8;background:transparent;text-align:left;white-space:nowrap';
         b.onmouseenter = () => { b.style.background = '#1e293b'; };
         b.onmouseleave = () => { b.style.background = 'transparent'; };
-        b.onclick = () => { onChange(s.url); setOpen(false); };
+        b.onclick = () => { onChange(s.style); setOpen(false); };
         panel.appendChild(b);
       });
       div.appendChild(panel);
@@ -191,8 +187,8 @@ function StyleSwitcherControl({ current, onChange }: { current: string; onChange
     panelRef.current.style.display = open ? 'flex' : 'none';
     if (open) {
       const btns = panelRef.current.querySelectorAll('button');
-      MAP_STYLES.forEach((s, i) => {
-        (btns[i] as HTMLButtonElement).style.color = s.url === current ? '#f97316' : '#94a3b8';
+      OPEN_MAP_STYLES.forEach((s, i) => {
+        (btns[i] as HTMLButtonElement).style.color = s.style === current ? '#f97316' : '#94a3b8';
       });
     }
   }, [open, current]);
@@ -307,8 +303,8 @@ export default function MTBMap({
   hoveredRouteKm: RouteHoverData | null;
   onTrackClick: (track: TrackMTB) => void;
 }) {
-  const [mapStyle, setMapStyle] = useState(MAP_STYLES[0].url);
-  const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+  const [mapStyle, setMapStyle] = useState<StyleSpecification>(OPEN_MAP_STYLES[0].style);
+  const [mapFailed, setMapFailed] = useState(false);
   const hasSelection = selectedTrackIds.length > 0 || previewTrackIds.length > 0;
   const fitTrack = fitToTrackId ? tracks.find(t => t.id === fitToTrackId) || null : null;
 
@@ -323,7 +319,7 @@ export default function MTBMap({
     if (track) onTrackClick(track);
   }, [tracks, onTrackClick]);
 
-  if (!mapboxToken) {
+  if (mapFailed) {
     return (
       <BasicTrackMap
         tracks={tracks}
@@ -336,15 +332,12 @@ export default function MTBMap({
   return (
     <Map
       mapStyle={mapStyle}
-      mapboxAccessToken={mapboxToken}
       initialViewState={{ latitude: 40.6, longitude: -0.02, zoom: 13, pitch: 40 }}
-      terrain={{ source: 'mapbox-dem', exaggeration: 1.0 }}
       interactiveLayerIds={lineLayerIds}
       onClick={onClick}
+      onError={() => setMapFailed(true)}
       style={{ width: '100%', height: '100%', borderRadius: '12px', overflow: 'hidden' }}
     >
-      <Source id="mapbox-dem" type="raster-dem" url="mapbox://mapbox.mapbox-terrain-dem-v1" />
-
       <NavigationControl visualizePitch={true} position="top-right" />
       <FullscreenControl position="top-right" />
       <PitchToggle />

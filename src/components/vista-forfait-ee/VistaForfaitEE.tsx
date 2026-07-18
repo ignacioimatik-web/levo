@@ -4,7 +4,7 @@ import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Map as MapboxMap, Source, Layer, Popup } from 'react-map-gl/mapbox';
 import type { MapRef, MapMouseEvent } from 'react-map-gl/mapbox';
-import type { FillExtrusionPaint, LinePaint } from 'mapbox-gl';
+import type { LinePaint } from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import type { TrackMTB, DificultadMTB, TrackPoint } from '@/lib/forfait/types';
 import type { SendaSegment, CameraView } from '@/lib/forfait/senda-utils';
@@ -574,9 +574,7 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
         <MapboxMap
           ref={mapRef}
           mapStyle={MINIMAL_STYLE}
-          mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
           initialViewState={{ latitude: sectorCenter.latitude, longitude: sectorCenter.longitude, zoom: 15.3, pitch: 60, bearing: 0 }}
-          terrain={{ source: 'mapbox-dem', exaggeration: 1.5 }}
           onMove={e => {
             setViewState(e.viewState);
             setZoom(e.viewState.zoom);
@@ -604,9 +602,6 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
           doubleClickZoom={true}
           keyboard={true}
         >
-          {/* 3D terrain */}
-          <Source id="mapbox-dem" type="raster-dem" url="mapbox://mapbox.mapbox-terrain-dem-v1" />
-
           {/* Base satellite layer (Earth Engine or Google fallback) */}
           <Source id="satellite" type="raster"
             tiles={[eeTileUrl || FALLBACK_SATELLITE_URL]}
@@ -621,18 +616,6 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
             tileSize={256}
           >
             <Layer id="labels-layer" type="raster" />
-          </Source>
-
-          {/* 3D Buildings */}
-          <Source id="3d-buildings" type="vector" url="mapbox://mapbox.3d-buildings">
-            <Layer id="buildings-3d" type="fill-extrusion" source-layer="building"
-              paint={{
-                'fill-extrusion-color': '#94a3b8',
-                'fill-extrusion-height': ['get', 'height'],
-                'fill-extrusion-base': ['get', 'min_height'],
-                'fill-extrusion-opacity': 0.5,
-              } as FillExtrusionPaint}
-            />
           </Source>
 
           {/* Track layers */}

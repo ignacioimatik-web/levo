@@ -2,7 +2,7 @@
 
 import Map, { Marker, NavigationControl } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { MapPin } from 'lucide-react';
+import { DEFAULT_OPEN_MAP_STYLE } from '@/lib/open-map-styles';
 
 export default function LivePositionMap({
   latitude,
@@ -11,23 +11,10 @@ export default function LivePositionMap({
   latitude: number;
   longitude: number;
 }) {
-  const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
-  if (!token) {
-    return (
-      <div className="grid h-full place-items-center bg-slate-900 text-center">
-        <div>
-          <MapPin className="mx-auto h-8 w-8 text-orange-400" />
-          <p className="mt-2 text-sm font-bold">{latitude.toFixed(5)}, {longitude.toFixed(5)}</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <Map
-      mapboxAccessToken={token}
       initialViewState={{ latitude, longitude, zoom: 14.5 }}
-      mapStyle="mapbox://styles/mapbox/outdoors-v12"
+      mapStyle={DEFAULT_OPEN_MAP_STYLE}
       attributionControl={false}
     >
       <NavigationControl position="top-right" showCompass />

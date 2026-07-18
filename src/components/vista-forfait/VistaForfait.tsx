@@ -8,6 +8,7 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import type { TrackMTB, DificultadMTB } from '@/lib/forfait/types';
 import { buildProfileSeries } from '@/lib/forfait/geo-utils';
 import { splitIntoSendas, type SendaSegment, type CameraView } from '@/lib/forfait/senda-utils';
+import { DEFAULT_OPEN_MAP_STYLE } from '@/lib/open-map-styles';
 
 /* ─── Types ─── */
 interface Bounds {
@@ -424,10 +425,8 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
         <div className="relative w-full aspect-[2/1] min-h-[300px]">
           {sectorBounds ? (
             <MapboxMap ref={mapRef}
-              mapStyle="mapbox://styles/mapbox/satellite-streets-v12"
-              mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
+              mapStyle={DEFAULT_OPEN_MAP_STYLE}
               initialViewState={{ latitude: sectorCenter.lat, longitude: sectorCenter.lng, zoom: sectorCenter.zoom, pitch: 78, bearing: 170 }}
-              terrain={{ source: 'mapbox-dem', exaggeration: 1.5 }}
               interactiveLayerIds={trackLineIds}
               onMouseMove={handleMapHover}
               onClick={handleMapClick}
@@ -437,7 +436,6 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
               style={{ width: '100%', height: '100%' }}
               attributionControl={false}
             >
-              <Source id="mapbox-dem" type="raster-dem" url="mapbox://mapbox.mapbox-terrain-dem-v1" />
               <NavigationControl visualizePitch={true} position="top-right" />
 
               {/* Track layers */}

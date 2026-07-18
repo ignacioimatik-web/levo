@@ -17,6 +17,7 @@ import type {
   HeatmapPeriod, HeatmapSportFilter,
 } from '@/lib/activities/heatmap';
 import type { RideActivity, RidePoint } from '@/lib/activities/types';
+import { DEFAULT_OPEN_MAP_STYLE } from '@/lib/open-map-styles';
 
 type MapMode = 'heat' | 'routes';
 
@@ -67,7 +68,7 @@ function SchematicHeatmap({ activities }: { activities: RideActivity[] }) {
 
 function PersonalRoutesMap({ activities, mode }: { activities: RideActivity[]; mode: MapMode }) {
   const mapRef = useRef<MapRef>(null);
-  const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+  const [mapFailed, setMapFailed] = useState(false);
   const routeCollection = useMemo(() => ({
     type: 'FeatureCollection' as const,
     features: activities.map((activity) => ({
@@ -103,18 +104,16 @@ function PersonalRoutesMap({ activities, mode }: { activities: RideActivity[]; m
     );
   }, [activities]);
 
-  if (!token) return <SchematicHeatmap activities={activities} />;
+  if (mapFailed) return <SchematicHeatmap activities={activities} />;
 
   return (
     <MapboxMap
       ref={mapRef}
-      mapboxAccessToken={token}
       initialViewState={{ longitude: -0.1, latitude: 40.62, zoom: 10 }}
-      mapStyle="mapbox://styles/mapbox/outdoors-v12"
-      terrain={{ source: 'personal-map-dem', exaggeration: 1.1 }}
+      mapStyle={DEFAULT_OPEN_MAP_STYLE}
       attributionControl={false}
+      onError={() => setMapFailed(true)}
     >
-      <Source id="personal-map-dem" type="raster-dem" url="mapbox://mapbox.mapbox-terrain-dem-v1" tileSize={512} />
       <Source id="personal-heat-points" type="geojson" data={pointCollection}>
         <Layer
           id="personal-heat"

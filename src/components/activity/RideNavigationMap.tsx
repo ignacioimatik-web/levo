@@ -7,15 +7,10 @@ import { Layers3, LocateFixed, MapPinned, Navigation2 } from 'lucide-react';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import type { RidePoint } from '@/lib/activities/types';
 import type { PlannedRoutePoint } from '@/lib/navigation/types';
+import { OPEN_MAP_STYLES } from '@/lib/open-map-styles';
 
 type MapPoint = RidePoint | PlannedRoutePoint;
 type FollowMode = 'north' | 'heading';
-
-const MAP_STYLES = [
-  { label: 'Topo', url: 'mapbox://styles/mapbox/outdoors-v12' },
-  { label: 'Satélite', url: 'mapbox://styles/mapbox/satellite-streets-v12' },
-  { label: 'Oscuro', url: 'mapbox://styles/mapbox/dark-v11' },
-] as const;
 
 function bearingBetween(a: MapPoint, b: MapPoint): number {
   const lat1 = a.latitude * Math.PI / 180;
@@ -104,7 +99,6 @@ export default function RideNavigationMap({
   const [following, setFollowing] = useState(true);
   const [followMode, setFollowMode] = useState<FollowMode>('north');
   const [styleIndex, setStyleIndex] = useState(0);
-  const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
   const currentPoint = points.at(-1);
   const initialPoint = currentPoint ?? plannedPoints[0];
   const heading = useMemo(() => {
@@ -138,7 +132,7 @@ export default function RideNavigationMap({
     });
   };
 
-  if (!token || !initialPoint) {
+  if (!initialPoint) {
     return (
       <div className={`overflow-hidden rounded-3xl border border-white/10 ${active ? 'h-[min(55svh,26rem)] min-h-52' : 'h-56'}`}>
         <SchematicFallback points={points} plannedPoints={plannedPoints} />
@@ -152,13 +146,12 @@ export default function RideNavigationMap({
     } ${active ? 'h-[min(55svh,26rem)] min-h-52' : 'h-56 sm:h-64'}`}>
       <Map
         ref={mapRef}
-        mapboxAccessToken={token}
         initialViewState={{
           longitude: initialPoint.longitude,
           latitude: initialPoint.latitude,
           zoom: currentPoint ? 15.5 : 12,
         }}
-        mapStyle={MAP_STYLES[styleIndex].url}
+        mapStyle={OPEN_MAP_STYLES[styleIndex].style}
         attributionControl={false}
         dragRotate
         touchPitch
@@ -231,12 +224,12 @@ export default function RideNavigationMap({
         </button>
         <button
           type="button"
-          aria-label={`Mapa ${MAP_STYLES[styleIndex].label}. Cambiar estilo`}
-          onClick={() => setStyleIndex((index) => (index + 1) % MAP_STYLES.length)}
+          aria-label={`Mapa ${OPEN_MAP_STYLES[styleIndex].label}. Cambiar estilo`}
+          onClick={() => setStyleIndex((index) => (index + 1) % OPEN_MAP_STYLES.length)}
           className="flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-xl border border-white/15 bg-slate-950/85 px-2.5 text-[9px] font-black uppercase text-white shadow-lg backdrop-blur"
         >
           <Layers3 className="h-4 w-4" />
-          <span>{MAP_STYLES[styleIndex].label}</span>
+          <span>{OPEN_MAP_STYLES[styleIndex].label}</span>
         </button>
       </div>
 
