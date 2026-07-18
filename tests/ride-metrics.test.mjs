@@ -76,6 +76,10 @@ import {
   resolveThemePreference,
 } from '../src/lib/theme.ts';
 import { aemetWindMpsToKmh } from '../src/lib/weather-units.ts';
+import {
+  compactActivityForLocalStorage,
+  mergeActivityVersions,
+} from '../src/lib/activities/durable-storage.ts';
 
 function point({
   latitude = 40,
@@ -180,6 +184,39 @@ function activity(id, startedAt, sportType, points) {
     syncStatus: 'local',
   };
 }
+
+test('el índice local reduce un track largo sin perder inicio ni final', () => {
+  const points = Array.from({ length: 10_000 }, (_, index) => point({
+    longitude: -0.1 + index * 0.000001,
+    timestamp: index * 1_000,
+  }));
+  const original = activity('long-ride', '2026-07-18T10:00:00Z', 'ebike', points);
+  const compact = compactActivityForLocalStorage(original, 600);
+
+  assert.equal(compact.points.length, 600);
+  assert.deepEqual(compact.points[0], points[0]);
+  assert.deepEqual(compact.points.at(-1), points.at(-1));
+  assert.equal(compact.distanceM, original.distanceM);
+});
+
+test('una actualización de estado nunca sustituye el track completo por el índice reducido', () => {
+  const full = activity(
+    'protected-track',
+    '2026-07-18T10:00:00Z',
+    'ebike',
+    Array.from({ length: 2_000 }, (_, index) => point({ timestamp: index * 1_000 })),
+  );
+  const statusUpdate = {
+    ...compactActivityForLocalStorage(full, 100),
+    syncStatus: 'synced',
+    remoteId: 'remote-1',
+  };
+  const merged = mergeActivityVersions(full, statusUpdate);
+
+  assert.equal(merged.points.length, 2_000);
+  assert.equal(merged.syncStatus, 'synced');
+  assert.equal(merged.remoteId, 'remote-1');
+});
 
 test('el mapa personal filtra por deporte y periodo sin perder recorridos válidos', () => {
   const now = Date.parse('2026-07-18T12:00:00Z');

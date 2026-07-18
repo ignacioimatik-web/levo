@@ -15,7 +15,7 @@ import {
 } from '@/lib/activities/geo';
 import { buildBatteryModel, predictBatteryForRoute } from '@/lib/activities/battery';
 import {
-  clearRideDraft, getActivities, getRideDraft, saveActivity, saveRideDraft,
+  clearRideDraft, getActivitiesDurable, getRideDraftDurable, saveActivity, saveRideDraft,
 } from '@/lib/activities/storage';
 import { syncActivity } from '@/lib/activities/sync';
 import type {
@@ -28,6 +28,7 @@ import {
 } from '@/lib/navigation/repeat';
 import { getPlannedRoute, savePlannedRoute } from '@/lib/navigation/storage';
 import type { PlannedRoute } from '@/lib/navigation/types';
+import { requestPersistentRideStorage } from '@/lib/activities/durable-storage';
 import { getOfflineMapPackage } from '@/lib/navigation/offline-map-storage';
 import type { OfflineMapPackage } from '@/lib/navigation/offline-map-storage';
 import { parseNavigationGpx } from '@/lib/navigation/gpx';
@@ -157,17 +158,24 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
   useEffect(() => () => { void releaseWakeLock(); }, [releaseWakeLock]);
 
   useEffect(() => {
+    let cancelled = false;
     const draftRead = window.setTimeout(() => {
-      const draft = getRideDraft();
-      setRecoverableDraft(draft);
-      setBatteryHistory(getActivities());
-      const routeId = plannedRouteId ?? draft?.plannedRouteId;
-      if (routeId) {
-        setPlannedRoute(getPlannedRoute(routeId));
-        setNavigationFloorM(0);
-      }
+      void Promise.all([getRideDraftDurable(), getActivitiesDurable()]).then(([draft, activities]) => {
+        if (cancelled) return;
+        setRecoverableDraft(draft);
+        setBatteryHistory(activities);
+        const routeId = plannedRouteId ?? draft?.plannedRouteId;
+        if (routeId) {
+          setPlannedRoute(getPlannedRoute(routeId));
+          setNavigationFloorM(0);
+        }
+      });
+      void requestPersistentRideStorage();
     }, 0);
-    return () => window.clearTimeout(draftRead);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(draftRead);
+    };
   }, [plannedRouteId]);
 
   useEffect(() => {
@@ -211,7 +219,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
     return () => clearInterval(timer);
   }, [lastGpsReceivedAt, status]);
 
-  const persistCurrentDraft = useCallback(() => {
+  const persistCurrentDraft = useCallback((forceDurable = false) => {
     if (status !== 'recording' && status !== 'paused' && status !== 'finished') return;
     if (!draftIdRef.current || startedAtRef.current == null) return;
     const lastAcceptedPoint = lastAcceptedPointRef.current;
@@ -237,7 +245,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
       plannedRouteId: plannedRoute?.id,
       navigationCompletedM: navigationFloorM,
       weatherSamples,
-    });
+    }, forceDurable);
   }, [durationSeconds, liveSession, navigationFloorM, plannedRoute?.id, points, settings, status, weatherSamples]);
 
   useEffect(() => {
@@ -245,14 +253,14 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
   }, [persistCurrentDraft]);
 
   useEffect(() => {
-    const flushDraft = () => persistCurrentDraft();
     const flushHiddenDraft = () => {
-      if (document.visibilityState === 'hidden') persistCurrentDraft();
+      if (document.visibilityState === 'hidden') persistCurrentDraft(true);
     };
-    window.addEventListener('pagehide', flushDraft);
+    const flushDurableDraft = () => persistCurrentDraft(true);
+    window.addEventListener('pagehide', flushDurableDraft);
     document.addEventListener('visibilitychange', flushHiddenDraft);
     return () => {
-      window.removeEventListener('pagehide', flushDraft);
+      window.removeEventListener('pagehide', flushDurableDraft);
       document.removeEventListener('visibilitychange', flushHiddenDraft);
     };
   }, [persistCurrentDraft]);
@@ -692,7 +700,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
       privacy,
       syncStatus: 'local',
     };
-    saveActivity(activity);
+    await saveActivity(activity);
     clearRideDraft();
     await stopLiveTracking();
     await syncActivity(activity);

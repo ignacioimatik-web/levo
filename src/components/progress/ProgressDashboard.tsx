@@ -7,7 +7,7 @@ import {
   Flag, Flame, Gauge, Mountain, Pencil, Route, Sparkles, Target, TrendingUp, Zap,
 } from 'lucide-react';
 import { getCompetitiveSegment } from '@/data/competitive-segments';
-import { getActivities } from '@/lib/activities/storage';
+import { getActivitiesDurable } from '@/lib/activities/storage';
 import { buildBatteryModel, predictBatteryForRoute } from '@/lib/activities/battery';
 import { pullActivities } from '@/lib/activities/sync';
 import type { RideActivity } from '@/lib/activities/types';
@@ -112,7 +112,9 @@ export default function ProgressDashboard() {
   const [loaded, setLoaded] = useState(false);
   const [editingGoals, setEditingGoals] = useState(false);
 
-  const refresh = useCallback(() => setActivities(getActivities()), []);
+  const refresh = useCallback(() => {
+    void getActivitiesDurable().then(setActivities);
+  }, []);
 
   useEffect(() => {
     const initialRead = window.setTimeout(() => {

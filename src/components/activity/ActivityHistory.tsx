@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { downloadActivityGpx } from '@/lib/activities/gpx';
 import {
-  ACTIVITIES_CHANGED_EVENT, deleteActivity, getActivities, getPendingActivityDeletes,
+  ACTIVITIES_CHANGED_EVENT, deleteActivity, getActivitiesDurable, getPendingActivityDeletes,
   queueActivityDelete, removePendingActivityDelete, saveActivity,
 } from '@/lib/activities/storage';
 import {
@@ -44,8 +44,8 @@ export default function ActivityHistory() {
   const undoTimerRef = useRef<number | null>(null);
 
   const refresh = useCallback(() => {
-    setActivities(getActivities());
     setPendingDeleteCount(getPendingActivityDeletes().length);
+    void getActivitiesDurable().then(setActivities);
   }, []);
 
   useEffect(() => {
@@ -68,7 +68,12 @@ export default function ActivityHistory() {
   const syncAll = async () => {
     setSyncing(true);
     const deleteResult = await flushPendingActivityDeletes();
-    await Promise.all(getActivities().filter((activity) => activity.syncStatus !== 'synced').map(syncActivity));
+    const durableActivities = await getActivitiesDurable();
+    await Promise.all(
+      durableActivities
+        .filter((activity) => activity.syncStatus !== 'synced')
+        .map(syncActivity),
+    );
     refresh();
     setDeleteMessage(deleteResult.remaining > 0
       ? 'Quedan eliminaciones pendientes. Comprueba la conexión y que has iniciado sesión con la cuenta correcta.'
@@ -107,7 +112,7 @@ export default function ActivityHistory() {
   const undoRemove = () => {
     if (!undoActivity) return;
     if (undoTimerRef.current) window.clearTimeout(undoTimerRef.current);
-    saveActivity(undoActivity);
+    void saveActivity(undoActivity);
     removePendingActivityDelete(undoActivity.id);
     setUndoActivity(null);
     setDeleteMessage('Eliminación cancelada.');

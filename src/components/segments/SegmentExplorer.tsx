@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowDown, ArrowUp, ChevronRight, MapPinned, Trophy } from 'lucide-react';
 import { COMPETITIVE_SEGMENTS, type CompetitiveSegmentType } from '@/data/competitive-segments';
-import { getActivities } from '@/lib/activities/storage';
+import { getActivitiesDurable } from '@/lib/activities/storage';
 import type { RideActivity } from '@/lib/activities/types';
 import { formatSegmentTime, personalSegmentBests } from '@/lib/segments/matcher';
 import { SegmentCourseSketch } from './SegmentCourseSketch';
@@ -16,8 +16,11 @@ export function SegmentExplorer() {
   const [activities, setActivities] = useState<RideActivity[]>([]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setActivities(getActivities()), 0);
-    return () => window.clearTimeout(timer);
+    let active = true;
+    void getActivitiesDurable().then((stored) => {
+      if (active) setActivities(stored);
+    });
+    return () => { active = false; };
   }, []);
 
   const bests = useMemo(

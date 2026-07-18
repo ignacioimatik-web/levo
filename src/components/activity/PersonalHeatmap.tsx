@@ -8,7 +8,7 @@ import {
 import MapboxMap, { Layer, NavigationControl, Source } from 'react-map-gl/maplibre';
 import type { MapRef } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { getActivities } from '@/lib/activities/storage';
+import { getActivitiesDurable } from '@/lib/activities/storage';
 import { pullActivities } from '@/lib/activities/sync';
 import {
   downsampleRoute, filterHeatmapActivities, summarizeHeatmap,
@@ -167,7 +167,9 @@ export default function PersonalHeatmap() {
   const [nowMs, setNowMs] = useState(0);
   const [loaded, setLoaded] = useState(false);
 
-  const refresh = useCallback(() => setActivities(getActivities()), []);
+  const refresh = useCallback(() => {
+    void getActivitiesDurable().then(setActivities);
+  }, []);
 
   useEffect(() => {
     const initialRead = window.setTimeout(() => {

@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/browser';
 import {
-  getActivities, getPendingActivityDeletes, removePendingActivityDelete,
+  getActivitiesDurable, getPendingActivityDeletes, removePendingActivityDelete,
   saveActivity, updateActivity,
 } from './storage';
 import type { AssistMode, RideActivity, RidePoint, SportType } from './types';
@@ -128,7 +128,7 @@ export async function pullActivities(): Promise<number> {
     .limit(100);
   if (error || !data) return 0;
 
-  const localIds = new Set(getActivities().map((activity) => activity.id));
+  const localIds = new Set((await getActivitiesDurable()).map((activity) => activity.id));
   const pendingIds = new Set(getPendingActivityDeletes().map((item) => item.clientId));
   const remoteActivityIds = data.map((row) => row.id);
   const { data: effortRows } = remoteActivityIds.length > 0
@@ -154,7 +154,7 @@ export async function pullActivities(): Promise<number> {
   let imported = 0;
   for (const row of data) {
     if (localIds.has(row.client_id) || pendingIds.has(row.client_id)) continue;
-    saveActivity({
+    await saveActivity({
       id: row.client_id,
       remoteId: row.id,
       remoteUserId: user.id,

@@ -6,7 +6,7 @@ import {
   AlertTriangle, BatteryCharging, Bike, Check, ChevronDown, CircleGauge,
   Disc3, Gauge, Loader2, Plus, RefreshCw, Settings2, ShieldCheck, Trash2, Wrench,
 } from 'lucide-react';
-import { getActivities } from '@/lib/activities/storage';
+import { getActivitiesDurable } from '@/lib/activities/storage';
 import { pullActivities } from '@/lib/activities/sync';
 import { activityOdometerKm, maintenanceHealth } from '@/lib/maintenance/analytics';
 import {
@@ -54,14 +54,17 @@ export default function MaintenanceDashboard() {
   const [newInterval, setNewInterval] = useState(500);
 
   const refresh = useCallback(() => {
-    const odometer = activityOdometerKm(getActivities());
-    setOdometerKm(odometer);
-    setItems(getMaintenanceItems(odometer));
+    void getActivitiesDurable().then((activities) => {
+      const odometer = activityOdometerKm(activities);
+      setOdometerKm(odometer);
+      setItems(getMaintenanceItems(odometer));
+    });
   }, []);
 
   const sync = useCallback(async () => {
     setSyncing(true);
-    await reconcileMaintenance(activityOdometerKm(getActivities()));
+    const activities = await getActivitiesDurable();
+    await reconcileMaintenance(activityOdometerKm(activities));
     refresh();
     setSyncing(false);
   }, [refresh]);

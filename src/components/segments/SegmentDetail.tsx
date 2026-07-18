@@ -7,7 +7,7 @@ import {
   Medal, ShieldCheck, Trophy,
 } from 'lucide-react';
 import type { CompetitiveSegment } from '@/data/competitive-segments';
-import { getActivities } from '@/lib/activities/storage';
+import { getActivitiesDurable } from '@/lib/activities/storage';
 import type { RideActivity, SportType } from '@/lib/activities/types';
 import {
   loadSegmentLeaderboard,
@@ -34,8 +34,11 @@ export function SegmentDetail({ segment }: { segment: CompetitiveSegment }) {
   );
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setActivities(getActivities()), 0);
-    return () => window.clearTimeout(timer);
+    let active = true;
+    void getActivitiesDurable().then((stored) => {
+      if (active) setActivities(stored);
+    });
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowDown, ArrowUp, ChevronRight, Gauge, ShieldCheck, Trophy } from 'lucide-react';
 import { getCompetitiveSegment } from '@/data/competitive-segments';
-import { getActivities } from '@/lib/activities/storage';
+import { getActivitiesDurable } from '@/lib/activities/storage';
 import type { RideActivity, SegmentEffort, SportType } from '@/lib/activities/types';
 import { formatSegmentTime, personalSegmentBests } from '@/lib/segments/matcher';
 
@@ -24,8 +24,11 @@ export function SegmentEffortsPanel({
 
   useEffect(() => {
     if (publicView) return;
-    const timer = window.setTimeout(() => setActivities(getActivities()), 0);
-    return () => window.clearTimeout(timer);
+    let active = true;
+    void getActivitiesDurable().then((stored) => {
+      if (active) setActivities(stored);
+    });
+    return () => { active = false; };
   }, [publicView]);
 
   const personalBests = useMemo(

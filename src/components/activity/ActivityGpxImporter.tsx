@@ -88,7 +88,7 @@ export default function ActivityGpxImporter({
       privacy,
       syncStatus: 'local',
     };
-    saveActivity(activity);
+    await saveActivity(activity);
     const result = await syncActivity(activity);
     close();
     onImported(result === 'synced'

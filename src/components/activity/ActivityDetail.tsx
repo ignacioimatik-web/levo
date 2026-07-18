@@ -14,7 +14,7 @@ import ActivityWeatherTimeline from './ActivityWeatherTimeline';
 import { SegmentEffortsPanel } from '@/components/segments/SegmentEffortsPanel';
 import { activityEditNotice, normalizeActivityTitle } from '@/lib/activities/edit';
 import { downloadActivityGpx } from '@/lib/activities/gpx';
-import { getActivity, saveActivity } from '@/lib/activities/storage';
+import { getActivityDurable, saveActivity } from '@/lib/activities/storage';
 import { syncActivity } from '@/lib/activities/sync';
 import type { ActivityPrivacy, RideActivity } from '@/lib/activities/types';
 import { analyzeActivityTrack } from '@/lib/activities/track-analysis';
@@ -60,13 +60,14 @@ export default function ActivityDetail({ activityId }: { activityId: string }) {
 
   useEffect(() => {
     const read = window.setTimeout(() => {
-      const storedActivity = getActivity(activityId);
-      setActivity(storedActivity);
-      if (storedActivity) {
-        setEditTitle(storedActivity.title);
-        setEditPrivacy(storedActivity.privacy);
-      }
-      setLoaded(true);
+      void getActivityDurable(activityId).then((storedActivity) => {
+        setActivity(storedActivity);
+        if (storedActivity) {
+          setEditTitle(storedActivity.title);
+          setEditPrivacy(storedActivity.privacy);
+        }
+        setLoaded(true);
+      });
     }, 0);
     return () => window.clearTimeout(read);
   }, [activityId]);
@@ -129,10 +130,10 @@ export default function ActivityDetail({ activityId }: { activityId: string }) {
     setShareMessage('');
     setMessageUrgent(false);
     const publicActivity: RideActivity = { ...activity, privacy: 'public', syncStatus: 'local' };
-    saveActivity(publicActivity);
+    await saveActivity(publicActivity);
     setActivity(publicActivity);
     const result = await syncActivity(publicActivity);
-    const updated = getActivity(activity.id) ?? publicActivity;
+    const updated = await getActivityDurable(activity.id) ?? publicActivity;
     setActivity(updated);
     setPublishing(false);
     if (result === 'synced' && updated.remoteId) {
@@ -166,7 +167,7 @@ export default function ActivityDetail({ activityId }: { activityId: string }) {
       privacy: editPrivacy,
       syncStatus: 'local',
     };
-    saveActivity(editedActivity);
+    await saveActivity(editedActivity);
     setActivity(editedActivity);
 
     let result: 'synced' | 'local' | 'error' = 'error';
@@ -175,7 +176,7 @@ export default function ActivityDetail({ activityId }: { activityId: string }) {
     } catch {
       result = 'error';
     }
-    const updated = getActivity(activity.id) ?? editedActivity;
+    const updated = await getActivityDurable(activity.id) ?? editedActivity;
     const notice = activityEditNotice({
       previousPrivacy,
       nextPrivacy: editPrivacy,
