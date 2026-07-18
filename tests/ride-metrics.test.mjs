@@ -322,6 +322,33 @@ test('la navegación no retrocede a un tramo inicial después de completar un bu
   assert.ok(monotonic.completedM >= 800);
 });
 
+test('la navegación proyecta la posición sobre un tramo aunque el GPX tenga pocos puntos', () => {
+  const route = [
+    { latitude: 40, longitude: -0.1, elevation: 100 },
+    { latitude: 40, longitude: -0.08, elevation: 200 },
+  ];
+  const halfway = point({ latitude: 40, longitude: -0.09, accuracy: 5 });
+  const navigation = calculateNavigationProgress(route, halfway);
+
+  assert.ok(navigation);
+  assert.ok(navigation.offRouteM < 1);
+  assert.ok(navigation.progressPercent > 49 && navigation.progressPercent < 51);
+  assert.ok(navigation.remainingGainM > 49 && navigation.remainingGainM < 51);
+});
+
+test('la navegación respeta los límites de avance dentro de un mismo tramo', () => {
+  const route = [
+    { latitude: 40, longitude: -0.1, elevation: 100 },
+    { latitude: 40, longitude: -0.08, elevation: 100 },
+  ];
+  const nearFinish = point({ latitude: 40, longitude: -0.081, accuracy: 4 });
+  const navigation = calculateNavigationProgress(route, nearFinish, 500);
+
+  assert.ok(navigation);
+  assert.ok(navigation.completedM <= 500.01);
+  assert.ok(navigation.offRouteM > 900);
+});
+
 test('el resumen conserva el 100% ya alcanzado aunque la posición instantánea retroceda', () => {
   const navigation = {
     nearestIndex: 8,

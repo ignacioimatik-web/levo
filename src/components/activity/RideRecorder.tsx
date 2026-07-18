@@ -109,6 +109,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
   const [navigationFloorM, setNavigationFloorM] = useState(0);
   const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
   const [lastGpsReceivedAt, setLastGpsReceivedAt] = useState(0);
+  const [gpsSignalAgeSeconds, setGpsSignalAgeSeconds] = useState(0);
   const [finishArmed, setFinishArmed] = useState(false);
   const [voiceGuidance, setVoiceGuidance] = useState(false);
   const [weatherSamples, setWeatherSamples] = useState<RideWeatherSample[]>([]);
@@ -198,6 +199,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
   useEffect(() => {
     if (status !== 'recording') return;
     const timer = setInterval(() => {
+      if (lastGpsReceivedAt > 0) setGpsSignalAgeSeconds((age) => age + 1);
       if (isDemoRef.current) {
         setDurationSeconds((value) => value + 14);
       } else if (recordingStartedAtRef.current != null) {
@@ -207,17 +209,28 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
       }
     }, 1000);
     return () => clearInterval(timer);
-  }, [status]);
+  }, [lastGpsReceivedAt, status]);
 
-  useEffect(() => {
+  const persistCurrentDraft = useCallback(() => {
     if (status !== 'recording' && status !== 'paused' && status !== 'finished') return;
     if (!draftIdRef.current || startedAtRef.current == null) return;
+    const lastAcceptedPoint = lastAcceptedPointRef.current;
+    const persistedLastPoint = points.at(-1);
+    const recoveryPoints = lastAcceptedPoint
+      && persistedLastPoint?.timestamp !== lastAcceptedPoint.timestamp
+      ? [...points, lastAcceptedPoint]
+      : points;
+    const currentDuration = status === 'recording'
+      && !isDemoRef.current
+      && recordingStartedAtRef.current != null
+      ? durationBaseRef.current + Math.floor((Date.now() - recordingStartedAtRef.current) / 1000)
+      : durationSeconds;
     saveRideDraft({
       id: draftIdRef.current,
       startedAt: startedAtRef.current,
       updatedAt: Date.now(),
-      durationSeconds,
-      points,
+      durationSeconds: currentDuration,
+      points: recoveryPoints,
       settings,
       isDemo: isDemoRef.current,
       liveSession,
@@ -226,6 +239,23 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
       weatherSamples,
     });
   }, [durationSeconds, liveSession, navigationFloorM, plannedRoute?.id, points, settings, status, weatherSamples]);
+
+  useEffect(() => {
+    persistCurrentDraft();
+  }, [persistCurrentDraft]);
+
+  useEffect(() => {
+    const flushDraft = () => persistCurrentDraft();
+    const flushHiddenDraft = () => {
+      if (document.visibilityState === 'hidden') persistCurrentDraft();
+    };
+    window.addEventListener('pagehide', flushDraft);
+    document.addEventListener('visibilitychange', flushHiddenDraft);
+    return () => {
+      window.removeEventListener('pagehide', flushDraft);
+      document.removeEventListener('visibilitychange', flushHiddenDraft);
+    };
+  }, [persistCurrentDraft]);
 
   useEffect(() => {
     if (!finishArmed) return;
@@ -306,11 +336,17 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
   ), [navigation, plannedRoute]);
   const gpsQuality = useMemo(() => {
     if (gpsAccuracy == null) return null;
+    if (status === 'recording' && gpsSignalAgeSeconds > 30) {
+      return {
+        label: `Sin GPS · ${gpsSignalAgeSeconds} s`,
+        color: 'text-red-300 bg-red-500/10',
+      };
+    }
     if (gpsAccuracy <= 8) return { label: 'GPS excelente', color: 'text-emerald-400 bg-emerald-500/10' };
     if (gpsAccuracy <= 20) return { label: 'GPS correcto', color: 'text-blue-300 bg-blue-500/10' };
     if (gpsAccuracy <= 100) return { label: 'GPS débil', color: 'text-amber-300 bg-amber-500/10' };
     return { label: 'Sin señal fiable', color: 'text-red-300 bg-red-500/10' };
-  }, [gpsAccuracy]);
+  }, [gpsAccuracy, gpsSignalAgeSeconds, status]);
 
   useEffect(() => {
     if (!navigation || navigation.completedM <= navigationFloorM) return;
@@ -378,6 +414,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
         const candidate = pointFromPosition(position);
         setGpsAccuracy(candidate.accuracy);
         setLastGpsReceivedAt(Date.now());
+        setGpsSignalAgeSeconds(0);
         const assessment = assessRidePoint(lastAcceptedPointRef.current, candidate);
         if (!assessment.accepted) return;
         lastAcceptedPointRef.current = candidate;
@@ -386,14 +423,28 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
         setStatus('recording');
       },
       (gpsError) => {
-        setError(gpsError.code === 1
+        const message = gpsError.code === 1
           ? 'Necesitamos permiso de ubicación para grabar. Puedes usar el modo demo mientras tanto.'
-          : 'No hemos podido fijar tu posición. Sal al exterior y vuelve a intentarlo.');
-        setStatus('error');
+          : 'Se ha perdido temporalmente la señal GPS. La grabación seguirá intentando recuperarla.';
+        setError(message);
+        if (gpsError.code === 1 && lastAcceptedPointRef.current) {
+          if (recordingStartedAtRef.current != null) {
+            const nextDuration = durationBaseRef.current
+              + Math.floor((Date.now() - recordingStartedAtRef.current) / 1000);
+            durationBaseRef.current = nextDuration;
+            setDurationSeconds(nextDuration);
+          }
+          recordingStartedAtRef.current = null;
+          stopWatch();
+          void releaseWakeLock();
+          setStatus('paused');
+          return;
+        }
+        setStatus(lastAcceptedPointRef.current ? 'recording' : 'error');
       },
       { enableHighAccuracy: true, maximumAge: 1_000, timeout: 20_000 },
     );
-  }, []);
+  }, [releaseWakeLock, stopWatch]);
 
   const start = (demo = false) => {
     setPoints([]);
@@ -406,6 +457,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
     setLiveError('');
     setGpsAccuracy(null);
     setLastGpsReceivedAt(0);
+    setGpsSignalAgeSeconds(0);
     setNavigationFloorM(0);
     setFinishArmed(false);
     setWeatherSamples([]);
