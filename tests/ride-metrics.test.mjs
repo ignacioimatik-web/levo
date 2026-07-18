@@ -59,6 +59,12 @@ import {
 } from '../src/lib/navigation/turns.ts';
 import { normalizeRideDisplayMode } from '../src/lib/activities/display-mode.ts';
 import {
+  displayedRideSpeedKmh,
+  GPS_RESUME_RESTART_MS,
+  GPS_STALE_RESTART_MS,
+  shouldRestartGpsWatch,
+} from '../src/lib/activities/gps-watchdog.ts';
+import {
   buildOverpassTrailQuery,
   buildOverpassTrailOnlyQuery,
   overpassWaysToGeoJson,
@@ -1286,6 +1292,60 @@ test('la vista de conducción arranca en Basic y conserva Pro si se eligió', ()
   assert.equal(normalizeRideDisplayMode('basic'), 'basic');
   assert.equal(normalizeRideDisplayMode('pro'), 'pro');
   assert.equal(normalizeRideDisplayMode('unexpected'), 'basic');
+});
+
+test('el watchdog recupera el GPS suspendido sin duplicar reinicios', () => {
+  const now = 100_000;
+  assert.equal(shouldRestartGpsWatch({
+    recording: true,
+    demo: false,
+    lastFixAt: now - GPS_STALE_RESTART_MS,
+    lastRestartAt: 0,
+    now,
+  }), true);
+  assert.equal(shouldRestartGpsWatch({
+    recording: true,
+    demo: false,
+    lastFixAt: now - GPS_STALE_RESTART_MS,
+    lastRestartAt: now - 5_000,
+    now,
+  }), false);
+  assert.equal(shouldRestartGpsWatch({
+    recording: true,
+    demo: false,
+    lastFixAt: now - GPS_RESUME_RESTART_MS,
+    lastRestartAt: 0,
+    now,
+    staleAfterMs: GPS_RESUME_RESTART_MS,
+  }), true);
+  assert.equal(shouldRestartGpsWatch({
+    recording: true,
+    demo: true,
+    lastFixAt: now - GPS_STALE_RESTART_MS,
+    lastRestartAt: 0,
+    now,
+  }), false);
+});
+
+test('la velocidad instantánea cae a cero al pausar o perder señal', () => {
+  assert.equal(displayedRideSpeedKmh({
+    recording: true,
+    demo: false,
+    signalAgeSeconds: 2,
+    speedMps: 5,
+  }), 18);
+  assert.equal(displayedRideSpeedKmh({
+    recording: false,
+    demo: false,
+    signalAgeSeconds: 2,
+    speedMps: 5,
+  }), 0);
+  assert.equal(displayedRideSpeedKmh({
+    recording: true,
+    demo: false,
+    signalAgeSeconds: 15,
+    speedMps: 5,
+  }), 0);
 });
 
 test('el callback de acceso solo acepta destinos internos seguros', () => {
