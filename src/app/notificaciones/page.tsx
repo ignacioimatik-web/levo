@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 };
 
 export default async function NotificationsPage() {
-  const user = await requireAuth();
+  const user = await requireAuth('/notificaciones');
   return (
     <main className="min-h-screen bg-slate-950 pb-28 text-white md:pb-16">
       <div className="mx-auto max-w-3xl px-4 py-7 sm:px-6 md:py-12">

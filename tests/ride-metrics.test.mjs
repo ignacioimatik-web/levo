@@ -72,7 +72,7 @@ import {
   matchCompetitiveSegments,
   personalSegmentBests,
 } from '../src/lib/segments/matcher.ts';
-import { normalizeAuthNextPath } from '../src/lib/auth/redirect.ts';
+import { getPostAuthDestination, normalizeAuthNextPath } from '../src/lib/auth/redirect.ts';
 import {
   normalizeProviderAvailability,
 } from '../src/lib/supabase/provider-status.ts';
@@ -1271,6 +1271,16 @@ test('el callback de acceso solo acepta destinos internos seguros', () => {
   assert.equal(normalizeAuthNextPath('https://evil.example'), '/account');
   assert.equal(normalizeAuthNextPath('//evil.example/path'), '/account');
   assert.equal(normalizeAuthNextPath(null), '/account');
+  assert.equal(normalizeAuthNextPath('/auth?next=/planifica'), '/account');
+  assert.equal(normalizeAuthNextPath('/onboarding'), '/account');
+  assert.equal(
+    getPostAuthDestination('/planifica?ruta=abc', null),
+    '/onboarding?next=%2Fplanifica%3Fruta%3Dabc',
+  );
+  assert.equal(
+    getPostAuthDestination('/planifica?ruta=abc', '2026-07-18T17:35:00Z'),
+    '/planifica?ruta=abc',
+  );
 });
 
 test('la pantalla de acceso refleja los proveedores realmente activados', () => {

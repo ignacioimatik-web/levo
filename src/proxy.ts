@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { isProtectedRoute } from '@/lib/auth/guards';
+import { normalizeAuthNextPath } from '@/lib/auth/redirect';
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -34,7 +35,10 @@ export async function proxy(request: NextRequest) {
 
   if (!user) {
     const url = request.nextUrl.clone();
+    const requestedPath = `${pathname}${request.nextUrl.search}`;
     url.pathname = '/auth';
+    url.search = '';
+    url.searchParams.set('next', normalizeAuthNextPath(requestedPath));
     return NextResponse.redirect(url);
   }
 

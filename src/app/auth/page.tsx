@@ -2,12 +2,14 @@
 
 import { Suspense, useEffect, useState, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { signInWithGoogle, signInWithApple, signInWithEmail, getCurrentSession } from '@/lib/supabase/auth';
+import { signInWithGoogle, signInWithApple, signInWithEmail, getCurrentUser } from '@/lib/supabase/auth';
 import { Loader2, AlertCircle, XCircle, WifiOff, Ban, Mail, CheckCircle2 } from 'lucide-react';
 import {
   getAuthProviderAvailability,
 } from '@/lib/supabase/provider-status';
 import type { AuthProviderAvailability } from '@/lib/supabase/provider-status';
+import { createClient } from '@/lib/supabase/browser';
+import { getPostAuthDestination, normalizeAuthNextPath } from '@/lib/auth/redirect';
 
 const ERROR_MESSAGES: Record<string, string> = {
   'Provider not enabled': 'El inicio de sesión con este proveedor no está activado. Contacta con el administrador.',
@@ -46,17 +48,37 @@ function AuthForm() {
   const [emailSent, setEmailSent] = useState(false);
   const [providers, setProviders] = useState<AuthProviderAvailability | null>(null);
 
-  const next = searchParams.get('next') ?? undefined;
+  const next = normalizeAuthNextPath(searchParams.get('next'));
   const unavailableProviders = providers
     ? [!providers.google && 'Google', !providers.apple && 'Apple'].filter(Boolean)
     : [];
 
   useEffect(() => {
-    getCurrentSession().then(({ session }) => {
-      if (session) router.replace('/account');
-      else setChecking(false);
+    let active = true;
+    void getCurrentUser().then(async ({ user }) => {
+      if (!active) return;
+      if (!user) {
+        setChecking(false);
+        return;
+      }
+
+      const supabase = createClient();
+      const { data: profile } = supabase
+        ? await supabase
+          .from('profiles')
+          .select('onboarding_completed_at')
+          .eq('user_id', user.id)
+          .maybeSingle()
+        : { data: null };
+
+      if (active) {
+        router.replace(getPostAuthDestination(next, profile?.onboarding_completed_at));
+      }
     });
-  }, [router, searchParams]);
+    return () => {
+      active = false;
+    };
+  }, [next, router]);
 
   useEffect(() => {
     void getAuthProviderAvailability().then(setProviders);
