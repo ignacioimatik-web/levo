@@ -3,13 +3,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Map, { Layer, Marker, Source } from 'react-map-gl/maplibre';
 import type { MapRef } from 'react-map-gl/maplibre';
-import { CloudOff, Layers3, LocateFixed, MapPinned, Navigation2 } from 'lucide-react';
+import { CloudOff, Layers3, LocateFixed, MapPinned, Navigation2, Target } from 'lucide-react';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type { RidePoint } from '@/lib/activities/types';
 import type { PlannedRoutePoint } from '@/lib/navigation/types';
 import type { OfflineMapPackage } from '@/lib/navigation/offline-map-storage';
 import { OFFLINE_MAP_STYLE, OPEN_MAP_STYLES } from '@/lib/open-map-styles';
 import { useTheme } from '@/components/theme/ThemeProvider';
+import { cardinalForBearing } from '@/lib/navigation/progress';
+import { formatTurnDistance } from '@/lib/navigation/turns';
 
 type MapPoint = RidePoint | PlannedRoutePoint;
 type FollowMode = 'north' | 'heading';
@@ -24,7 +26,7 @@ function bearingBetween(a: MapPoint, b: MapPoint): number {
   return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
 }
 
-function lineFeature(points: MapPoint[]) {
+function lineFeature(points: Array<Pick<MapPoint, 'latitude' | 'longitude'>>) {
   return {
     type: 'Feature' as const,
     properties: {},
@@ -91,12 +93,21 @@ export default function RideNavigationMap({
   plannedPoints = [],
   active,
   offRouteM,
+  rejoinPoint,
+  navigationCue,
   offlineMap,
 }: {
   points: RidePoint[];
   plannedPoints?: PlannedRoutePoint[];
   active: boolean;
   offRouteM?: number | null;
+  rejoinPoint?: { latitude: number; longitude: number } | null;
+  navigationCue?: {
+    label: string;
+    distanceM: number;
+    offRoute: boolean;
+    bearingDeg?: number | null;
+  } | null;
   offlineMap?: OfflineMapPackage | null;
 }) {
   const mapRef = useRef<MapRef>(null);
@@ -115,6 +126,10 @@ export default function RideNavigationMap({
   }, [points]);
   const riddenRoute = useMemo(() => lineFeature(points), [points]);
   const plannedRoute = useMemo(() => lineFeature(plannedPoints), [plannedPoints]);
+  const rejoinRoute = useMemo(
+    () => currentPoint && rejoinPoint ? lineFeature([currentPoint, rejoinPoint]) : null,
+    [currentPoint, rejoinPoint],
+  );
   const offlineActive = Boolean(offlineMap) && (!online || preferOffline);
 
   useEffect(() => {
@@ -257,6 +272,28 @@ export default function RideNavigationMap({
             />
           </Source>
         )}
+        {(offRouteM ?? 0) > 75 && rejoinRoute && rejoinPoint && (
+          <>
+            <Source id="rejoin-route" type="geojson" data={rejoinRoute}>
+              <Layer
+                id="rejoin-route-line"
+                type="line"
+                paint={{
+                  'line-color': '#f87171',
+                  'line-width': 4,
+                  'line-dasharray': [1.5, 1.5],
+                  'line-opacity': 0.95,
+                }}
+                layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+              />
+            </Source>
+            <Marker longitude={rejoinPoint.longitude} latitude={rejoinPoint.latitude} anchor="center">
+              <span className="grid h-9 w-9 place-items-center rounded-full border-2 border-white bg-red-500 text-white shadow-[0_0_0_8px_rgba(239,68,68,.22)]" aria-label="Punto para volver al track">
+                <Target className="h-5 w-5" />
+              </span>
+            </Marker>
+          </>
+        )}
         {currentPoint && (
           <Marker longitude={currentPoint.longitude} latitude={currentPoint.latitude} anchor="center">
             <span className="relative grid h-7 w-7 place-items-center rounded-full border-[3px] border-white bg-orange-500 shadow-[0_0_0_8px_rgba(251,146,60,.2)]" aria-label="Tu posición">
@@ -267,6 +304,33 @@ export default function RideNavigationMap({
           </Marker>
         )}
       </Map>
+
+      {active && navigationCue && (
+        <div className={`pointer-events-none absolute left-3 top-3 z-10 max-w-[calc(100%-5.5rem)] rounded-2xl border px-3 py-2.5 shadow-xl backdrop-blur ${
+          navigationCue.offRoute
+            ? 'border-red-400/50 bg-red-950/90 text-red-100'
+            : 'border-white/15 bg-slate-950/90 text-white'
+        }`}>
+          <p className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest">
+            {navigationCue.offRoute
+              ? <Target className="h-3.5 w-3.5" />
+              : <Navigation2 className="h-3.5 w-3.5" />}
+            {navigationCue.label}
+          </p>
+          <div className="mt-1 flex items-end gap-2">
+            <p className={`text-xl font-black tabular-nums ${
+              navigationCue.offRoute ? 'text-red-200' : 'text-orange-300'
+            }`}>
+              {formatTurnDistance(navigationCue.distanceM)}
+            </p>
+            {navigationCue.offRoute && navigationCue.bearingDeg != null && (
+              <p className="pb-1 text-[9px] font-black uppercase">
+                {Math.round(navigationCue.bearingDeg)}° {cardinalForBearing(navigationCue.bearingDeg)}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="absolute right-3 top-3 z-10 flex flex-col gap-2">
         <button

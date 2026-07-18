@@ -27,6 +27,24 @@ function clamp(value: number, minimum: number, maximum: number): number {
   return Math.max(minimum, Math.min(maximum, value));
 }
 
+function bearingTo(
+  from: Pick<RidePoint, 'latitude' | 'longitude'>,
+  to: Pick<PlannedRoutePoint, 'latitude' | 'longitude'>,
+): number {
+  const fromLatitude = from.latitude * Math.PI / 180;
+  const toLatitude = to.latitude * Math.PI / 180;
+  const longitudeDelta = (to.longitude - from.longitude) * Math.PI / 180;
+  const y = Math.sin(longitudeDelta) * Math.cos(toLatitude);
+  const x = Math.cos(fromLatitude) * Math.sin(toLatitude)
+    - Math.sin(fromLatitude) * Math.cos(toLatitude) * Math.cos(longitudeDelta);
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+
+export function cardinalForBearing(bearingDeg: number): string {
+  const labels = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
+  return labels[Math.round(((bearingDeg % 360) + 360) % 360 / 45) % labels.length];
+}
+
 export function calculateNavigationProgress(
   route: PlannedRoutePoint[],
   position: RidePoint,
@@ -47,6 +65,8 @@ export function calculateNavigationProgress(
   let selectedSegmentFraction = 0;
   let offRouteM = Number.POSITIVE_INFINITY;
   let completedM = 0;
+  let rejoinLatitude = route[0].latitude;
+  let rejoinLongitude = route[0].longitude;
   const ambiguityM = Math.max(5, Math.min(20, position.accuracy * 1.5));
 
   for (let index = 0; index < route.length - 1; index += 1) {
@@ -83,6 +103,10 @@ export function calculateNavigationProgress(
     offRouteM = distanceM;
     completedM = segmentStartM + segmentLengthM * fraction;
     nearestIndex = fraction >= 0.999 ? index + 1 : index;
+    rejoinLatitude = route[index].latitude
+      + (route[index + 1].latitude - route[index].latitude) * fraction;
+    rejoinLongitude = route[index].longitude
+      + (route[index + 1].longitude - route[index].longitude) * fraction;
   }
 
   const totalM = cumulativeM.at(-1) ?? 0;
@@ -102,6 +126,9 @@ export function calculateNavigationProgress(
   return {
     nearestIndex,
     offRouteM,
+    rejoinLatitude,
+    rejoinLongitude,
+    bearingToRejoinDeg: bearingTo(position, { latitude: rejoinLatitude, longitude: rejoinLongitude }),
     completedM,
     remainingM: Math.max(0, totalM - completedM),
     remainingGainM,

@@ -1,9 +1,10 @@
 'use client';
 
 import {
-  CornerUpLeft, CornerUpRight, Flag, MoveUp, RotateCcw, TriangleAlert,
+  CornerUpLeft, CornerUpRight, Flag, MoveUp, Navigation2, RotateCcw, TriangleAlert,
   Volume2, VolumeX,
 } from 'lucide-react';
+import { cardinalForBearing } from '@/lib/navigation/progress';
 import { formatTurnDistance } from '@/lib/navigation/turns';
 import type { TurnDirection, TurnInstruction } from '@/lib/navigation/turns';
 
@@ -22,16 +23,19 @@ function TurnIcon({ direction }: { direction: TurnDirection }) {
 export default function TurnGuidanceHud({
   instruction,
   offRouteM,
+  rejoinBearingDeg,
   voiceEnabled,
   onVoiceChange,
 }: {
   instruction: TurnInstruction | null;
   offRouteM: number;
+  rejoinBearingDeg?: number | null;
   voiceEnabled: boolean;
   onVoiceChange: (enabled: boolean) => void;
 }) {
-  if (!instruction) return null;
   const offRoute = offRouteM > 75;
+  if (!instruction && !offRoute) return null;
+  const rejoinCardinal = rejoinBearingDeg == null ? null : cardinalForBearing(rejoinBearingDeg);
 
   return (
     <div className={`mt-4 overflow-hidden rounded-2xl border ${
@@ -46,16 +50,25 @@ export default function TurnGuidanceHud({
         <div className={`grid h-16 w-16 shrink-0 place-items-center rounded-2xl ${
           offRoute ? 'bg-red-500 text-white' : 'bg-white text-slate-950'
         }`}>
-          <TurnIcon direction={instruction.direction} />
+          {offRoute
+            ? <Navigation2 className="h-10 w-10 fill-current" style={{ transform: `rotate(${rejoinBearingDeg ?? 0}deg)` }} />
+            : instruction && <TurnIcon direction={instruction.direction} />}
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">
-            Próxima indicación
+            {offRoute ? 'Recuperación offline' : 'Próxima indicación'}
           </p>
-          <p className="mt-1 text-lg font-black leading-tight text-white">{instruction.label}</p>
+          <p className="mt-1 text-lg font-black leading-tight text-white">
+            {offRoute ? 'Vuelve al track' : instruction?.label}
+          </p>
           <p className={`mt-1 text-2xl font-black tabular-nums ${offRoute ? 'text-red-300' : 'text-orange-400'}`}>
-            {formatTurnDistance(instruction.distanceM)}
+            {formatTurnDistance(offRoute ? offRouteM : instruction?.distanceM ?? 0)}
           </p>
+          {offRoute && rejoinBearingDeg != null && (
+            <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-red-200">
+              Rumbo {Math.round(rejoinBearingDeg)}° · {rejoinCardinal}
+            </p>
+          )}
         </div>
         <button
           type="button"

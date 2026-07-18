@@ -31,6 +31,9 @@ export interface PlannedRoute {
 export interface NavigationProgress {
   nearestIndex: number;
   offRouteM: number;
+  rejoinLatitude: number;
+  rejoinLongitude: number;
+  bearingToRejoinDeg: number;
   completedM: number;
   remainingM: number;
   remainingGainM: number;

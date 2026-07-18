@@ -20,7 +20,10 @@ import {
   calculateSecuredNavigation,
   plannedRouteFromActivity,
 } from '../src/lib/navigation/repeat.ts';
-import { calculateNavigationProgress } from '../src/lib/navigation/progress.ts';
+import {
+  calculateNavigationProgress,
+  cardinalForBearing,
+} from '../src/lib/navigation/progress.ts';
 import {
   activityEditNotice,
   normalizeActivityTitle,
@@ -384,6 +387,22 @@ test('la navegación respeta los límites de avance dentro de un mismo tramo', (
   assert.ok(navigation);
   assert.ok(navigation.completedM <= 500.01);
   assert.ok(navigation.offRouteM > 900);
+});
+
+test('la navegación fuera de ruta calcula un punto y rumbo de reenganche offline', () => {
+  const route = [
+    { latitude: 40, longitude: -0.1, elevation: 100 },
+    { latitude: 40, longitude: -0.08, elevation: 100 },
+  ];
+  const northOfTrack = point({ latitude: 40.001, longitude: -0.09, accuracy: 5 });
+  const navigation = calculateNavigationProgress(route, northOfTrack);
+
+  assert.ok(navigation);
+  assert.ok(navigation.offRouteM > 100 && navigation.offRouteM < 120);
+  assert.ok(Math.abs(navigation.rejoinLatitude - 40) < 0.000001);
+  assert.ok(Math.abs(navigation.rejoinLongitude + 0.09) < 0.000001);
+  assert.ok(navigation.bearingToRejoinDeg > 175 && navigation.bearingToRejoinDeg < 185);
+  assert.equal(cardinalForBearing(navigation.bearingToRejoinDeg), 'S');
 });
 
 test('el resumen conserva el 100% ya alcanzado aunque la posición instantánea retroceda', () => {

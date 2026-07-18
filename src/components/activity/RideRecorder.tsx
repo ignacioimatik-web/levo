@@ -22,7 +22,7 @@ import type {
   ActivityPrivacy, AssistMode, RideActivity, RideDraft, RidePoint, RideSettings, SportType,
   RideWeatherSample,
 } from '@/lib/activities/types';
-import { calculateNavigationProgress } from '@/lib/navigation/progress';
+import { calculateNavigationProgress, cardinalForBearing } from '@/lib/navigation/progress';
 import {
   calculateGhostComparison, calculateSecuredNavigation,
 } from '@/lib/navigation/repeat';
@@ -375,7 +375,10 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
     if (navigation.offRouteM > 75 && Date.now() - lastOffRouteAlertRef.current > 30_000) {
       lastOffRouteAlertRef.current = Date.now();
       navigator.vibrate?.([180, 90, 180, 90, 180]);
-      speak(`Fuera de ruta, a ${Math.round(navigation.offRouteM)} metros del track.`);
+      speak(
+        `Fuera de ruta, a ${Math.round(navigation.offRouteM)} metros del track. `
+        + `Vuelve rumbo ${cardinalForBearing(navigation.bearingToRejoinDeg)}.`,
+      );
       return;
     }
     if (
@@ -752,6 +755,28 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
               plannedPoints={plannedRoute?.points}
               active={active}
               offRouteM={navigation?.offRouteM}
+              rejoinPoint={navigation && navigation.offRouteM > 75
+                ? {
+                    latitude: navigation.rejoinLatitude,
+                    longitude: navigation.rejoinLongitude,
+                  }
+                : null}
+              navigationCue={navigation
+                ? navigation.offRouteM > 75
+                  ? {
+                      label: 'Volver al track',
+                      distanceM: navigation.offRouteM,
+                      offRoute: true,
+                      bearingDeg: navigation.bearingToRejoinDeg,
+                    }
+                  : upcomingTurn
+                    ? {
+                        label: upcomingTurn.label,
+                        distanceM: upcomingTurn.distanceM,
+                        offRoute: false,
+                      }
+                    : null
+                : null}
               offlineMap={activeOfflineMap}
             />
             {plannedRoute && (
@@ -784,6 +809,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
                 <TurnGuidanceHud
                   instruction={upcomingTurn}
                   offRouteM={navigation?.offRouteM ?? 0}
+                  rejoinBearingDeg={navigation?.bearingToRejoinDeg}
                   voiceEnabled={voiceGuidance}
                   onVoiceChange={setVoiceGuidance}
                 />
