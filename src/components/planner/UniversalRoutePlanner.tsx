@@ -1,9 +1,9 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
-  CloudSun, Download, Eraser, FileUp, LocateFixed, Navigation,
+  CloudDownload, CloudSun, Download, Eraser, FileUp, LocateFixed, Navigation,
   FolderOpen, Redo2, Save, Trash2, Undo2,
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
@@ -16,6 +16,12 @@ import {
   deletePlannedRoute, getPlannedRoutes, savePlannedRoute,
 } from '@/lib/navigation/storage';
 import type { PlannedRoute, PlannedRoutePoint } from '@/lib/navigation/types';
+import {
+  deleteOfflineMapPackage,
+  listOfflineMapPackages,
+  saveOfflineMapPackage,
+} from '@/lib/navigation/offline-map-storage';
+import type { OfflineMapPackage } from '@/lib/navigation/offline-map-storage';
 import type { RouteStatusPayload } from '@/lib/route-status';
 import {
   deleteSavedRoute, fetchSavedRoutes, saveRouteToCloud,
@@ -88,7 +94,7 @@ function escapeXml(value: string): string {
 }
 
 export default function UniversalRoutePlanner() {
-  const routeIdRef = useRef(crypto.randomUUID());
+  const [routeId, setRouteId] = useState(() => crypto.randomUUID());
   const [name, setName] = useState('Mi ruta MTB');
   const [points, setPoints] = useState<PlannedRoutePoint[]>([]);
   const [redoPoints, setRedoPoints] = useState<PlannedRoutePoint[]>([]);
@@ -102,6 +108,9 @@ export default function UniversalRoutePlanner() {
   const [briefingView, setBriefingView] = useState<RideBriefingView>('basic');
   const [routeLibrary, setRouteLibrary] = useState<RouteLibraryEntry[]>([]);
   const [deleteArmedId, setDeleteArmedId] = useState<string | null>(null);
+  const [offlineRouteIds, setOfflineRouteIds] = useState<Set<string>>(() => new Set());
+  const [offlineStatus, setOfflineStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [offlineMessage, setOfflineMessage] = useState('');
   const [now, setNow] = useState(() => new Date(0));
   const metrics = useMemo(() => routeMetrics(points), [points]);
 
@@ -109,6 +118,9 @@ export default function UniversalRoutePlanner() {
     const timer = window.setTimeout(() => {
       setNow(new Date());
       setRouteLibrary(mergeRouteLibrary(getPlannedRoutes()));
+      void listOfflineMapPackages().then((packages) => {
+        setOfflineRouteIds(new Set(packages.map((mapPackage) => mapPackage.routeId)));
+      });
     }, 0);
     const supabase = createClient();
     void supabase?.auth.getUser().then(async ({ data }) => {
@@ -125,6 +137,8 @@ export default function UniversalRoutePlanner() {
     setAnalysisStatus('idle');
     setError('');
     setSaveStatus('');
+    setOfflineStatus('idle');
+    setOfflineMessage('');
   };
 
   const addPoint = (point: PlannedRoutePoint) => {
@@ -145,7 +159,7 @@ export default function UniversalRoutePlanner() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          id: routeIdRef.current,
+          id: routeId,
           title: routeName,
           timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Madrid',
           points: routePoints,
@@ -168,11 +182,13 @@ export default function UniversalRoutePlanner() {
     if (!file) return;
     try {
       const route = parseNavigationGpx(await file.text(), file.name);
-      routeIdRef.current = route.id;
+      setRouteId(route.id);
       setName(route.name);
       setPoints(route.points);
       setRedoPoints([]);
       setSaveStatus('');
+      setOfflineStatus('idle');
+      setOfflineMessage('');
       await analyze(route.points, route.name);
     } catch (importError) {
       setError(importError instanceof Error ? importError.message : 'No se pudo leer el GPX.');
@@ -182,7 +198,7 @@ export default function UniversalRoutePlanner() {
   };
 
   const buildPlannedRoute = (): PlannedRoute => ({
-    id: routeIdRef.current,
+    id: routeId,
     name: name.trim() || 'Mi ruta MTB',
     trackIds: [],
     distanceKm: analysis?.profile?.distanceKm ?? metrics.distanceKm,
@@ -228,7 +244,7 @@ export default function UniversalRoutePlanner() {
   };
 
   const loadLibraryRoute = (route: PlannedRoute) => {
-    routeIdRef.current = route.id;
+    setRouteId(route.id);
     setName(route.name);
     setPoints(route.points);
     setRedoPoints([]);
@@ -236,6 +252,8 @@ export default function UniversalRoutePlanner() {
     setAnalysisStatus('idle');
     setError('');
     setSaveStatus('Ruta abierta. Analízala para actualizar meteo y luz.');
+    setOfflineStatus(offlineRouteIds.has(route.id) ? 'ready' : 'idle');
+    setOfflineMessage(offlineRouteIds.has(route.id) ? 'Esta ruta ya tiene un mapa offline preparado.' : '');
   };
 
   const removeLibraryRoute = async (entry: RouteLibraryEntry) => {
@@ -244,7 +262,13 @@ export default function UniversalRoutePlanner() {
       return;
     }
     deletePlannedRoute(entry.route.id);
+    await deleteOfflineMapPackage(entry.route.id);
     if (entry.cloud) await deleteSavedRoute(entry.route.id);
+    setOfflineRouteIds((current) => {
+      const next = new Set(current);
+      next.delete(entry.route.id);
+      return next;
+    });
     setDeleteArmedId(null);
     const cloud = user ? await fetchSavedRoutes() : [];
     setRouteLibrary(mergeRouteLibrary(getPlannedRoutes(), cloud));
@@ -255,6 +279,38 @@ export default function UniversalRoutePlanner() {
     const route = buildPlannedRoute();
     savePlannedRoute(route);
     window.location.assign(`/grabar?ruta=${encodeURIComponent(route.id)}`);
+  };
+
+  const downloadOfflineMap = async () => {
+    if (points.length < 2) return;
+    const route = buildPlannedRoute();
+    savePlannedRoute(route);
+    setOfflineStatus('loading');
+    setOfflineMessage('Preparando caminos y senderos cercanos…');
+    try {
+      const response = await fetch('/api/offline-map', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          routeId: route.id,
+          routeName: route.name,
+          points: route.points,
+        }),
+      });
+      const payload = await response.json() as OfflineMapPackage & { error?: string };
+      if (!response.ok || !payload.trails?.features) {
+        throw new Error(payload.error || 'No se pudo descargar el mapa offline.');
+      }
+      await saveOfflineMapPackage(payload);
+      setOfflineRouteIds((current) => new Set(current).add(route.id));
+      setOfflineStatus('ready');
+      setOfflineMessage(`Offline listo: ${payload.trails.features.length.toLocaleString('es-ES')} caminos y senderos.`);
+    } catch (downloadError) {
+      setOfflineStatus('error');
+      setOfflineMessage(downloadError instanceof Error
+        ? downloadError.message
+        : 'No se pudo descargar el mapa offline.');
+    }
   };
 
   const exportGpx = () => {
@@ -320,7 +376,7 @@ export default function UniversalRoutePlanner() {
               <button type="button" disabled={points.length === 0} onClick={() => {
                 setPoints([]);
                 setRedoPoints([]);
-                routeIdRef.current = crypto.randomUUID();
+                setRouteId(crypto.randomUUID());
                 invalidateAnalysis();
               }} className="grid h-11 w-11 place-items-center rounded-xl bg-slate-950 text-red-400 disabled:opacity-30" aria-label="Borrar ruta">
                 <Eraser className="h-4 w-4" />
@@ -355,10 +411,16 @@ export default function UniversalRoutePlanner() {
               className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 text-xs font-black uppercase text-white disabled:opacity-40">
               <CloudSun className="h-4 w-4" /> {analysisStatus === 'loading' ? 'Buscando estaciones…' : 'Analizar ruta + meteo'}
             </button>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <button type="button" onClick={() => { void saveRoute(); }} disabled={points.length < 2}
                 className="flex min-h-12 items-center justify-center gap-1.5 rounded-xl bg-slate-800 text-[10px] font-black uppercase disabled:opacity-30">
                 <Save className="h-4 w-4" /> Guardar
+              </button>
+              <button type="button" onClick={() => { void downloadOfflineMap(); }}
+                disabled={points.length < 2 || offlineStatus === 'loading'}
+                className="flex min-h-12 items-center justify-center gap-1.5 rounded-xl bg-blue-500/15 text-[10px] font-black uppercase text-blue-300 disabled:opacity-30">
+                <CloudDownload className="h-4 w-4" />
+                {offlineStatus === 'loading' ? 'Descargando…' : offlineRouteIds.has(routeId) ? 'Actualizar offline' : 'Mapa offline'}
               </button>
               <button type="button" onClick={exportGpx} disabled={points.length < 2}
                 className="flex min-h-12 items-center justify-center gap-1.5 rounded-xl bg-slate-800 text-[10px] font-black uppercase disabled:opacity-30">
@@ -370,6 +432,15 @@ export default function UniversalRoutePlanner() {
               </button>
             </div>
             {saveStatus && <p role="status" className="text-[10px] text-emerald-300">{saveStatus}</p>}
+            {offlineMessage && (
+              <p role="status" className={`rounded-xl border p-3 text-[10px] ${
+                offlineStatus === 'error'
+                  ? 'border-red-500/20 bg-red-500/10 text-red-300'
+                  : 'border-blue-500/20 bg-blue-500/10 text-blue-200'
+              }`}>
+                {offlineMessage}
+              </p>
+            )}
             {!user && points.length >= 2 && (
               <p className="text-[10px] leading-relaxed text-slate-500">
                 Se guardará localmente. <a href="/auth?next=/planifica" className="font-black text-orange-400 underline">Inicia sesión</a> para copiarla también a tu cuenta.
@@ -389,6 +460,7 @@ export default function UniversalRoutePlanner() {
                         <span className="mt-1 block text-[9px] text-slate-500">
                           {entry.route.distanceKm.toFixed(1)} km · +{Math.round(entry.route.elevationGainM)} m
                           {entry.cloud ? ' · cuenta' : ' · dispositivo'}
+                          {offlineRouteIds.has(entry.route.id) ? ' · offline' : ''}
                         </span>
                       </button>
                       <button

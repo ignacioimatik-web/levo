@@ -37,6 +37,11 @@ import {
 } from '../src/lib/activities/track-analysis.ts';
 import { buildRouteRidePlan } from '../src/lib/route-ride-plan.ts';
 import { calculateUpcomingTurn, formatTurnDistance } from '../src/lib/navigation/turns.ts';
+import {
+  buildOverpassTrailQuery,
+  overpassWaysToGeoJson,
+  sampleOfflineRoute,
+} from '../src/lib/navigation/offline-map-data.ts';
 
 function point({
   latitude = 40,
@@ -696,4 +701,54 @@ test('la navegación guiada marca llegada al final del track', () => {
   });
 
   assert.equal(instruction?.direction, 'arrive');
+});
+
+test('el paquete offline muestrea una ruta larga sin perder inicio ni final', () => {
+  const route = Array.from({ length: 100 }, (_, index) => ({
+    latitude: 40 + index * 0.001,
+    longitude: -0.1 + index * 0.001,
+    elevation: null,
+  }));
+  const samples = sampleOfflineRoute(route, 12);
+
+  assert.equal(samples.length, 12);
+  assert.deepEqual(samples[0], route[0]);
+  assert.deepEqual(samples.at(-1), route.at(-1));
+});
+
+test('la consulta offline limita muestras y crea corredores acotados alrededor de la ruta', () => {
+  const route = Array.from({ length: 30 }, (_, index) => ({
+    latitude: 40 + index * 0.001,
+    longitude: -0.1,
+    elevation: null,
+  }));
+  const query = buildOverpassTrailQuery(route, 9_000);
+
+  assert.match(query, /way\["highway"\]/);
+  assert.equal(query.match(/way\["highway"\]/g)?.length, 12);
+  assert.match(query, /39\.982034/);
+  assert.match(query, /out tags geom/);
+});
+
+test('la respuesta Overpass se convierte en caminos GeoJSON útiles offline', () => {
+  const collection = overpassWaysToGeoJson([
+    {
+      type: 'way',
+      id: 42,
+      tags: {
+        highway: 'path',
+        name: 'Senda del bosque',
+        surface: 'ground',
+        'mtb:scale': '2',
+        access: 'yes',
+      },
+      geometry: [{ lat: 40, lon: -0.1 }, { lat: 40.001, lon: -0.099 }],
+    },
+    { type: 'node', id: 7, lat: 40, lon: -0.1 },
+  ]);
+
+  assert.equal(collection.features.length, 1);
+  assert.equal(collection.features[0].properties.mtbScale, '2');
+  assert.equal(collection.features[0].properties.name, 'Senda del bosque');
+  assert.deepEqual(collection.features[0].geometry.coordinates[0], [-0.1, 40]);
 });

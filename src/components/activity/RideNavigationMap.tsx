@@ -3,11 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Map, { Layer, Marker, Source } from 'react-map-gl/maplibre';
 import type { MapRef } from 'react-map-gl/maplibre';
-import { Layers3, LocateFixed, MapPinned, Navigation2 } from 'lucide-react';
+import { CloudOff, Layers3, LocateFixed, MapPinned, Navigation2 } from 'lucide-react';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type { RidePoint } from '@/lib/activities/types';
 import type { PlannedRoutePoint } from '@/lib/navigation/types';
-import { OPEN_MAP_STYLES } from '@/lib/open-map-styles';
+import type { OfflineMapPackage } from '@/lib/navigation/offline-map-storage';
+import { OFFLINE_MAP_STYLE, OPEN_MAP_STYLES } from '@/lib/open-map-styles';
 
 type MapPoint = RidePoint | PlannedRoutePoint;
 type FollowMode = 'north' | 'heading';
@@ -89,16 +90,20 @@ export default function RideNavigationMap({
   plannedPoints = [],
   active,
   offRouteM,
+  offlineMap,
 }: {
   points: RidePoint[];
   plannedPoints?: PlannedRoutePoint[];
   active: boolean;
   offRouteM?: number | null;
+  offlineMap?: OfflineMapPackage | null;
 }) {
   const mapRef = useRef<MapRef>(null);
   const [following, setFollowing] = useState(true);
   const [followMode, setFollowMode] = useState<FollowMode>('north');
   const [styleIndex, setStyleIndex] = useState(0);
+  const [online, setOnline] = useState(true);
+  const [preferOffline, setPreferOffline] = useState(false);
   const currentPoint = points.at(-1);
   const initialPoint = currentPoint ?? plannedPoints[0];
   const heading = useMemo(() => {
@@ -107,6 +112,18 @@ export default function RideNavigationMap({
   }, [points]);
   const riddenRoute = useMemo(() => lineFeature(points), [points]);
   const plannedRoute = useMemo(() => lineFeature(plannedPoints), [plannedPoints]);
+  const offlineActive = Boolean(offlineMap) && (!online || preferOffline);
+
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine);
+    update();
+    window.addEventListener('online', update);
+    window.addEventListener('offline', update);
+    return () => {
+      window.removeEventListener('online', update);
+      window.removeEventListener('offline', update);
+    };
+  }, []);
 
   useEffect(() => {
     if (!mapRef.current || !currentPoint || !following) return;
@@ -151,7 +168,7 @@ export default function RideNavigationMap({
           latitude: initialPoint.latitude,
           zoom: currentPoint ? 15.5 : 12,
         }}
-        mapStyle={OPEN_MAP_STYLES[styleIndex].style}
+        mapStyle={offlineActive ? OFFLINE_MAP_STYLE : OPEN_MAP_STYLES[styleIndex].style}
         attributionControl={false}
         dragRotate
         touchPitch
@@ -159,6 +176,52 @@ export default function RideNavigationMap({
         onDragStart={() => setFollowing(false)}
         reuseMaps
       >
+        {offlineMap && (
+          <Source id="offline-trail-context" type="geojson" data={offlineMap.trails}>
+            <Layer
+              id="offline-trail-shadow"
+              type="line"
+              paint={{
+                'line-color': '#020617',
+                'line-width': ['interpolate', ['linear'], ['zoom'], 10, 1.5, 16, 7],
+                'line-opacity': offlineActive ? 0.8 : 0.28,
+              }}
+              layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+            />
+            <Layer
+              id="offline-trail-lines"
+              type="line"
+              paint={{
+                'line-color': [
+                  'match', ['get', 'highway'],
+                  'path', '#fbbf24',
+                  'footway', '#fbbf24',
+                  'bridleway', '#fbbf24',
+                  'track', '#cbd5e1',
+                  'cycleway', '#34d399',
+                  'primary', '#93c5fd',
+                  'secondary', '#93c5fd',
+                  'tertiary', '#93c5fd',
+                  '#64748b',
+                ],
+                'line-width': ['interpolate', ['linear'], ['zoom'], 10, 0.8, 16, 3.5],
+                'line-opacity': offlineActive ? 0.95 : 0.38,
+              }}
+              layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+            />
+            <Layer
+              id="offline-private-trails"
+              type="line"
+              filter={['in', ['get', 'access'], ['literal', ['private', 'no']]]}
+              paint={{
+                'line-color': '#ef4444',
+                'line-width': 2,
+                'line-dasharray': [2, 2],
+                'line-opacity': 0.9,
+              }}
+            />
+          </Source>
+        )}
         {plannedPoints.length > 1 && (
           <Source id="planned-ride-route" type="geojson" data={plannedRoute}>
             <Layer
@@ -224,13 +287,32 @@ export default function RideNavigationMap({
         </button>
         <button
           type="button"
-          aria-label={`Mapa ${OPEN_MAP_STYLES[styleIndex].label}. Cambiar estilo`}
+          aria-label={offlineActive
+            ? 'Mapa Offline activo'
+            : `Mapa ${OPEN_MAP_STYLES[styleIndex].label}. Cambiar estilo`}
+          disabled={offlineActive}
           onClick={() => setStyleIndex((index) => (index + 1) % OPEN_MAP_STYLES.length)}
-          className="flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-xl border border-white/15 bg-slate-950/85 px-2.5 text-[9px] font-black uppercase text-white shadow-lg backdrop-blur"
+          className="flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-xl border border-white/15 bg-slate-950/85 px-2.5 text-[9px] font-black uppercase text-white shadow-lg backdrop-blur disabled:text-blue-300"
         >
           <Layers3 className="h-4 w-4" />
-          <span>{OPEN_MAP_STYLES[styleIndex].label}</span>
+          <span>{offlineActive ? 'Offline' : OPEN_MAP_STYLES[styleIndex].label}</span>
         </button>
+        {offlineMap && (
+          <button
+            type="button"
+            aria-label={offlineActive ? 'Usar mapa online' : 'Usar mapa offline'}
+            aria-pressed={offlineActive}
+            disabled={!online}
+            onClick={() => setPreferOffline((value) => !value)}
+            className={`grid h-11 w-11 place-items-center rounded-xl border shadow-lg backdrop-blur disabled:opacity-80 ${
+              offlineActive
+                ? 'border-blue-400/50 bg-blue-500 text-white'
+                : 'border-white/15 bg-slate-950/85 text-slate-300'
+            }`}
+          >
+            <CloudOff className="h-4.5 w-4.5" />
+          </button>
+        )}
       </div>
 
       <div className="pointer-events-none absolute bottom-3 left-3 z-10 flex flex-wrap gap-2">
@@ -240,6 +322,15 @@ export default function RideNavigationMap({
         <span className="rounded-full bg-slate-950/85 px-2.5 py-1 text-[9px] font-black uppercase text-orange-300 backdrop-blur">
           Naranja · recorrido
         </span>
+        {offlineMap && (
+          <span className="rounded-full bg-blue-950/90 px-2.5 py-1 text-[9px] font-black uppercase text-blue-200 backdrop-blur">
+            {!online
+              ? 'Sin red · mapa offline'
+              : preferOffline
+                ? 'Mapa offline activo'
+                : `Offline listo · ${offlineMap.trails.features.length} caminos`}
+          </span>
+        )}
       </div>
     </div>
   );

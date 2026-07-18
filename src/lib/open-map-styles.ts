@@ -62,3 +62,14 @@ export const OPEN_MAP_STYLES = [
 ] as const;
 
 export const DEFAULT_OPEN_MAP_STYLE = OPEN_MAP_STYLES[0].style;
+
+export const OFFLINE_MAP_STYLE: StyleSpecification = {
+  version: 8,
+  name: 'LEVO Offline',
+  sources: {},
+  layers: [{
+    id: 'offline-background',
+    type: 'background',
+    paint: { 'background-color': '#172033' },
+  }],
+};

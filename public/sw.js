@@ -1,10 +1,13 @@
-const CACHE_NAME = 'e-nduro-shell-v2';
+const CACHE_NAME = 'e-nduro-shell-v3';
 const APP_SHELL = [
   '/offline',
   '/grabar',
+  '/planifica',
   '/actividades',
   '/progreso',
   '/comunidad',
+  '/mapa-personal',
+  '/taller',
   '/favicon.ico',
   '/images/logo-enduro-ebiketracks.png',
 ];

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Download, Map, WifiOff } from 'lucide-react';
+import { Bike, MapPinned, WifiOff } from 'lucide-react';
 
 export default function OfflinePage() {
   return (
@@ -14,22 +14,23 @@ export default function OfflinePage() {
         Ahora mismo no tienes conexión
       </h1>
       <p className="mt-4 leading-relaxed text-slate-400">
-        Las rutas y GPX que ya hayas abierto pueden seguir disponibles. Recupera cobertura para actualizar mapas, meteorología y estado de los senderos.
+        Puedes seguir grabando y navegando. Las rutas preparadas con «Mapa offline» incluyen
+        el trazado y los caminos cercanos; la meteorología no se actualizará hasta recuperar cobertura.
       </p>
       <div className="mt-8 grid w-full gap-3 sm:grid-cols-2">
         <Link
-          href="/rutas"
+          href="/grabar"
           className="inline-flex items-center justify-center gap-2 rounded-xl bg-orange-500 px-5 py-3 font-bold text-white"
         >
-          <Map className="h-4 w-4" />
-          Ver rutas
+          <Bike className="h-4 w-4" />
+          Volver a la salida
         </Link>
         <Link
-          href="/forfait"
+          href="/planifica"
           className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-5 py-3 font-bold text-white"
         >
-          <Download className="h-4 w-4" />
-          Mis tracks
+          <MapPinned className="h-4 w-4" />
+          Mis rutas
         </Link>
       </div>
     </section>

@@ -26,6 +26,8 @@ import {
 } from '@/lib/navigation/repeat';
 import { getPlannedRoute, savePlannedRoute } from '@/lib/navigation/storage';
 import type { PlannedRoute } from '@/lib/navigation/types';
+import { getOfflineMapPackage } from '@/lib/navigation/offline-map-storage';
+import type { OfflineMapPackage } from '@/lib/navigation/offline-map-storage';
 import { parseNavigationGpx } from '@/lib/navigation/gpx';
 import { calculateUpcomingTurn } from '@/lib/navigation/turns';
 import { createClient } from '@/lib/supabase/browser';
@@ -100,6 +102,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
   const [recoverableDraft, setRecoverableDraft] = useState<RideDraft | null>(null);
   const [batteryHistory, setBatteryHistory] = useState<RideActivity[]>([]);
   const [plannedRoute, setPlannedRoute] = useState<PlannedRoute | null>(null);
+  const [offlineMap, setOfflineMap] = useState<OfflineMapPackage | null>(null);
   const [navigationFloorM, setNavigationFloorM] = useState(0);
   const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
   const [lastGpsReceivedAt, setLastGpsReceivedAt] = useState(0);
@@ -161,6 +164,16 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
     }, 0);
     return () => window.clearTimeout(draftRead);
   }, [plannedRouteId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!plannedRoute?.id) return;
+    void getOfflineMapPackage(plannedRoute.id).then((mapPackage) => {
+      if (!cancelled) setOfflineMap(mapPackage);
+    });
+    return () => { cancelled = true; };
+  }, [plannedRoute?.id]);
+  const activeOfflineMap = offlineMap?.routeId === plannedRoute?.id ? offlineMap : null;
 
   useEffect(() => {
     const supabase = createClient();
@@ -663,6 +676,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
               plannedPoints={plannedRoute?.points}
               active={active}
               offRouteM={navigation?.offRouteM}
+              offlineMap={activeOfflineMap}
             />
             {plannedRoute && (
               <div className={`rounded-2xl border p-4 ${
@@ -676,6 +690,11 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
                       <Navigation className="h-4 w-4 fill-current" /> Siguiendo ruta
                     </p>
                     <h2 className="mt-1 truncate font-black">{plannedRoute.name}</h2>
+                    {activeOfflineMap && (
+                      <p className="mt-1 text-[9px] font-black uppercase tracking-wider text-blue-300">
+                        Mapa offline preparado · {activeOfflineMap.trails.features.length} caminos
+                      </p>
+                    )}
                   </div>
                   {navigation && navigation.offRouteM > 75 && (
                     <span className="flex shrink-0 items-center gap-1 rounded-full bg-red-500 px-2.5 py-1 text-[9px] font-black uppercase">
