@@ -16,6 +16,9 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   return {
     title: activity.title,
     description,
+    robots: activity.privacy === 'public'
+      ? { index: true, follow: true }
+      : { index: false, follow: false },
     openGraph: {
       type: 'article',
       title: activity.title,

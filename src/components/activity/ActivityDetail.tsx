@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   ArrowDown, ArrowLeft, ArrowUp, BarChart3, BatteryCharging, Bike, Check,
   Clock3, Download, Gauge, Globe2, LockKeyhole, Mountain, Pencil, RotateCcw,
-  Route, Share2, Sparkles, TimerReset, Trophy, UploadCloud, X, Zap,
+  Route, Share2, Sparkles, TimerReset, Trophy, UploadCloud, UsersRound, X, Zap,
 } from 'lucide-react';
 import ActivityMap from './ActivityMap';
 import ActivityElevationProfile from './ActivityElevationProfile';
@@ -272,7 +272,7 @@ export default function ActivityDetail({ activityId }: { activityId: string }) {
               </label>
               <fieldset>
                 <legend className="text-[10px] font-black uppercase tracking-widest text-slate-500">Visibilidad</legend>
-                <div className="mt-2 grid grid-cols-2 gap-2">
+                <div className="mt-2 grid grid-cols-3 gap-2">
                   <button
                     type="button"
                     onClick={() => setEditPrivacy('private')}
@@ -284,6 +284,18 @@ export default function ActivityDetail({ activityId }: { activityId: string }) {
                     }`}
                   >
                     <LockKeyhole className="h-4 w-4" /> Solo yo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditPrivacy('followers')}
+                    aria-pressed={editPrivacy === 'followers'}
+                    className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-3 text-xs font-black transition ${
+                      editPrivacy === 'followers'
+                        ? 'border-orange-500 bg-orange-500/10 text-orange-300'
+                        : 'border-white/10 bg-slate-950 text-slate-400'
+                    }`}
+                  >
+                    <UsersRound className="h-4 w-4" /> Seguidores
                   </button>
                   <button
                     type="button"
@@ -300,7 +312,7 @@ export default function ActivityDetail({ activityId }: { activityId: string }) {
                 </div>
               </fieldset>
               <p className="text-xs leading-relaxed text-slate-400 lg:col-span-2">
-                Al elegir “Solo yo”, el enlace público deja de funcionar en cuanto el cambio se sincroniza. Si estás sin conexión, te avisaremos mientras siga pendiente.
+                “Seguidores” protege la salida con tu red de riders. Al reducir la visibilidad, el cambio se aplica en la nube cuando termina la sincronización.
               </p>
               <div className="flex flex-wrap gap-2 lg:col-span-2">
                 <button

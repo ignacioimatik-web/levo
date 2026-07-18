@@ -1,7 +1,7 @@
 export type AssistMode = 'eco' | 'trail' | 'turbo' | 'smart';
 export type SportType = 'ebike' | 'mtb';
 export type SyncStatus = 'local' | 'syncing' | 'synced' | 'error';
-export type ActivityPrivacy = 'private' | 'public';
+export type ActivityPrivacy = 'private' | 'followers' | 'public';
 
 export interface RidePoint {
   latitude: number;

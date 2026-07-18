@@ -22,24 +22,31 @@ export function activityEditNotice({
   result: ActivityEditSyncResult;
   hadRemoteId: boolean;
 }): ActivityEditNotice {
-  const pendingUnpublish = previousPrivacy === 'public'
-    && nextPrivacy === 'private'
+  const visibilityRank: Record<ActivityPrivacy, number> = {
+    private: 0,
+    followers: 1,
+    public: 2,
+  };
+  const visibilityReduced = visibilityRank[nextPrivacy] < visibilityRank[previousPrivacy];
+  const pendingUnpublish = visibilityReduced
     && hadRemoteId
     && result !== 'synced';
 
   if (pendingUnpublish) {
     return {
       message: result === 'error'
-        ? 'El cambio está guardado en este dispositivo, pero no se ha podido retirar la actividad pública. Vuelve a sincronizar cuanto antes.'
-        : 'El cambio está guardado en este dispositivo. La actividad seguirá pública hasta que vuelvas a iniciar sesión o recuperes la conexión y la sincronices.',
+        ? 'El cambio está guardado en este dispositivo, pero la visibilidad anterior sigue activa en la nube. Vuelve a sincronizar cuanto antes.'
+        : 'El cambio está guardado en este dispositivo. La visibilidad anterior seguirá activa hasta que recuperes la conexión y sincronices.',
       urgent: true,
     };
   }
 
   if (result === 'synced') {
     return {
-      message: previousPrivacy === 'public' && nextPrivacy === 'private'
-        ? 'Actividad retirada de la Comunidad. El enlace público ya no está disponible.'
+      message: visibilityReduced
+        ? nextPrivacy === 'private'
+          ? 'Actividad privada. Ya solo puedes verla tú.'
+          : 'Actividad visible solo para tus seguidores. El acceso público ya no está disponible.'
         : 'Cambios guardados y sincronizados.',
       urgent: false,
     };

@@ -198,14 +198,15 @@ export default function ActivityGpxImporter({
 
               <fieldset>
                 <legend className="text-[10px] font-black uppercase tracking-widest text-slate-500">Visibilidad</legend>
-                <div className="mt-2 grid grid-cols-2 gap-2">
+                <div className="mt-2 grid grid-cols-3 gap-2">
                   {([
                     ['private', 'Solo yo'],
+                    ['followers', 'Seguidores'],
                     ['public', 'Comunidad'],
                   ] as const).map(([value, label]) => (
                     <button key={value} type="button" onClick={() => setPrivacy(value)}
                       aria-pressed={privacy === value}
-                      className={`rounded-xl border px-3 py-3 text-xs font-black ${privacy === value ? 'border-orange-500 bg-orange-500/10 text-orange-300' : 'border-white/10 text-slate-500'}`}>
+                      className={`min-h-11 rounded-xl border px-3 py-3 text-xs font-black ${privacy === value ? 'border-orange-500 bg-orange-500/10 text-orange-300' : 'border-white/10 text-slate-500'}`}>
                       {label}
                     </button>
                   ))}

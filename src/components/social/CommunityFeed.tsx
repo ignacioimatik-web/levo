@@ -23,6 +23,7 @@ interface FeedActivity {
   battery_start: number | null;
   battery_end: number | null;
   assist_mode: string | null;
+  privacy: 'public' | 'followers';
   route_preview: RidePoint[];
 }
 
@@ -44,6 +45,8 @@ interface Comment {
   body: string;
   created_at: string;
 }
+
+type FeedMode = 'following' | 'discover';
 
 function formatDuration(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
@@ -92,8 +95,12 @@ export default function CommunityFeed() {
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
   const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
   const [sendingComment, setSendingComment] = useState<string | null>(null);
+  const [mode, setMode] = useState<FeedMode>('discover');
+  const [initialized, setInitialized] = useState(false);
 
   const loadFeed = useCallback(async () => {
+    setLoading(true);
+    setError('');
     const supabase = createClient();
     if (!supabase) {
       setError('La comunidad no está configurada en este entorno.');
@@ -104,12 +111,42 @@ export default function CommunityFeed() {
     const { data: { user: currentUser } } = await supabase.auth.getUser();
     setUser(currentUser);
 
-    const { data: activityRows, error: activityError } = await supabase
+    if (!initialized) {
+      setInitialized(true);
+      if (currentUser && mode === 'discover') {
+        setMode('following');
+        setLoading(false);
+        return;
+      }
+    }
+
+    let followedIds: string[] = [];
+    if (mode === 'following' && currentUser) {
+      const { data: follows } = await supabase
+        .from('user_follows')
+        .select('following_id')
+        .eq('follower_id', currentUser.id);
+      followedIds = (follows ?? []).map((follow) => follow.following_id);
+    }
+
+    if (mode === 'following' && (!currentUser || followedIds.length === 0)) {
+      setActivities([]);
+      setKudos([]);
+      setComments([]);
+      setProfiles({});
+      setLoading(false);
+      return;
+    }
+
+    let activityQuery = supabase
       .from('activities')
-      .select('id,user_id,title,sport_type,started_at,duration_seconds,distance_m,elevation_gain_m,average_speed_kmh,battery_start,battery_end,assist_mode,route_preview')
-      .eq('privacy', 'public')
+      .select('id,user_id,title,sport_type,started_at,duration_seconds,distance_m,elevation_gain_m,average_speed_kmh,battery_start,battery_end,assist_mode,privacy,route_preview')
       .order('started_at', { ascending: false })
       .limit(30);
+    activityQuery = mode === 'following'
+      ? activityQuery.in('user_id', followedIds).in('privacy', ['public', 'followers'])
+      : activityQuery.eq('privacy', 'public');
+    const { data: activityRows, error: activityError } = await activityQuery;
 
     if (activityError) {
       setError('No hemos podido cargar la comunidad. Inténtalo de nuevo.');
@@ -146,7 +183,7 @@ export default function CommunityFeed() {
       ((profileRows ?? []) as PublicProfile[]).map((profile) => [profile.user_id, profile]),
     ));
     setLoading(false);
-  }, []);
+  }, [initialized, mode]);
 
   useEffect(() => {
     const initialLoad = window.setTimeout(() => { void loadFeed(); }, 0);
@@ -207,12 +244,31 @@ export default function CommunityFeed() {
               <Users className="h-4 w-4" /> Riders
             </p>
             <h1 className="text-3xl font-black tracking-tight sm:text-4xl">Comunidad</h1>
-            <p className="mt-2 text-sm text-slate-400">Rutas, barro y vatios compartidos por la comunidad MTB.</p>
+            <p className="mt-2 text-sm text-slate-400">Tu red de riders, rutas, barro y vatios.</p>
           </div>
-          <Link href="/grabar" className="flex items-center gap-2 rounded-xl bg-orange-500 px-4 py-3 text-xs font-black uppercase">
+          <Link href="/grabar" className="flex min-h-11 items-center gap-2 rounded-xl bg-orange-500 px-4 py-3 text-xs font-black uppercase">
             <Bike className="h-4 w-4" /> Compartir salida
           </Link>
         </header>
+
+        <div className="mb-6 grid grid-cols-2 rounded-2xl border border-white/10 bg-slate-900/70 p-1.5">
+          {([
+            ['following', 'Siguiendo'],
+            ['discover', 'Descubrir'],
+          ] as const).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setMode(value)}
+              aria-pressed={mode === value}
+              className={`min-h-11 rounded-xl px-4 text-xs font-black uppercase transition ${
+                mode === value ? 'bg-white text-slate-950' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
 
         {loading ? (
           <div className="grid min-h-72 place-items-center">
@@ -223,11 +279,23 @@ export default function CommunityFeed() {
         ) : activities.length === 0 ? (
           <section className="rounded-3xl border border-dashed border-white/15 bg-slate-900/30 px-6 py-16 text-center">
             <Sparkles className="mx-auto h-9 w-9 text-orange-400" />
-            <h2 className="mt-4 text-xl font-black">Abre la primera huella</h2>
-            <p className="mx-auto mt-2 max-w-md text-sm text-slate-400">Termina una salida, elige “Comunidad” y aparecerá aquí cuando la sincronices con tu cuenta.</p>
-            <Link href={user ? '/grabar' : '/auth?next=/comunidad'} className="mt-6 inline-flex rounded-xl bg-orange-500 px-5 py-3 text-xs font-black uppercase">
-              {user ? 'Grabar salida' : 'Iniciar sesión'}
-            </Link>
+            <h2 className="mt-4 text-xl font-black">{mode === 'following' ? 'Construye tu grupeta' : 'Abre la primera huella'}</h2>
+            <p className="mx-auto mt-2 max-w-md text-sm text-slate-400">
+              {mode === 'following'
+                ? user
+                  ? 'Explora riders y síguelos para ver aquí sus salidas públicas y para seguidores.'
+                  : 'Inicia sesión para seguir riders y crear un feed a tu medida.'
+                : 'Termina una salida, elige “Comunidad” y aparecerá aquí cuando la sincronices.'}
+            </p>
+            {mode === 'following' && user ? (
+              <button type="button" onClick={() => setMode('discover')} className="mt-6 min-h-11 rounded-xl bg-orange-500 px-5 text-xs font-black uppercase">
+                Explorar riders
+              </button>
+            ) : (
+              <Link href={user ? '/grabar' : '/auth?next=/comunidad'} className="mt-6 inline-flex min-h-11 items-center rounded-xl bg-orange-500 px-5 text-xs font-black uppercase">
+                {user ? 'Grabar salida' : 'Iniciar sesión'}
+              </Link>
+            )}
           </section>
         ) : (
           <section className="space-y-5">
@@ -242,11 +310,11 @@ export default function CommunityFeed() {
               return (
                 <article key={activity.id} className="overflow-hidden rounded-3xl border border-white/10 bg-slate-900/60">
                   <header className="flex items-center gap-3 p-4 sm:p-5">
-                    <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-orange-500/15 text-sm font-black text-orange-300">
+                    <Link href={`/riders/${activity.user_id}`} className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-orange-500/15 text-sm font-black text-orange-300">
                       {displayName.charAt(0).toUpperCase()}
-                    </div>
+                    </Link>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate font-black">{displayName}</p>
+                      <Link href={`/riders/${activity.user_id}`} className="block truncate font-black hover:text-orange-300">{displayName}</Link>
                       <p className="mt-0.5 flex items-center gap-1.5 text-[10px] text-slate-500">
                         <CalendarDays className="h-3 w-3" />
                         {new Intl.DateTimeFormat('es-ES', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(activity.started_at))}
@@ -285,20 +353,20 @@ export default function CommunityFeed() {
                         <button
                           onClick={() => toggleKudo(activity.id)}
                           aria-pressed={liked}
-                          className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-black ${liked ? 'bg-orange-500/15 text-orange-400' : 'text-slate-500 hover:bg-white/5 hover:text-white'}`}
+                          className={`flex min-h-11 items-center gap-2 rounded-xl px-3 py-2 text-xs font-black ${liked ? 'bg-orange-500/15 text-orange-400' : 'text-slate-500 hover:bg-white/5 hover:text-white'}`}
                         >
                           <Heart className={`h-4 w-4 ${liked ? 'fill-current' : ''}`} /> {activityKudos.length}
                         </button>
                       ) : (
-                        <Link href="/auth?next=/comunidad" className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-black text-slate-500 hover:text-orange-400">
+                        <Link href="/auth?next=/comunidad" className="flex min-h-11 items-center gap-2 rounded-xl px-3 py-2 text-xs font-black text-slate-500 hover:text-orange-400">
                           <Heart className="h-4 w-4" /> {activityKudos.length}
                         </Link>
                       )}
-                      <button onClick={() => toggleComments(activity.id)} className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-black text-slate-500 hover:bg-white/5 hover:text-white">
+                      <button onClick={() => toggleComments(activity.id)} className="flex min-h-11 items-center gap-2 rounded-xl px-3 py-2 text-xs font-black text-slate-500 hover:bg-white/5 hover:text-white">
                         <MessageCircle className="h-4 w-4" /> {activityComments.length}
                       </button>
                       <span className="ml-auto flex items-center gap-1 text-[9px] uppercase tracking-widest text-slate-600">
-                        <Mountain className="h-3 w-3" /> Público
+                        <Mountain className="h-3 w-3" /> {activity.privacy === 'followers' ? 'Seguidores' : 'Público'}
                       </span>
                     </div>
 
@@ -311,7 +379,7 @@ export default function CommunityFeed() {
                               {(profiles[comment.user_id]?.display_name || 'R').charAt(0).toUpperCase()}
                             </div>
                             <div>
-                              <p className="text-[10px] font-black text-slate-300">{profiles[comment.user_id]?.display_name || 'Rider'}</p>
+                              <Link href={`/riders/${comment.user_id}`} className="text-[10px] font-black text-slate-300 hover:text-orange-300">{profiles[comment.user_id]?.display_name || 'Rider'}</Link>
                               <p className="mt-0.5 text-xs leading-relaxed text-slate-400">{comment.body}</p>
                             </div>
                           </div>
@@ -327,7 +395,7 @@ export default function CommunityFeed() {
                               placeholder="Escribe un comentario…"
                               className="min-w-0 flex-1 rounded-xl border border-white/10 bg-slate-900 px-3 py-2 text-xs outline-none focus:border-orange-500"
                             />
-                            <button disabled={sendingComment === activity.id || !commentDrafts[activity.id]?.trim()} className="grid h-9 w-9 place-items-center rounded-xl bg-orange-500 text-white disabled:opacity-40" aria-label="Enviar comentario">
+                            <button disabled={sendingComment === activity.id || !commentDrafts[activity.id]?.trim()} className="grid h-11 w-11 place-items-center rounded-xl bg-orange-500 text-white disabled:opacity-40" aria-label="Enviar comentario">
                               {sendingComment === activity.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                             </button>
                           </form>

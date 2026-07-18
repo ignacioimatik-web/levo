@@ -211,7 +211,7 @@ const Navbar = () => {
   return (
     <nav className="bg-slate-950/80 backdrop-blur-md border-b border-white/5 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2 group">
+        <Link href="/" className="group flex min-h-11 items-center gap-2">
           <img
             src="/images/logo-enduro-ebiketracks.png"
             alt="E-nduro Ebiketracks"

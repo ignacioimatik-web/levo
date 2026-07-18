@@ -176,7 +176,9 @@ export async function pullActivities(): Promise<number> {
       points: row.route as RidePoint[],
       weatherSamples: Array.isArray(row.weather_samples) ? row.weather_samples : [],
       segmentEfforts: effortsByActivity.get(row.id) ?? [],
-      privacy: row.privacy === 'public' ? 'public' : 'private',
+      privacy: row.privacy === 'public' || row.privacy === 'followers'
+        ? row.privacy
+        : 'private',
       syncStatus: 'synced',
     });
     imported += 1;

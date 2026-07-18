@@ -200,7 +200,11 @@ export default function ActivityHistory() {
                         </Link>
                       </h2>
                       <span className="mt-1 block text-[9px] font-bold uppercase tracking-widest text-slate-600">
-                        {activity.privacy === 'public' ? 'Pública' : 'Privada'}
+                        {activity.privacy === 'public'
+                          ? 'Pública'
+                          : activity.privacy === 'followers'
+                            ? 'Seguidores'
+                            : 'Privada'}
                       </span>
                     </div>
                     <SyncBadge status={activity.syncStatus} />

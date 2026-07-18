@@ -332,9 +332,29 @@ test('avisa con urgencia si retirar una actividad pública aún no se ha sincron
   });
 
   assert.equal(pending.urgent, true);
-  assert.match(pending.message, /seguirá pública/);
+  assert.match(pending.message, /visibilidad anterior seguirá activa/);
   assert.equal(synced.urgent, false);
-  assert.match(synced.message, /enlace público ya no está disponible/);
+  assert.match(synced.message, /solo puedes verla tú/);
+});
+
+test('reducir una actividad pública a seguidores queda protegido hasta sincronizar', () => {
+  const pending = activityEditNotice({
+    previousPrivacy: 'public',
+    nextPrivacy: 'followers',
+    result: 'error',
+    hadRemoteId: true,
+  });
+  const synced = activityEditNotice({
+    previousPrivacy: 'public',
+    nextPrivacy: 'followers',
+    result: 'synced',
+    hadRemoteId: true,
+  });
+
+  assert.equal(pending.urgent, true);
+  assert.match(pending.message, /visibilidad anterior/);
+  assert.equal(synced.urgent, false);
+  assert.match(synced.message, /solo para tus seguidores/);
 });
 
 test('el modelo de batería aprende el consumo del modo de asistencia elegido', () => {

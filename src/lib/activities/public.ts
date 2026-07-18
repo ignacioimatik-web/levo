@@ -1,12 +1,16 @@
 import 'server-only';
 
-import type { RidePoint, RideWeatherSample, SegmentEffort } from './types';
+import { createClient } from '@/lib/supabase/server';
+import type {
+  ActivityPrivacy, RidePoint, RideWeatherSample, SegmentEffort,
+} from './types';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export interface PublicActivity {
   id: string;
   userId: string;
+  privacy: ActivityPrivacy;
   title: string;
   sportType: 'ebike' | 'mtb';
   startedAt: string;
@@ -47,6 +51,7 @@ interface ActivityRow {
   energy_used_wh: number | null;
   route: unknown;
   weather_samples: unknown;
+  privacy: string;
 }
 
 interface ProfileRow {
@@ -69,48 +74,31 @@ function validPoint(value: unknown): value is RidePoint {
     && typeof point.timestamp === 'number';
 }
 
-async function restRequest<T>(path: string): Promise<T | null> {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!supabaseUrl || !publishableKey) return null;
-
-  const response = await fetch(`${supabaseUrl}/rest/v1/${path}`, {
-    headers: {
-      apikey: publishableKey,
-      Authorization: `Bearer ${publishableKey}`,
-    },
-    cache: 'no-store',
-  });
-  if (!response.ok) return null;
-  return response.json() as Promise<T>;
-}
-
 export async function getPublicActivity(id: string): Promise<PublicActivity | null> {
   if (!UUID_PATTERN.test(id)) return null;
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('activities')
+    .select('id,user_id,title,sport_type,started_at,duration_seconds,moving_seconds,distance_m,elevation_gain_m,average_speed_kmh,max_speed_kmh,battery_start,battery_end,battery_capacity_wh,assist_mode,energy_used_wh,route,weather_samples,privacy')
+    .eq('id', id)
+    .maybeSingle();
+  if (error || !data) return null;
+  const row = data as ActivityRow;
 
-  const activityQuery = new URLSearchParams({
-    select: 'id,user_id,title,sport_type,started_at,duration_seconds,moving_seconds,distance_m,elevation_gain_m,average_speed_kmh,max_speed_kmh,battery_start,battery_end,battery_capacity_wh,assist_mode,energy_used_wh,route,weather_samples',
-    id: `eq.${id}`,
-    privacy: 'eq.public',
-    limit: '1',
-  });
-  const rows = await restRequest<ActivityRow[]>(`activities?${activityQuery}`);
-  const row = rows?.[0];
-  if (!row) return null;
-
-  const profileQuery = new URLSearchParams({
-    select: 'display_name,bike_name',
-    user_id: `eq.${row.user_id}`,
-    limit: '1',
-  });
-  const profiles = await restRequest<ProfileRow[]>(`profiles?${profileQuery}`);
-  const profile = profiles?.[0];
-  const effortQuery = new URLSearchParams({
-    select: 'segment_id,elapsed_seconds,started_at,ended_at,distance_m,average_speed_kmh,match_quality',
-    activity_id: `eq.${row.id}`,
-    order: 'started_at.asc',
-  });
-  const effortRows = await restRequest<Array<{
+  const [{ data: profileData }, { data: effortData }] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('display_name,bike_name')
+      .eq('user_id', row.user_id)
+      .maybeSingle(),
+    supabase
+      .from('segment_efforts')
+      .select('segment_id,elapsed_seconds,started_at,ended_at,distance_m,average_speed_kmh,match_quality')
+      .eq('activity_id', row.id)
+      .order('started_at'),
+  ]);
+  const profile = profileData as ProfileRow | null;
+  const effortRows = (effortData ?? []) as Array<{
     segment_id: string;
     elapsed_seconds: number;
     started_at: string;
@@ -118,11 +106,12 @@ export async function getPublicActivity(id: string): Promise<PublicActivity | nu
     distance_m: number;
     average_speed_kmh: number;
     match_quality: number;
-  }>>(`segment_efforts?${effortQuery}`);
+  }>;
 
   return {
     id: row.id,
     userId: row.user_id,
+    privacy: row.privacy === 'followers' ? 'followers' : 'public',
     title: row.title,
     sportType: row.sport_type === 'mtb' ? 'mtb' : 'ebike',
     startedAt: row.started_at,

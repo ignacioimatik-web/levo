@@ -1068,15 +1068,16 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
                 )}
                 <div>
                   <p className="mb-2 text-xs font-bold text-slate-300">Quién puede verla</p>
-                  <div className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-950 p-1.5">
+                  <div className="grid grid-cols-3 gap-2 rounded-2xl bg-slate-950 p-1.5">
                     {([
                       ['private', 'Solo yo'],
+                      ['followers', 'Seguidores'],
                       ['public', 'Comunidad'],
                     ] as const).map(([value, label]) => (
                       <button
                         key={value}
                         onClick={() => setPrivacy(value)}
-                        className={`rounded-xl py-3 text-xs font-black ${
+                        className={`min-h-11 rounded-xl py-3 text-xs font-black ${
                           privacy === value ? 'bg-white text-slate-950' : 'text-slate-500'
                         }`}
                       >
@@ -1086,8 +1087,10 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
                   </div>
                   <p className="mt-2 text-[10px] leading-relaxed text-slate-500">
                     {privacy === 'public'
-                      ? 'Aparecerá en el feed con métricas y trazado reducido.'
-                      : 'Solo tú podrás verla y sincronizarla.'}
+                      ? 'Aparecerá en Descubrir con métricas y trazado reducido.'
+                      : privacy === 'followers'
+                        ? 'Solo aparecerá en el feed de quienes te siguen.'
+                        : 'Solo tú podrás verla y sincronizarla.'}
                   </p>
                 </div>
                 <button onClick={save}
