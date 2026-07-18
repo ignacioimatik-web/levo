@@ -11,6 +11,7 @@ import PlaceSearch from '@/components/planner/PlaceSearch';
 import type { GeocodingResult } from '@/lib/geocoding';
 import type { PlannedRoutePoint } from '@/lib/navigation/types';
 import { OPEN_MAP_STYLES } from '@/lib/open-map-styles';
+import { useTheme } from '@/components/theme/ThemeProvider';
 
 function routeFeature(points: PlannedRoutePoint[]) {
   return {
@@ -35,7 +36,9 @@ export default function UniversalRouteMap({
   onAddPoint: (point: PlannedRoutePoint) => void;
 }) {
   const mapRef = useRef<MapRef>(null);
-  const [styleIndex, setStyleIndex] = useState(0);
+  const { theme } = useTheme();
+  const [selectedStyleIndex, setSelectedStyleIndex] = useState<number | null>(null);
+  const styleIndex = selectedStyleIndex ?? (theme === 'dark' ? 2 : 0);
   const route = useMemo(() => routeFeature(points), [points]);
 
   const showPlace = (result: GeocodingResult) => {
@@ -152,7 +155,7 @@ export default function UniversalRouteMap({
       <button
         type="button"
         aria-label={`Mapa ${OPEN_MAP_STYLES[styleIndex].label}. Cambiar estilo`}
-        onClick={() => setStyleIndex((index) => (index + 1) % OPEN_MAP_STYLES.length)}
+        onClick={() => setSelectedStyleIndex((styleIndex + 1) % OPEN_MAP_STYLES.length)}
         className="absolute bottom-3 right-3 z-10 flex min-h-11 items-center gap-2 rounded-xl border border-white/15 bg-slate-950/90 px-3 text-[10px] font-black uppercase text-white shadow-xl backdrop-blur"
       >
         <Layers3 className="h-4 w-4 text-orange-400" /> {OPEN_MAP_STYLES[styleIndex].label}

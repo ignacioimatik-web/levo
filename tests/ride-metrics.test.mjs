@@ -61,6 +61,14 @@ import {
   matchCompetitiveSegments,
   personalSegmentBests,
 } from '../src/lib/segments/matcher.ts';
+import { normalizeAuthNextPath } from '../src/lib/auth/redirect.ts';
+import {
+  normalizeProviderAvailability,
+} from '../src/lib/supabase/provider-status.ts';
+import {
+  oppositeTheme,
+  resolveThemePreference,
+} from '../src/lib/theme.ts';
 
 function point({
   latitude = 40,
@@ -1027,5 +1035,36 @@ test('acota una geometría de enrutado enorme sin perder inicio ni final', () =>
     longitude: coordinates.at(-1)[0],
     latitude: coordinates.at(-1)[1],
     elevation: coordinates.at(-1)[2],
+  });
+});
+
+test('el tema sigue el sistema hasta que el ciclista elige día o noche', () => {
+  assert.equal(resolveThemePreference(null, true), 'dark');
+  assert.equal(resolveThemePreference('system', false), 'light');
+  assert.equal(resolveThemePreference('light', true), 'light');
+  assert.equal(resolveThemePreference('dark', false), 'dark');
+  assert.equal(oppositeTheme('dark'), 'light');
+  assert.equal(oppositeTheme('light'), 'dark');
+});
+
+test('el callback de acceso solo acepta destinos internos seguros', () => {
+  assert.equal(normalizeAuthNextPath('/planifica?ruta=abc'), '/planifica?ruta=abc');
+  assert.equal(normalizeAuthNextPath('https://evil.example'), '/account');
+  assert.equal(normalizeAuthNextPath('//evil.example/path'), '/account');
+  assert.equal(normalizeAuthNextPath(null), '/account');
+});
+
+test('la pantalla de acceso refleja los proveedores realmente activados', () => {
+  assert.deepEqual(normalizeProviderAvailability({
+    external: { email: true, google: false, apple: true },
+  }), {
+    email: true,
+    google: false,
+    apple: true,
+  });
+  assert.deepEqual(normalizeProviderAvailability(null), {
+    email: false,
+    google: false,
+    apple: false,
   });
 });

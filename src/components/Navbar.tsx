@@ -8,6 +8,7 @@ import { createClient, isSupabaseConfigured } from '@/lib/supabase/browser';
 import { signOut } from '@/lib/supabase/auth';
 import type { User } from '@supabase/supabase-js';
 import NotificationBell from '@/components/social/NotificationBell';
+import ThemeToggle from '@/components/theme/ThemeToggle';
 
 interface DropdownItem {
   label: string;
@@ -237,10 +238,14 @@ const Navbar = () => {
           <div className="h-4 w-px bg-white/10" />
           {!authLoading && <UserMenu user={user} onSignOut={handleSignOut} />}
           <div className="h-4 w-px bg-white/10" />
+          <ThemeToggle />
           <SocialIcons />
         </div>
 
-        <div className="flex items-center">
+        <div className="flex items-center gap-1">
+          <div className="xl:hidden">
+            <ThemeToggle />
+          </div>
           {user && <NotificationBell userId={user.id} onNavigate={closeMobile} />}
           <div className="xl:hidden">
             <button

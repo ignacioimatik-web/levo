@@ -9,6 +9,7 @@ import type { RidePoint } from '@/lib/activities/types';
 import type { PlannedRoutePoint } from '@/lib/navigation/types';
 import type { OfflineMapPackage } from '@/lib/navigation/offline-map-storage';
 import { OFFLINE_MAP_STYLE, OPEN_MAP_STYLES } from '@/lib/open-map-styles';
+import { useTheme } from '@/components/theme/ThemeProvider';
 
 type MapPoint = RidePoint | PlannedRoutePoint;
 type FollowMode = 'north' | 'heading';
@@ -99,9 +100,11 @@ export default function RideNavigationMap({
   offlineMap?: OfflineMapPackage | null;
 }) {
   const mapRef = useRef<MapRef>(null);
+  const { theme } = useTheme();
   const [following, setFollowing] = useState(true);
   const [followMode, setFollowMode] = useState<FollowMode>('north');
-  const [styleIndex, setStyleIndex] = useState(0);
+  const [selectedStyleIndex, setSelectedStyleIndex] = useState<number | null>(null);
+  const styleIndex = selectedStyleIndex ?? (theme === 'dark' ? 2 : 0);
   const [online, setOnline] = useState(true);
   const [preferOffline, setPreferOffline] = useState(false);
   const currentPoint = points.at(-1);
@@ -291,7 +294,7 @@ export default function RideNavigationMap({
             ? 'Mapa Offline activo'
             : `Mapa ${OPEN_MAP_STYLES[styleIndex].label}. Cambiar estilo`}
           disabled={offlineActive}
-          onClick={() => setStyleIndex((index) => (index + 1) % OPEN_MAP_STYLES.length)}
+          onClick={() => setSelectedStyleIndex((styleIndex + 1) % OPEN_MAP_STYLES.length)}
           className="flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-xl border border-white/15 bg-slate-950/85 px-2.5 text-[9px] font-black uppercase text-white shadow-lg backdrop-blur disabled:text-blue-300"
         >
           <Layers3 className="h-4 w-4" />
