@@ -5,9 +5,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Bike, Flame, Layers3, Loader2, LockKeyhole, Map, Mountain, Route, Sparkles,
 } from 'lucide-react';
-import MapboxMap, { Layer, NavigationControl, Source } from 'react-map-gl/mapbox';
-import type { MapRef } from 'react-map-gl/mapbox';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import MapboxMap, { Layer, NavigationControl, Source } from 'react-map-gl/maplibre';
+import type { MapRef } from 'react-map-gl/maplibre';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import { getActivities } from '@/lib/activities/storage';
 import { pullActivities } from '@/lib/activities/sync';
 import {

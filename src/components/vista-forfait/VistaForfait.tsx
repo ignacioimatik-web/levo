@@ -2,9 +2,9 @@
 
 import { useMemo, useState, useCallback, useEffect, useRef, Fragment } from 'react';
 import Link from 'next/link';
-import { Map as MapboxMap, Source, Layer, NavigationControl } from 'react-map-gl/mapbox';
-import type { MapRef, MapMouseEvent } from 'react-map-gl/mapbox';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import { Map as MapboxMap, Source, Layer, NavigationControl } from 'react-map-gl/maplibre';
+import type { MapRef, MapMouseEvent } from 'react-map-gl/maplibre';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import type { TrackMTB, DificultadMTB } from '@/lib/forfait/types';
 import { buildProfileSeries } from '@/lib/forfait/geo-utils';
 import { splitIntoSendas, type SendaSegment, type CameraView } from '@/lib/forfait/senda-utils';

@@ -1,7 +1,7 @@
 'use client';
 
-import Map, { Marker, NavigationControl } from 'react-map-gl/mapbox';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import Map, { Marker, NavigationControl } from 'react-map-gl/maplibre';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import { DEFAULT_OPEN_MAP_STYLE } from '@/lib/open-map-styles';
 
 export default function LivePositionMap({

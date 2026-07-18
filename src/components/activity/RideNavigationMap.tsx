@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import Map, { Layer, Marker, Source } from 'react-map-gl/mapbox';
-import type { MapRef } from 'react-map-gl/mapbox';
+import Map, { Layer, Marker, Source } from 'react-map-gl/maplibre';
+import type { MapRef } from 'react-map-gl/maplibre';
 import { Layers3, LocateFixed, MapPinned, Navigation2 } from 'lucide-react';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import type { RidePoint } from '@/lib/activities/types';
 import type { PlannedRoutePoint } from '@/lib/navigation/types';
 import { OPEN_MAP_STYLES } from '@/lib/open-map-styles';

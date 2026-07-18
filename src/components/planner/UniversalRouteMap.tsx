@@ -3,10 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Map, {
   FullscreenControl, GeolocateControl, Layer, Marker, NavigationControl, Source,
-} from 'react-map-gl/mapbox';
-import type { MapRef } from 'react-map-gl/mapbox';
+} from 'react-map-gl/maplibre';
+import type { MapRef } from 'react-map-gl/maplibre';
 import { Layers3 } from 'lucide-react';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import type { PlannedRoutePoint } from '@/lib/navigation/types';
 import { OPEN_MAP_STYLES } from '@/lib/open-map-styles';
 
@@ -98,7 +98,6 @@ export default function UniversalRouteMap({
         position="top-right"
         positionOptions={{ enableHighAccuracy: true }}
         trackUserLocation
-        showUserHeading
       />
       <FullscreenControl position="top-right" />
       </Map>

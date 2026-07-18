@@ -2,16 +2,17 @@
 
 import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { Map as MapboxMap, Source, Layer, Popup } from 'react-map-gl/mapbox';
-import type { MapRef, MapMouseEvent } from 'react-map-gl/mapbox';
-import type { LinePaint } from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import { Map as MapboxMap, Source, Layer, Popup } from 'react-map-gl/maplibre';
+import type { MapRef, MapMouseEvent } from 'react-map-gl/maplibre';
+import type { LineLayerSpecification } from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import type { TrackMTB, DificultadMTB, TrackPoint } from '@/lib/forfait/types';
 import type { SendaSegment, CameraView } from '@/lib/forfait/senda-utils';
 import { splitIntoSendas } from '@/lib/forfait/senda-utils';
 import { buildProfileSeries } from '@/lib/forfait/geo-utils';
 
 const SENDA_VIEWS_KEY = 'vista-forfait-senda-views';
+type LinePaint = NonNullable<LineLayerSpecification['paint']>;
 
 /* ─── Types ─── */
 interface Bounds {

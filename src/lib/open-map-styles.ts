@@ -1,4 +1,4 @@
-import type { StyleSpecification } from 'mapbox-gl';
+import type { StyleSpecification } from 'maplibre-gl';
 
 function rasterStyle({
   id,

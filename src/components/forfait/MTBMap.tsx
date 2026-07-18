@@ -1,10 +1,10 @@
 'use client';
 
 import { useRef, useEffect, useMemo, useCallback, useState, Fragment } from 'react';
-import { Map, Source, Layer, useMap, useControl, NavigationControl, FullscreenControl, Marker } from 'react-map-gl/mapbox';
-import type { MapMouseEvent } from 'react-map-gl/mapbox';
-import type { StyleSpecification } from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import { Map, Source, Layer, useMap, useControl, NavigationControl, FullscreenControl, Marker } from 'react-map-gl/maplibre';
+import type { MapMouseEvent } from 'react-map-gl/maplibre';
+import type { StyleSpecification } from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import type { TrackMTB, TrackPoint, RutaConstruida } from '@/lib/forfait/types';
 import type { RouteHoverData } from '@/components/forfait/ContinuousProfile';
 import { MapPinned } from 'lucide-react';
