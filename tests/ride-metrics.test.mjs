@@ -42,6 +42,11 @@ import {
   overpassWaysToGeoJson,
   sampleOfflineRoute,
 } from '../src/lib/navigation/offline-map-data.ts';
+import {
+  deriveLiveRideConditions,
+  minutesUntilClockTime,
+  selectCurrentWeatherPhase,
+} from '../src/lib/navigation/live-ride-conditions.ts';
 
 function point({
   latitude = 40,
@@ -751,4 +756,53 @@ test('la respuesta Overpass se convierte en caminos GeoJSON útiles offline', ()
   assert.equal(collection.features[0].properties.mtbScale, '2');
   assert.equal(collection.features[0].properties.name, 'Senda del bosque');
   assert.deepEqual(collection.features[0].geometry.coordinates[0], [-0.1, 40]);
+});
+
+test('la meteo en marcha selecciona el tramo que el ciclista está recorriendo', () => {
+  const phases = [
+    { id: 'W1', fromKm: 0, toKm: 5, centerKm: 2.5 },
+    { id: 'W2', fromKm: 5, toKm: 10, centerKm: 7.5 },
+  ];
+  assert.equal(selectCurrentWeatherPhase(phases, 6.2)?.id, 'W2');
+  assert.equal(selectCurrentWeatherPhase(phases, 20)?.id, 'W2');
+});
+
+test('el margen de luz usa el ritmo real y avisa si no alcanza para terminar', () => {
+  const result = deriveLiveRideConditions({
+    phases: [{
+      id: 'W1',
+      fromKm: 0,
+      toKm: 20,
+      centerKm: 10,
+      routeBearingDeg: 0,
+      temperatureC: 22,
+      humidityPct: 50,
+      windKmh: 8,
+      maxWindKmh: 12,
+      precipitationMm: 0,
+      windEffect: 'calm',
+      confidence: 'high',
+      nearestStationKm: 5,
+      stationCount: 3,
+      feelLabel: 'sensación neutra',
+      riskLevel: 'green',
+    }],
+    daylight: { sunset: '19:00' },
+    completedM: 5_000,
+    remainingM: 10_000,
+    averageSpeedKmh: 10,
+    movingSeconds: 1_800,
+    sportType: 'mtb',
+    now: new Date(2026, 0, 1, 18, 20),
+  });
+  assert.equal(Math.round(result.estimatedRemainingMinutes), 60);
+  assert.equal(result.minutesUntilSunset, 40);
+  assert.equal(Math.round(result.lightMarginMinutes), -20);
+  assert.equal(result.lightRisk, 'red');
+  assert.match(result.recommendation, /luz crítico/i);
+});
+
+test('la hora de ocaso se calcula con la hora local del dispositivo', () => {
+  assert.equal(minutesUntilClockTime(new Date(2026, 0, 1, 18, 10), '19:25'), 75);
+  assert.equal(minutesUntilClockTime(new Date(2026, 0, 1, 20, 10), '19:25'), -45);
 });

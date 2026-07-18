@@ -1,6 +1,6 @@
 import 'server-only';
 
-import type { RidePoint } from './types';
+import type { RidePoint, RideWeatherSample } from './types';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -22,6 +22,7 @@ export interface PublicActivity {
   assistMode: string | null;
   energyUsedWh: number | null;
   points: RidePoint[];
+  weatherSamples: RideWeatherSample[];
   riderName: string;
   bikeName: string | null;
 }
@@ -44,6 +45,7 @@ interface ActivityRow {
   assist_mode: string | null;
   energy_used_wh: number | null;
   route: unknown;
+  weather_samples: unknown;
 }
 
 interface ProfileRow {
@@ -86,7 +88,7 @@ export async function getPublicActivity(id: string): Promise<PublicActivity | nu
   if (!UUID_PATTERN.test(id)) return null;
 
   const activityQuery = new URLSearchParams({
-    select: 'id,user_id,title,sport_type,started_at,duration_seconds,moving_seconds,distance_m,elevation_gain_m,average_speed_kmh,max_speed_kmh,battery_start,battery_end,battery_capacity_wh,assist_mode,energy_used_wh,route',
+    select: 'id,user_id,title,sport_type,started_at,duration_seconds,moving_seconds,distance_m,elevation_gain_m,average_speed_kmh,max_speed_kmh,battery_start,battery_end,battery_capacity_wh,assist_mode,energy_used_wh,route,weather_samples',
     id: `eq.${id}`,
     privacy: 'eq.public',
     limit: '1',
@@ -121,6 +123,7 @@ export async function getPublicActivity(id: string): Promise<PublicActivity | nu
     assistMode: row.assist_mode,
     energyUsedWh: row.energy_used_wh,
     points: Array.isArray(row.route) ? row.route.filter(validPoint) : [],
+    weatherSamples: Array.isArray(row.weather_samples) ? row.weather_samples as RideWeatherSample[] : [],
     riderName: profile?.display_name?.trim() || 'Rider E-nduro',
     bikeName: profile?.bike_name?.trim() || null,
   };

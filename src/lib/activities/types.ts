@@ -20,6 +20,26 @@ export interface RideMetrics {
   maxSpeedKmh: number;
 }
 
+export interface RideWeatherSample {
+  capturedAt: string;
+  distanceM: number;
+  phaseId: string;
+  phaseFromKm: number;
+  phaseToKm: number;
+  temperatureC: number | null;
+  humidityPct: number | null;
+  windKmh: number | null;
+  maxWindKmh: number | null;
+  precipitationMm: number | null;
+  windEffect: 'headwind' | 'tailwind' | 'crosswind' | 'calm' | 'unknown';
+  feelLabel: string;
+  confidence: 'high' | 'medium' | 'low';
+  nearestStationKm: number | null;
+  stationCount: number;
+  riskLevel: 'green' | 'yellow' | 'red';
+  lightMarginMinutes: number | null;
+}
+
 export interface RideActivity extends RideMetrics {
   id: string;
   title: string;
@@ -33,6 +53,7 @@ export interface RideActivity extends RideMetrics {
   assistMode: AssistMode | null;
   energyUsedWh: number | null;
   points: RidePoint[];
+  weatherSamples?: RideWeatherSample[];
   privacy: ActivityPrivacy;
   syncStatus: SyncStatus;
   remoteId?: string;
@@ -60,4 +81,5 @@ export interface RideDraft {
   } | null;
   plannedRouteId?: string;
   navigationCompletedM?: number;
+  weatherSamples?: RideWeatherSample[];
 }

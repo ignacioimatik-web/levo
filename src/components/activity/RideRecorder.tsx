@@ -9,6 +9,7 @@ import {
 import RideNavigationMap from '@/components/activity/RideNavigationMap';
 import RideControlDock from '@/components/activity/RideControlDock';
 import TurnGuidanceHud from '@/components/activity/TurnGuidanceHud';
+import LiveRideConditions from '@/components/activity/LiveRideConditions';
 import {
   assessRidePoint, calculateRideMetrics, estimateBattery, pointFromPosition,
 } from '@/lib/activities/geo';
@@ -19,6 +20,7 @@ import {
 import { syncActivity } from '@/lib/activities/sync';
 import type {
   ActivityPrivacy, AssistMode, RideActivity, RideDraft, RidePoint, RideSettings, SportType,
+  RideWeatherSample,
 } from '@/lib/activities/types';
 import { calculateNavigationProgress } from '@/lib/navigation/progress';
 import {
@@ -108,6 +110,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
   const [lastGpsReceivedAt, setLastGpsReceivedAt] = useState(0);
   const [finishArmed, setFinishArmed] = useState(false);
   const [voiceGuidance, setVoiceGuidance] = useState(false);
+  const [weatherSamples, setWeatherSamples] = useState<RideWeatherSample[]>([]);
   const startedAtRef = useRef<number | null>(null);
   const draftIdRef = useRef<string | null>(null);
   const durationBaseRef = useRef(0);
@@ -219,8 +222,9 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
       liveSession,
       plannedRouteId: plannedRoute?.id,
       navigationCompletedM: navigationFloorM,
+      weatherSamples,
     });
-  }, [durationSeconds, liveSession, navigationFloorM, plannedRoute?.id, points, settings, status]);
+  }, [durationSeconds, liveSession, navigationFloorM, plannedRoute?.id, points, settings, status, weatherSamples]);
 
   useEffect(() => {
     if (!finishArmed) return;
@@ -403,6 +407,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
     setLastGpsReceivedAt(0);
     setNavigationFloorM(0);
     setFinishArmed(false);
+    setWeatherSamples([]);
     lastAcceptedPointRef.current = null;
     startedAtRef.current = Date.now();
     draftIdRef.current = crypto.randomUUID();
@@ -571,6 +576,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
     setLiveSession(recoverableDraft.liveSession ?? null);
     setLiveStatus(recoverableDraft.liveSession ? 'active' : 'idle');
     setNavigationFloorM(recoverableDraft.navigationCompletedM ?? 0);
+    setWeatherSamples(recoverableDraft.weatherSamples ?? []);
     if (recoverableDraft.plannedRouteId) {
       setPlannedRoute(getPlannedRoute(recoverableDraft.plannedRouteId));
     }
@@ -628,6 +634,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
       assistMode: settings.sportType === 'ebike' ? settings.assistMode : null,
       energyUsedWh: actualEnergyUsedWh,
       points,
+      weatherSamples,
       privacy,
       syncStatus: 'local',
     };
@@ -637,6 +644,13 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
     await syncActivity(activity);
     router.push('/actividades');
   };
+
+  const recordWeatherSample = useCallback((sample: RideWeatherSample) => {
+    setWeatherSamples((current) => {
+      const next = [...current, sample];
+      return next.length > 200 ? next.slice(-200) : next;
+    });
+  }, []);
 
   const active = status === 'recording' || status === 'paused' || status === 'requesting';
 
@@ -780,6 +794,18 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
               <Metric icon={Zap} label="Máxima" value={metrics.maxSpeedKmh.toFixed(1)} unit="km/h" />
               <Metric icon={BatteryCharging} label="Batería est." value={`${battery.batteryPercent}`} unit="%" />
             </div>
+            <LiveRideConditions
+              active={active && status !== 'requesting'}
+              routeId={plannedRoute?.id}
+              routeName={plannedRoute?.name}
+              routePoints={plannedRoute?.points ?? points}
+              completedM={plannedRoute ? securedNavigation.completedM : metrics.distanceM}
+              remainingM={plannedRoute ? securedNavigation.remainingM : null}
+              averageSpeedKmh={metrics.averageSpeedKmh}
+              movingSeconds={metrics.movingSeconds}
+              sportType={settings.sportType}
+              onSample={recordWeatherSample}
+            />
 
             {settings.sportType === 'ebike' && active && (
               <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4">

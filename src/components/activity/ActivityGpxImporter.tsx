@@ -82,6 +82,7 @@ export default function ActivityGpxImporter({
       assistMode: sportType === 'ebike' ? assistMode : null,
       energyUsedWh,
       points: preview.points,
+      weatherSamples: [],
       privacy,
       syncStatus: 'local',
     };

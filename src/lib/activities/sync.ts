@@ -43,6 +43,7 @@ export async function syncActivity(activity: RideActivity): Promise<'synced' | '
       energy_used_wh: activity.energyUsedWh,
       route: activity.points,
       route_preview: buildRoutePreview(activity.points),
+      weather_samples: activity.weatherSamples ?? [],
       privacy: activity.privacy ?? 'private',
     }, { onConflict: 'user_id,client_id' })
     .select('id')
@@ -125,6 +126,7 @@ export async function pullActivities(): Promise<number> {
       assistMode: row.assist_mode as AssistMode | null,
       energyUsedWh: row.energy_used_wh,
       points: row.route as RidePoint[],
+      weatherSamples: Array.isArray(row.weather_samples) ? row.weather_samples : [],
       privacy: row.privacy === 'public' ? 'public' : 'private',
       syncStatus: 'synced',
     });

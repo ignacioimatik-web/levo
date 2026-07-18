@@ -3,6 +3,7 @@ import {
   Sparkles, TimerReset, UserRound, Zap,
 } from 'lucide-react';
 import ActivityElevationProfile from './ActivityElevationProfile';
+import ActivityWeatherTimeline from './ActivityWeatherTimeline';
 import ActivityMap from './ActivityMap';
 import PublicActivityShareButton from './PublicActivityShareButton';
 import type { PublicActivity } from '@/lib/activities/public';
@@ -76,6 +77,7 @@ export default function PublicActivityView({ activity }: { activity: PublicActiv
           <Stat icon={Mountain} label="Desnivel +" value={`${Math.round(activity.elevationGainM)} m`} />
           <Stat icon={TimerReset} label="Parado" value={formatDuration(stoppedSeconds)} />
         </section>
+        <ActivityWeatherTimeline samples={activity.weatherSamples} />
 
         <div className="mt-5 grid gap-5 lg:grid-cols-[1.25fr_.75fr]">
           <section className="overflow-hidden rounded-3xl border border-white/10 bg-slate-900/50">
