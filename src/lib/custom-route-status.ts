@@ -125,7 +125,9 @@ export async function buildCustomRouteStatus({
     weatherNow,
     notes: [
       'Ruta creada o importada por el usuario.',
-      'La meteo por tramo interpola estaciones AEMET distribuidas a lo largo del trazado.',
+      weatherNow && 'sourceLabel' in weatherNow
+        ? weatherNow.sourceLabel
+        : 'La meteo por tramo usa la mejor fuente disponible a lo largo del trazado.',
     ],
   };
 }

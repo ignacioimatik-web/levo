@@ -119,6 +119,9 @@ export default function RouteRideBriefing({
 }) {
   const [customDeparture, setCustomDeparture] = useState('');
   const phases = data.ridePlan?.phases ?? [];
+  const usesWeatherModel = data.weatherNow
+    && 'source' in data.weatherNow
+    && data.weatherNow.source === 'open-meteo-model';
   const hasWeather = phases.some((phase) => (
     phase.temperatureC != null
     || phase.humidityPct != null
@@ -179,7 +182,7 @@ export default function RouteRideBriefing({
           </p>
           <h3 className="mt-1 text-xl font-black sm:text-2xl">Ruta, meteo, ritmo y luz</h3>
           <p className="mt-1 max-w-2xl text-xs leading-relaxed text-slate-400">
-            Observaciones AEMET inferidas por tramo. No son un sensor situado sobre el sendero.
+            {data.ridePlan?.sourceLabel ?? 'Meteo inferida por tramo'}. No es un sensor situado sobre el sendero.
           </p>
         </div>
         <div className="grid grid-cols-2 gap-2 sm:flex">
@@ -265,7 +268,7 @@ export default function RouteRideBriefing({
             <p className="mt-1 text-[10px] leading-relaxed text-slate-400">
               {hasWeather && criticalPhase
                 ? criticalPhase.feelLabel
-                : 'No hay estaciones AEMET suficientemente cercanas con observaciones disponibles.'}
+                : 'No hay una fuente meteorológica disponible para este trazado.'}
             </p>
           </div>
         </div>
@@ -288,7 +291,7 @@ export default function RouteRideBriefing({
                   <span>{phase.maxWindKmh?.toFixed(0) ?? phase.windKmh?.toFixed(0) ?? '—'} km/h</span>
                 </div>
                 <p className="mt-2 text-[9px] text-slate-600">
-                  {windLabel(phase.windEffect)} · estación a {phase.nearestStationKm ?? '—'} km · confianza {confidenceLabel(phase.confidence).toLowerCase()}
+                  {windLabel(phase.windEffect)} · {usesWeatherModel ? 'punto de modelo' : `estación a ${phase.nearestStationKm ?? '—'} km`} · confianza {confidenceLabel(phase.confidence).toLowerCase()}
                 </p>
               </article>
             );
@@ -297,7 +300,7 @@ export default function RouteRideBriefing({
       )}
 
       <p className="mt-3 text-[9px] leading-relaxed text-slate-600">
-        {data.ridePlan?.sourceLabel ?? 'Sin estaciones disponibles'} · La evolución por tramo es una interpolación espacial de observaciones actuales; no una predicción horaria futura.
+        {data.ridePlan?.sourceLabel ?? 'Sin fuente meteorológica'} · La evolución por tramo es una estimación espacial actual; no una predicción de la hora futura de paso.
       </p>
     </section>
   );

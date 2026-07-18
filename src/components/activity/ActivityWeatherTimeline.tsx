@@ -52,6 +52,7 @@ export default function ActivityWeatherTimeline({ samples }: { samples: RideWeat
   ), null);
   const temperaturePath = sparkPath(ordered, (sample) => sample.temperatureC);
   const windPath = sparkPath(ordered, (sample) => sample.windKmh);
+  const sourceLabel = ordered.find((sample) => sample.sourceLabel)?.sourceLabel;
 
   return (
     <section className="mt-5 overflow-hidden rounded-3xl border border-cyan-500/20 bg-cyan-500/5">
@@ -60,7 +61,7 @@ export default function ActivityWeatherTimeline({ samples }: { samples: RideWeat
           <CloudSun className="h-4 w-4" /> Meteo vivida por tramos
         </p>
         <p className="mt-1 text-[10px] text-slate-500">
-          Inferencia AEMET capturada durante la marcha; no procede de sensores montados en la bicicleta.
+          {sourceLabel ?? 'Meteo inferida por tramos'} capturada durante la marcha; no procede de sensores montados en la bicicleta.
         </p>
       </div>
 

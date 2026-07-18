@@ -346,7 +346,9 @@ const daylight = calcSunriseSunset(center.lat, center.lng, _localNow, _tzOffset)
       weatherNow,
       notes: [
         'Perfil y segmentos derivados del GPX/coordenadas disponibles.',
-        'Estado "ahora" combina observacion de estacion AEMET mas cercana y reglas de riesgo MTB.',
+        weatherNow && 'sourceLabel' in weatherNow
+          ? `${weatherNow.sourceLabel} combinada con reglas de riesgo MTB.`
+          : 'Estado actual combinado con reglas de riesgo MTB.',
       ],
       routeNowRecommendation: {
         generatedAt: new Date().toISOString(),

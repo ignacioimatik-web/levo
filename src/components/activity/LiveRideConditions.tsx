@@ -138,6 +138,7 @@ export default function LiveRideConditions({
     if (lastSampleKey.current === key) return;
     lastSampleKey.current = key;
     onSample({
+      sourceLabel: payload?.ridePlan?.sourceLabel,
       capturedAt: updatedAt.toISOString(),
       distanceM: Math.max(0, completedM),
       phaseId: phase.id,
@@ -156,7 +157,7 @@ export default function LiveRideConditions({
       riskLevel: phase.riskLevel,
       lightMarginMinutes: summary.lightMarginMinutes,
     });
-  }, [completedM, onSample, summary, updatedAt]);
+  }, [completedM, onSample, payload?.ridePlan?.sourceLabel, summary, updatedAt]);
 
   if (!active) return null;
   const phase = summary.phase;
@@ -175,7 +176,7 @@ export default function LiveRideConditions({
           </p>
           <p className="mt-1 text-xs text-slate-400">
             {status === 'loading' && !payload
-              ? 'Consultando estaciones AEMET…'
+              ? 'Consultando meteo por tramos…'
               : status === 'error' && !payload
                 ? 'Sin datos ahora; la grabación y navegación continúan.'
                 : status === 'offline'

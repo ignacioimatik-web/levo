@@ -1,5 +1,10 @@
 import type { AemetNow } from './aemet';
 import { haversineKm } from './gpx-utils.ts';
+import {
+  buildRouteDistanceIndex,
+  pointAtRouteDistance,
+} from './route-sampling.ts';
+import type { RouteSamplePoint } from './route-sampling.ts';
 
 export type WeatherConfidence = 'high' | 'medium' | 'low';
 export type WindEffect = 'headwind' | 'tailwind' | 'crosswind' | 'calm' | 'unknown';
@@ -30,7 +35,7 @@ export interface RouteRidePlan {
   sourceLabel: string;
 }
 
-type RoutePoint = { lat: number; lng: number; elevation?: number | null };
+type RoutePoint = RouteSamplePoint;
 
 function bearingDegrees(a: RoutePoint, b: RoutePoint): number {
   const lat1 = a.lat * Math.PI / 180;
@@ -170,16 +175,30 @@ export function buildRouteRidePlan({
   }
 
   const count = Math.max(3, Math.min(12, Math.round(phaseCount)));
+  const distanceIndex = buildRouteDistanceIndex(points);
   const phases: RouteWeatherPhase[] = [];
   for (let index = 0; index < count; index += 1) {
     const fromFraction = index / count;
     const toFraction = (index + 1) / count;
     const centerFraction = (fromFraction + toFraction) / 2;
-    const pointIndex = Math.min(points.length - 1, Math.round(centerFraction * (points.length - 1)));
-    const nextPointIndex = Math.min(points.length - 1, pointIndex + 1);
-    const point = points[pointIndex];
-    const nextPoint = points[nextPointIndex];
-    const routeBearingDeg = pointIndex === nextPointIndex ? null : bearingDegrees(point, nextPoint);
+    const point = pointAtRouteDistance(
+      points,
+      distanceIndex,
+      distanceIndex.totalKm * centerFraction,
+    );
+    const bearingStart = pointAtRouteDistance(
+      points,
+      distanceIndex,
+      distanceIndex.totalKm * fromFraction,
+    );
+    const bearingEnd = pointAtRouteDistance(
+      points,
+      distanceIndex,
+      distanceIndex.totalKm * toFraction,
+    );
+    const routeBearingDeg = bearingStart.lat === bearingEnd.lat && bearingStart.lng === bearingEnd.lng
+      ? null
+      : bearingDegrees(bearingStart, bearingEnd);
     const distances = stations.map((station) => (
       haversineKm(point.lat, point.lng, station.latitude, station.longitude)
     ));
@@ -198,7 +217,10 @@ export function buildRouteRidePlan({
     const precipitationMm = weightedValue(stations, point, (station) => station.precipitationMm);
     const windDirectionDeg = weightedDirection(stations, point);
     const effect = windEffect(routeBearingDeg, windDirectionDeg, windKmh);
-    const phaseConfidence = confidence(nearestStationKm, ages, stations.length);
+    const measuredConfidence = confidence(nearestStationKm, ages, stations.length);
+    const phaseConfidence = weather?.source === 'open-meteo-model' && measuredConfidence === 'high'
+      ? 'medium'
+      : measuredConfidence;
 
     phases.push({
       id: `W${index + 1}`,
@@ -233,8 +255,9 @@ export function buildRouteRidePlan({
     phases,
     stationCount: stations.length,
     overallConfidence: averageConfidence >= 2.5 ? 'high' : averageConfidence >= 1.5 ? 'medium' : 'low',
-    sourceLabel: stations.length > 0
-      ? `Inferencia AEMET con ${stations.length} ${stations.length === 1 ? 'estación' : 'estaciones'}`
-      : 'Sin cobertura AEMET cercana',
+    sourceLabel: weather?.sourceLabel
+      ?? (stations.length > 0
+        ? `Inferencia AEMET con ${stations.length} ${stations.length === 1 ? 'estación' : 'estaciones'}`
+        : 'Sin cobertura meteorológica'),
   };
 }

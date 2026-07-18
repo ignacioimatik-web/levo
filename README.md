@@ -1,6 +1,6 @@
 # LEVO — E-nduro Ebiketracks
 
-**LEVO** es una aplicación web profesional para la planificación, exploración y construcción de rutas de MTB y enduro en la comarca de **Els Ports (Morella, Castellón)**. Combina un catálogo exhaustivo de tracks reales con un constructor de rutas interactivo sobre mapa 3D, perfiles altimétricos, datos meteorológicos en tiempo real (AEMET), y guardado en la nube con autenticación OAuth.
+**LEVO** es una aplicación web profesional para la planificación, exploración y construcción de rutas de MTB y enduro en la comarca de **Els Ports (Morella, Castellón)**. Combina un catálogo exhaustivo de tracks reales con un constructor de rutas interactivo sobre mapa 3D, perfiles altimétricos, datos meteorológicos por tramos (observaciones AEMET con respaldo mundial Open-Meteo), y guardado en la nube con autenticación.
 
 **Desplegada en:** [levo-eta.vercel.app](https://levo-eta.vercel.app)
 
@@ -14,13 +14,13 @@
 | **Lenguaje** | TypeScript 5 |
 | **Mapas** | Mapbox GL JS (`outdoors-v12`) con terreno 3D (`mapbox-terrain-dem-v1`) |
 | **Mapa React** | `react-map-gl/mapbox` v8 |
-| **Autenticación** | Supabase Auth (OAuth: Google + Apple) con `@supabase/ssr` |
+| **Autenticación** | Supabase Auth (Google OAuth + enlace seguro por email; Apple al configurar credenciales) con `@supabase/ssr` |
 | **Base de datos** | Supabase PostgreSQL (RLS por usuario) |
 | **Estilos** | Tailwind CSS v4 |
 | **Iconos** | Lucide React |
 | **Geometría** | Turf.js (conexiones, intersecciones, nearest-point-on-line) |
 | **GPX** | Parseo nativo de tracks reales; exportación GPX 1.1 |
-| **Clima** | API AEMET (Agencia Estatal de Meteorología) |
+| **Clima** | AEMET OpenData + respaldo mundial Open-Meteo |
 | **Despliegue** | Vercel (Edge + Serverless) |
 
 ---
@@ -36,7 +36,7 @@
 - Búsqueda manual de localidades, puertos y senderos desde cualquier lugar
 - Trazado automático sobre caminos con perfiles MTB y e-bike, más modo manual
 - Dibujo táctil o con ratón, controles deshacer/rehacer e importación de cualquier GPX
-- Análisis AEMET triangulado por tramos, luz restante, ritmo y autonomía e-bike
+- Análisis meteorológico por distancia real, luz restante, ritmo y autonomía e-bike
 - Guardado local y en Supabase, exportación GPX y preparación de caminos offline
 - Inicio directo de navegación GPS guiada desde la ruta preparada
 
@@ -59,7 +59,8 @@ Constructor drag-free que permite al usuario **combinar tracks secuencialmente**
 - Copia local en localStorage como respaldo sin conexión
 
 ### 🔐 Autenticación
-- OAuth exclusivo: Google y Apple (sin email/contraseña)
+- Google OAuth y acceso sin contraseña mediante enlace seguro por email
+- Apple se ofrece únicamente cuando el propietario configura sus credenciales
 - Flujo PKCE con `@supabase/ssr` y cookies
 - Perfiles auto-creados al registrarse vía trigger de base de datos
 - Doble capa de protección: proxy en edge + guard server-side
@@ -216,7 +217,7 @@ Conexión detectada entre dos tracks:
 | `NEXT_PUBLIC_MAPBOX_TOKEN` | Token público de Mapbox GL JS |
 | `NEXT_PUBLIC_SUPABASE_URL` | URL del proyecto Supabase |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Clave anónima de Supabase |
-| `AEMET_API_KEY` | API key de la AEMET (meteorología) |
+| `AEMET_API_KEY` | API key de AEMET para observaciones de estaciones; si falta o falla, se usa Open-Meteo |
 | `GEOCODER_BASE_URL` | Proveedor Nominatim intercambiable; por defecto usa el servicio público de OSM con caché y límite de uso |
 | `ROUTER_BASE_URL` | Motor BRouter intercambiable para calcular caminos MTB/e-bike; por defecto usa `https://brouter.de/brouter` |
 
@@ -247,12 +248,12 @@ Abre [http://localhost:3000](http://localhost:3000) en tu navegador.
 
 ## Autenticación
 
-El sistema usa **Supabase Auth** con OAuth exclusivo (Google + Apple). No hay registro por email/contraseña.
+El sistema usa **Supabase Auth** con Google OAuth y enlaces seguros por email. Apple queda disponible cuando se configuran sus credenciales; no se muestra como operativo mientras falten.
 
 Flujo:
-1. El usuario hace clic en "Iniciar sesión con Google" o "Apple" en `/auth`
-2. Supabase redirige al proveedor OAuth
-3. El callback (`/auth/callback`) intercambia el código PKCE por una sesión
+1. El usuario elige Google o solicita un enlace seguro en `/auth`
+2. Google redirige mediante OAuth PKCE; el email devuelve un enlace de un solo uso
+3. El callback (`/auth/callback`) intercambia el código por una sesión
 4. El perfil se crea automáticamente mediante un trigger de base de datos
 5. La sesión se persiste mediante cookies gestionadas por `@supabase/ssr`
 6. Las rutas protegidas (p.ej. `/account`) verifican la sesión en edge (proxy) y server

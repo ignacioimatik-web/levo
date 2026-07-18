@@ -21,6 +21,7 @@ export interface RideMetrics {
 }
 
 export interface RideWeatherSample {
+  sourceLabel?: string;
   capturedAt: string;
   distanceM: number;
   phaseId: string;

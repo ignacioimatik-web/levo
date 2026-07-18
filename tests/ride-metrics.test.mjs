@@ -41,7 +41,13 @@ import {
   calculateRideSplits,
   calculateTerrainSummary,
 } from '../src/lib/activities/track-analysis.ts';
-import { buildRouteRidePlan } from '../src/lib/route-ride-plan.ts';
+import {
+  buildRouteRidePlan,
+} from '../src/lib/route-ride-plan.ts';
+import {
+  sampleRoutePointAtFraction,
+  sampleRoutePointsByDistance,
+} from '../src/lib/route-sampling.ts';
 import { calculateUpcomingTurn, formatTurnDistance } from '../src/lib/navigation/turns.ts';
 import {
   buildOverpassTrailQuery,
@@ -69,6 +75,7 @@ import {
   oppositeTheme,
   resolveThemePreference,
 } from '../src/lib/theme.ts';
+import { aemetWindMpsToKmh } from '../src/lib/weather-units.ts';
 
 function point({
   latitude = 40,
@@ -806,6 +813,81 @@ test('una observación antigua pesa menos en la triangulación meteorológica', 
   });
 
   assert.ok((plan.phases[0].temperatureC ?? 99) < 27);
+});
+
+test('convierte el viento observado por AEMET de m/s a km/h antes de mostrarlo', () => {
+  assert.equal(aemetWindMpsToKmh(0), 0);
+  assert.equal(aemetWindMpsToKmh(10), 36);
+  assert.equal(aemetWindMpsToKmh(12.34), 44.4);
+  assert.equal(aemetWindMpsToKmh(undefined), undefined);
+});
+
+test('la meteo por tramos sigue la distancia real aunque el GPX tenga densidad irregular', () => {
+  const points = [
+    { lat: 40, lng: -0.1, elevation: 100 },
+    { lat: 40, lng: -0.0999, elevation: 101 },
+    { lat: 40, lng: -0.0998, elevation: 102 },
+    { lat: 40, lng: 0, elevation: 200 },
+  ];
+  const halfway = sampleRoutePointAtFraction(points, 0.5);
+
+  assert.ok(halfway);
+  assert.ok(Math.abs(halfway.lng - -0.05) < 0.001);
+  assert.ok(Math.abs((halfway.elevation ?? 0) - 150) < 2);
+  const samples = sampleRoutePointsByDistance(points, 3);
+  assert.ok(Math.abs(samples[1].lng - -0.05) < 0.001);
+});
+
+test('un modelo meteorológico de respaldo no se presenta con confianza alta', () => {
+  const plan = buildRouteRidePlan({
+    points: [{ lat: 40, lng: -0.1 }, { lat: 40.05, lng: -0.1 }],
+    distanceKm: 5.6,
+    phaseCount: 3,
+    weather: {
+      source: 'open-meteo-model',
+      sourceLabel: 'Modelo Open-Meteo',
+      stationCode: 'model-1',
+      stationName: 'Modelo',
+      stationDistanceKm: 0,
+      riskLevel: 'green',
+      routeNowLabel: 'Favorable',
+      routeNowMessage: 'Estable',
+      nearbyStations: [
+        {
+          stationCode: 'model-1',
+          stationName: 'Modelo inicio',
+          distanceKm: 0,
+          latitude: 40,
+          longitude: -0.1,
+          temperatureC: 20,
+          humidityPct: 60,
+          windKmh: 10,
+          maxWindKmh: 15,
+          windDirectionDeg: 0,
+          precipitationMm: 0,
+          dataAgeMin: 5,
+        },
+        {
+          stationCode: 'model-2',
+          stationName: 'Modelo final',
+          distanceKm: 0,
+          latitude: 40.05,
+          longitude: -0.1,
+          temperatureC: 19,
+          humidityPct: 62,
+          windKmh: 12,
+          maxWindKmh: 18,
+          windDirectionDeg: 0,
+          precipitationMm: 0,
+          dataAgeMin: 5,
+        },
+      ],
+    },
+  });
+
+  assert.equal(plan.overallConfidence, 'medium');
+  assert.ok(plan.phases.every((phase) => phase.confidence === 'medium'));
+  assert.equal(plan.sourceLabel, 'Modelo Open-Meteo');
 });
 
 test('la navegación guiada detecta un giro a la derecha y su distancia', () => {

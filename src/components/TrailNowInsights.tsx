@@ -31,7 +31,6 @@ function weatherEtaFactor(weather: RouteStatusPayload['weatherNow']): number {
 }
 
 type BikeMode = 'trail' | 'enduro' | 'ebike';
-type TempSourceMode = 'nearest' | 'estimated';
 
 export default function TrailNowInsights({
   slug,
@@ -45,7 +44,6 @@ export default function TrailNowInsights({
   const [data, setData] = useState<RouteStatusPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [bikeMode, setBikeMode] = useState<BikeMode>('trail');
-  const [tempSource, setTempSource] = useState<TempSourceMode>('estimated');
   const [briefingView, setBriefingView] = useState<RideBriefingView>('basic');
   const [focusedSegmentKey, setFocusedSegmentKey] = useState<string | null>(null);
   const mounted = useSyncExternalStore(
@@ -65,18 +63,26 @@ export default function TrailNowInsights({
   const sp = useSearchParams();
 
   useEffect(() => {
+    const controller = new AbortController();
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Madrid';
-    fetch(`/api/forfait/route-status/${slug}?tz=${encodeURIComponent(tz)}`)
+    fetch(`/api/forfait/route-status/${slug}?tz=${encodeURIComponent(tz)}`, {
+      signal: controller.signal,
+    })
       .then((r) => r.json())
       .then((json) => setData(json))
-      .catch(() => setData(null))
-      .finally(() => setLoading(false));
+      .catch(() => {
+        if (!controller.signal.aborted) setData(null);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
   }, [slug]);
 
   const weather = data?.weatherNow && 'riskLevel' in data.weatherNow ? data.weatherNow : null;
   const nearestTemp = weather?.temperatureC;
   const estimatedTemp = weather?.weightedRouteTempC;
-  const shownTemp = tempSource === 'estimated' && estimatedTemp !== undefined ? estimatedTemp : nearestTemp;
+  const shownTemp = estimatedTemp ?? nearestTemp;
   const riskClass = useMemo(() => {
     if (!weather) return 'text-slate-400 border-slate-700 bg-slate-800/40';
     if (weather.riskLevel === 'red') return 'text-red-300 border-red-500/40 bg-red-500/10';
@@ -130,7 +136,7 @@ export default function TrailNowInsights({
           Estado de la ruta ahora
         </div>
         <p className="mt-2 text-sm font-semibold">{weather?.routeNowLabel ?? 'Sin conexion meteo en este momento'}</p>
-        <p className="text-xs mt-1 opacity-90">{weather?.routeNowMessage ?? 'Configura AEMET_API_KEY para activar telemetria en vivo.'}</p>
+        <p className="text-xs mt-1 opacity-90">{weather?.routeNowMessage ?? 'No hay una fuente meteorológica disponible en este momento.'}</p>
       </div>
 
       {weather && (
@@ -143,10 +149,16 @@ export default function TrailNowInsights({
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-            <Metric icon={<Mountain className="w-4 h-4" />} label="Estacion ref." value={`${weather.stationName} (${weather.stationDistanceKm} km)`} />
+            <Metric
+              icon={<Mountain className="w-4 h-4" />}
+              label={weather.source === 'open-meteo-model' ? 'Fuente meteo' : 'Estación ref.'}
+              value={weather.source === 'open-meteo-model'
+                ? weather.stationName
+                : `${weather.stationName} (${weather.stationDistanceKm} km)`}
+            />
             <Metric icon={<CloudRain className="w-4 h-4" />} label="Lluvia" value={`${weather.precipitationMm ?? 0} mm`} />
             <Metric icon={<Wind className="w-4 h-4" />} label="Viento" value={`${weather.maxWindKmh ?? weather.windKmh ?? 0} km/h`} />
-            <Metric icon={<Gauge className="w-4 h-4" />} label={tempSource === 'estimated' ? 'Temp ruta est.' : 'Temp estacion'} value={`${shownTemp ?? '--'} C`} />
+            <Metric icon={<Gauge className="w-4 h-4" />} label={estimatedTemp !== undefined ? 'Temp. ruta estimada' : 'Temperatura'} value={`${shownTemp ?? '--'} C`} />
             <Metric icon={<Gauge className="w-4 h-4" />} label="Humedad" value={`${weather.humidityPct ?? '--'} %`} />
           </div>
 
@@ -259,7 +271,6 @@ export default function TrailNowInsights({
 
               {data.safeDeadline && (() => {
                 const nowMin = mounted ? now.getHours() * 60 + now.getMinutes() : -1;
-                const sunsetMin = data.daylight.sunset.split(':').map(Number).reduce((h, m) => h * 60 + m);
                 const deadlineMin = data.safeDeadline !== 'No hay tiempo suficiente'
                   ? data.safeDeadline.split(':').map(Number).reduce((h, m) => h * 60 + m)
                   : null;
@@ -314,10 +325,6 @@ export default function TrailNowInsights({
             const typeColor = s.type === 'climb' ? 'bg-black text-white border-black/40' : s.type === 'descent' ? 'bg-red-500/20 text-red-300 border-red-500/40' : 'bg-amber-500/20 text-amber-300 border-amber-500/40';
             const typeLabel = s.type === 'climb' ? 'Subida' : s.type === 'descent' ? 'Bajada' : 'Transición';
             const arrow = s.type === 'climb' ? '\u2197' : s.type === 'descent' ? '\u2198' : '\u2192';
-            const slopeAbs = Math.abs(s.avgSlopePct);
-            const slopeBarPct = Math.min(slopeAbs / 25 * 100, 100);
-            const slopeColor = s.type === 'climb' ? 'bg-green-500' : s.type === 'descent' ? 'bg-red-500' : 'bg-amber-400';
-
             return (
               <div key={s.id} className="bg-slate-900/50 border border-white/5 rounded-xl overflow-hidden hover:border-white/20 transition-colors">
                 <div className="p-4 pb-3">
@@ -501,34 +508,9 @@ export default function TrailNowInsights({
             ))}
           </tbody>
         </table>
-        <p className="text-[10px] mt-3 opacity-80">Nota: ETA ajustada con telemetria meteo en tiempo real (AEMET) para apoyo a la decision, no sustituye juicio en campo.</p>
+        <p className="text-[10px] mt-3 opacity-80">Nota: ETA ajustada con la mejor fuente meteorológica disponible para apoyar la decisión; no sustituye el juicio en campo.</p>
       </div>
       </div>
-    </div>
-  );
-}
-
-function MiniProfile({ segments }: { segments: NonNullable<RouteStatusPayload['profile']>['segments'] }) {
-  if (!segments.length) {
-    return <div className="text-xs text-slate-500">Sin segmentos suficientes para perfil resumido.</div>;
-  }
-
-  const maxAbs = Math.max(...segments.map((s) => Math.abs(s.elevationDeltaM)), 1);
-  return (
-    <div className="space-y-1.5">
-      {segments.slice(0, 16).map((s) => {
-        const width = Math.max(8, Math.round((Math.abs(s.elevationDeltaM) / maxAbs) * 100));
-        const color = s.type === 'climb' ? 'bg-green-500/70' : s.type === 'descent' ? 'bg-red-500/70' : 'bg-slate-500/60';
-        return (
-          <div key={s.id} className="flex items-center gap-2">
-            <span className="w-16 text-[10px] text-slate-500">km {s.startKm}</span>
-            <div className="flex-1 h-2 bg-slate-800 rounded overflow-hidden">
-              <div className={`h-full ${color}`} style={{ width: `${width}%` }} />
-            </div>
-            <span className="w-16 text-right text-[10px] text-slate-300">{s.elevationDeltaM > 0 ? '+' : ''}{s.elevationDeltaM} m</span>
-          </div>
-        );
-      })}
     </div>
   );
 }
