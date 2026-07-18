@@ -34,7 +34,8 @@
 
 ### 🧭 Planificador universal (`/planifica`)
 - Búsqueda manual de localidades, puertos y senderos desde cualquier lugar
-- Dibujo táctil o con ratón e importación de cualquier GPX
+- Trazado automático sobre caminos con perfiles MTB y e-bike, más modo manual
+- Dibujo táctil o con ratón, controles deshacer/rehacer e importación de cualquier GPX
 - Análisis AEMET triangulado por tramos, luz restante, ritmo y autonomía e-bike
 - Guardado local y en Supabase, exportación GPX y preparación de caminos offline
 - Inicio directo de navegación GPS guiada desde la ruta preparada
@@ -217,6 +218,7 @@ Conexión detectada entre dos tracks:
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Clave anónima de Supabase |
 | `AEMET_API_KEY` | API key de la AEMET (meteorología) |
 | `GEOCODER_BASE_URL` | Proveedor Nominatim intercambiable; por defecto usa el servicio público de OSM con caché y límite de uso |
+| `ROUTER_BASE_URL` | Motor BRouter intercambiable para calcular caminos MTB/e-bike; por defecto usa `https://brouter.de/brouter` |
 
 ---
 

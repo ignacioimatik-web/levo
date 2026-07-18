@@ -25,10 +25,12 @@ function routeFeature(points: PlannedRoutePoint[]) {
 
 export default function UniversalRouteMap({
   points,
+  controlPoints,
   drawing,
   onAddPoint,
 }: {
   points: PlannedRoutePoint[];
+  controlPoints: PlannedRoutePoint[];
   drawing: boolean;
   onAddPoint: (point: PlannedRoutePoint) => void;
 }) {
@@ -111,16 +113,31 @@ export default function UniversalRouteMap({
           />
         </Source>
       )}
-      {points[0] && (
-        <Marker longitude={points[0].longitude} latitude={points[0].latitude} anchor="center">
-          <span className="grid h-6 w-6 place-items-center rounded-full border-[3px] border-white bg-emerald-500 text-[8px] font-black text-slate-950 shadow-xl" aria-label="Inicio">A</span>
-        </Marker>
-      )}
-      {points.length > 1 && (
-        <Marker longitude={points.at(-1)!.longitude} latitude={points.at(-1)!.latitude} anchor="center">
-          <span className="grid h-6 w-6 place-items-center rounded-full border-[3px] border-white bg-orange-500 text-[8px] font-black text-slate-950 shadow-xl" aria-label="Final">B</span>
-        </Marker>
-      )}
+      {controlPoints.map((point, index) => {
+        const first = index === 0;
+        const last = index === controlPoints.length - 1;
+        return (
+          <Marker
+            key={`${point.longitude}-${point.latitude}-${index}`}
+            longitude={point.longitude}
+            latitude={point.latitude}
+            anchor="center"
+          >
+            <span
+              className={`grid place-items-center rounded-full border-[3px] border-white font-black text-slate-950 shadow-xl ${
+                first
+                  ? 'h-7 w-7 bg-emerald-500 text-[9px]'
+                  : last
+                    ? 'h-7 w-7 bg-orange-500 text-[9px]'
+                    : 'h-5 w-5 bg-blue-400 text-[7px]'
+              }`}
+              aria-label={first ? 'Inicio' : last ? 'Final' : `Control ${index + 1}`}
+            >
+              {first ? 'A' : last ? 'B' : index + 1}
+            </span>
+          </Marker>
+        );
+      })}
       <NavigationControl position="top-right" showCompass visualizePitch />
       <GeolocateControl
         position="top-right"

@@ -54,6 +54,10 @@ import {
   selectCurrentWeatherPhase,
 } from '../src/lib/navigation/live-ride-conditions.ts';
 import {
+  normalizeBRouterResponse,
+  routerProfileForMode,
+} from '../src/lib/navigation/routing.ts';
+import {
   matchCompetitiveSegments,
   personalSegmentBests,
 } from '../src/lib/segments/matcher.ts';
@@ -963,4 +967,65 @@ test('normaliza resultados geográficos y descarta coordenadas inválidas o dupl
     type: 'town',
     boundingBox: [-0.12, 40.6, -0.08, 40.64],
   }]);
+});
+
+test('normaliza una ruta BRouter conservando geometría, altitud y métricas', () => {
+  const route = normalizeBRouterResponse({
+    type: 'FeatureCollection',
+    features: [{
+      type: 'Feature',
+      properties: {
+        'track-length': '2706',
+        'filtered ascend': '42',
+        'total-time': '584',
+      },
+      geometry: {
+        type: 'LineString',
+        coordinates: [
+          [-0.0998, 40.6188, 965],
+          [-0.098, 40.62, 970],
+          [-0.088, 40.625, 915],
+        ],
+      },
+    }],
+  }, 'mtb');
+
+  assert.equal(route?.points.length, 3);
+  assert.equal(route?.points[0].elevation, 965);
+  assert.equal(route?.distanceM, 2706);
+  assert.equal(route?.elevationGainM, 42);
+  assert.equal(route?.estimatedSeconds, 584);
+  assert.equal(route?.profile, 'mtb');
+});
+
+test('asigna perfiles de caminos distintos a MTB, e-bike y trazado manual', () => {
+  assert.equal(routerProfileForMode('mtb'), 'mtb');
+  assert.equal(routerProfileForMode('ebike'), 'trekking');
+  assert.equal(routerProfileForMode('manual'), null);
+});
+
+test('acota una geometría de enrutado enorme sin perder inicio ni final', () => {
+  const coordinates = Array.from({ length: 5_501 }, (_, index) => [
+    -0.1 + index * 0.000001,
+    40 + index * 0.000001,
+    900 + index * 0.01,
+  ]);
+  const route = normalizeBRouterResponse({
+    features: [{
+      geometry: { type: 'LineString', coordinates },
+      properties: {},
+    }],
+  }, 'trekking');
+
+  assert.equal(route?.points.length, 5_000);
+  assert.deepEqual(route?.points[0], {
+    longitude: coordinates[0][0],
+    latitude: coordinates[0][1],
+    elevation: coordinates[0][2],
+  });
+  assert.deepEqual(route?.points.at(-1), {
+    longitude: coordinates.at(-1)[0],
+    latitude: coordinates.at(-1)[1],
+    elevation: coordinates.at(-1)[2],
+  });
 });

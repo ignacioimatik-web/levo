@@ -4,7 +4,7 @@ import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   CloudDownload, CloudSun, Download, Eraser, FileUp, LocateFixed, Navigation,
-  FolderOpen, Redo2, Save, Trash2, Undo2,
+  FolderOpen, Mountain, PenLine, Redo2, Save, Trash2, Undo2, Zap,
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import RouteRideBriefing, {
@@ -15,7 +15,13 @@ import { parseNavigationGpx } from '@/lib/navigation/gpx';
 import {
   deletePlannedRoute, getPlannedRoutes, savePlannedRoute,
 } from '@/lib/navigation/storage';
-import type { PlannedRoute, PlannedRoutePoint } from '@/lib/navigation/types';
+import type {
+  PlannedRoute, PlannedRoutePoint, RoutePlanningMode,
+} from '@/lib/navigation/types';
+import {
+  routerProfileForMode,
+  type RoutedPath,
+} from '@/lib/navigation/routing';
 import {
   deleteOfflineMapPackage,
   listOfflineMapPackages,
@@ -152,10 +158,15 @@ export default function UniversalRoutePlanner({
   initialRouteName,
 }: UniversalRoutePlannerProps) {
   const initialGpxLoaded = useRef(false);
+  const routingInFlight = useRef(false);
   const [routeId, setRouteId] = useState(() => crypto.randomUUID());
   const [name, setName] = useState('Mi ruta MTB');
   const [points, setPoints] = useState<PlannedRoutePoint[]>([]);
-  const [redoPoints, setRedoPoints] = useState<PlannedRoutePoint[]>([]);
+  const [waypoints, setWaypoints] = useState<PlannedRoutePoint[]>([]);
+  const [redoWaypoints, setRedoWaypoints] = useState<PlannedRoutePoint[]>([]);
+  const [routeMode, setRouteMode] = useState<RoutePlanningMode>('mtb');
+  const [routeStatus, setRouteStatus] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [routingEstimate, setRoutingEstimate] = useState<RoutedPath | null>(null);
   const [drawing, setDrawing] = useState(true);
   const [analysis, setAnalysis] = useState<RouteStatusPayload | null>(null);
   const [analysisStatus, setAnalysisStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
@@ -204,7 +215,11 @@ export default function UniversalRoutePlanner({
         setRouteId(route.id);
         setName(initialRouteName?.trim() || route.name);
         setPoints(route.points);
-        setRedoPoints([]);
+        setWaypoints(route.points);
+        setRedoWaypoints([]);
+        setRouteMode('manual');
+        setRouteStatus('idle');
+        setRoutingEstimate(null);
         setAnalysis(null);
         setAnalysisStatus('idle');
         setOfflineStatus('idle');
@@ -228,10 +243,92 @@ export default function UniversalRoutePlanner({
     setOfflineMessage('');
   };
 
-  const addPoint = (point: PlannedRoutePoint) => {
-    setPoints((current) => [...current, point]);
-    setRedoPoints([]);
+  const calculateRoutedPath = async (
+    controlPoints: PlannedRoutePoint[],
+    mode: RoutePlanningMode,
+  ): Promise<RoutedPath | null> => {
+    const profile = routerProfileForMode(mode);
+    if (!profile || controlPoints.length < 2) return null;
+    const response = await fetch('/api/route-path', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ points: controlPoints, profile }),
+    });
+    const payload = await response.json() as { route?: RoutedPath; error?: string };
+    if (!response.ok || !payload.route?.points?.length) {
+      throw new Error(payload.error || 'No se encontró un camino ciclable entre esos puntos.');
+    }
+    return payload.route;
+  };
+
+  const applyWaypoints = async (
+    nextWaypoints: PlannedRoutePoint[],
+    mode = routeMode,
+  ): Promise<boolean> => {
+    if (mode === 'manual' || nextWaypoints.length < 2) {
+      setWaypoints(nextWaypoints);
+      setPoints(nextWaypoints);
+      setRouteStatus('idle');
+      setRoutingEstimate(null);
+      return true;
+    }
+    if (routingInFlight.current) return false;
+    routingInFlight.current = true;
+    setRouteStatus('loading');
+    setError('');
+    try {
+      const routedPath = await calculateRoutedPath(nextWaypoints, mode);
+      if (!routedPath) throw new Error('El motor no devolvió un camino.');
+      setWaypoints(nextWaypoints);
+      setPoints(routedPath.points);
+      setRoutingEstimate(routedPath);
+      setRouteStatus('idle');
+      routingInFlight.current = false;
+      return true;
+    } catch (routeError) {
+      setRouteStatus('error');
+      setError(routeError instanceof Error ? routeError.message : 'No se pudo calcular el camino.');
+      routingInFlight.current = false;
+      return false;
+    }
+  };
+
+  const addPoint = async (point: PlannedRoutePoint) => {
+    if (routingInFlight.current) return;
+    const changed = await applyWaypoints([...waypoints, point]);
+    if (!changed) return;
+    setRedoWaypoints([]);
     invalidateAnalysis();
+  };
+
+  const undoPoint = async () => {
+    const removed = waypoints.at(-1);
+    if (!removed || routingInFlight.current) return;
+    const changed = await applyWaypoints(waypoints.slice(0, -1));
+    if (!changed) return;
+    setRedoWaypoints((redo) => [...redo, removed]);
+    invalidateAnalysis();
+  };
+
+  const redoPoint = async () => {
+    const restored = redoWaypoints.at(-1);
+    if (!restored || routingInFlight.current) return;
+    const changed = await applyWaypoints([...waypoints, restored]);
+    if (!changed) return;
+    setRedoWaypoints((redo) => redo.slice(0, -1));
+    invalidateAnalysis();
+  };
+
+  const changeRouteMode = (mode: RoutePlanningMode) => {
+    if (routingInFlight.current) return;
+    if (waypoints.length > 1) {
+      setError('Borra la ruta actual antes de cambiar el tipo de trazado.');
+      return;
+    }
+    setRouteMode(mode);
+    setRouteStatus('idle');
+    setRoutingEstimate(null);
+    setError('');
   };
 
   const analyze = async (routePoints = points, routeName = name) => {
@@ -272,7 +369,11 @@ export default function UniversalRoutePlanner({
       setRouteId(route.id);
       setName(route.name);
       setPoints(route.points);
-      setRedoPoints([]);
+      setWaypoints(route.points);
+      setRedoWaypoints([]);
+      setRouteMode('manual');
+      setRouteStatus('idle');
+      setRoutingEstimate(null);
       setSaveStatus('');
       setOfflineStatus('idle');
       setOfflineMessage('');
@@ -290,12 +391,20 @@ export default function UniversalRoutePlanner({
     trackIds: [],
     distanceKm: analysis?.profile?.distanceKm ?? metrics.distanceKm,
     elevationGainM: analysis?.profile?.gainM ?? metrics.gainM,
-    estimatedTimeMin: Math.max(1, Math.round((analysis?.profile?.distanceKm ?? metrics.distanceKm) / 12 * 60)),
+    estimatedTimeMin: Math.max(1, Math.round(
+      analysis?.profile
+        ? analysis.profile.distanceKm / (routeMode === 'ebike' ? 16 : 12) * 60
+        : routingEstimate?.estimatedSeconds
+          ? routingEstimate.estimatedSeconds / 60
+          : metrics.distanceKm / (routeMode === 'ebike' ? 16 : 12) * 60,
+    )),
     difficulty: 'personalizada',
     warnings: [
       'Ruta creada por el usuario: comprueba permisos de paso, estado del terreno y posibles cierres.',
     ],
     points,
+    controlPoints: routeMode === 'manual' ? undefined : waypoints,
+    routingMode: routeMode,
     createdAt: new Date().toISOString(),
   });
 
@@ -331,10 +440,15 @@ export default function UniversalRoutePlanner({
   };
 
   const loadLibraryRoute = (route: PlannedRoute) => {
+    const storedMode = route.routingMode && route.controlPoints ? route.routingMode : 'manual';
     setRouteId(route.id);
     setName(route.name);
     setPoints(route.points);
-    setRedoPoints([]);
+    setWaypoints(route.controlPoints ?? route.points);
+    setRedoWaypoints([]);
+    setRouteMode(storedMode);
+    setRouteStatus('idle');
+    setRoutingEstimate(null);
     setAnalysis(null);
     setAnalysisStatus('idle');
     setError('');
@@ -449,45 +563,76 @@ export default function UniversalRoutePlanner({
 
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
           <section className="overflow-hidden rounded-3xl border border-white/10 bg-slate-900/50">
+            <div className="grid grid-cols-3 gap-1.5 border-b border-white/10 bg-slate-950/35 p-2 sm:flex sm:gap-2 sm:p-3">
+              {([
+                ['mtb', 'MTB sendero', Mountain],
+                ['ebike', 'E-bike', Zap],
+                ['manual', 'Manual', PenLine],
+              ] as const).map(([mode, label, Icon]) => (
+                <button
+                  key={mode}
+                  type="button"
+                  aria-pressed={routeMode === mode}
+                  disabled={routeStatus === 'loading'}
+                  onClick={() => changeRouteMode(mode)}
+                  className={`flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-2 text-[9px] font-black uppercase disabled:opacity-50 sm:px-4 sm:text-[10px] ${
+                    routeMode === mode
+                      ? 'bg-blue-500 text-white'
+                      : 'border border-white/10 bg-slate-950 text-slate-400'
+                  }`}
+                >
+                  <Icon className="h-4 w-4" /> {label}
+                </button>
+              ))}
+              <p className="col-span-3 self-center px-2 text-center text-[9px] text-slate-500 sm:ml-auto sm:text-right">
+                {routeMode === 'manual'
+                  ? 'Une puntos directamente'
+                  : routeMode === 'mtb'
+                    ? 'Prioriza pistas y senderos ciclables'
+                    : 'Trazado ciclable equilibrado para e-bike'}
+              </p>
+            </div>
             <div className="flex flex-wrap items-center gap-2 border-b border-white/10 p-3">
               <button type="button" aria-pressed={drawing} onClick={() => setDrawing((value) => !value)}
                 className={`min-h-11 rounded-xl px-4 text-[10px] font-black uppercase ${drawing ? 'bg-orange-500 text-white' : 'bg-slate-950 text-slate-400'}`}>
                 {drawing ? 'Dibujando' : 'Explorar mapa'}
               </button>
-              <button type="button" disabled={points.length === 0} onClick={() => {
-                setPoints((current) => {
-                  const removed = current.at(-1);
-                  if (removed) setRedoPoints((redo) => [...redo, removed]);
-                  return current.slice(0, -1);
-                });
-                invalidateAnalysis();
-              }} className="grid h-11 w-11 place-items-center rounded-xl bg-slate-950 text-slate-400 disabled:opacity-30" aria-label="Deshacer punto">
+              <button type="button" disabled={waypoints.length === 0 || routeStatus === 'loading'} onClick={() => {
+                void undoPoint();
+              }} className="grid h-11 w-11 place-items-center rounded-xl bg-slate-950 text-slate-400 disabled:opacity-30" aria-label="Deshacer punto de control">
                 <Undo2 className="h-4 w-4" />
               </button>
-              <button type="button" disabled={redoPoints.length === 0} onClick={() => {
-                setRedoPoints((redo) => {
-                  const restored = redo.at(-1);
-                  if (restored) setPoints((current) => [...current, restored]);
-                  return redo.slice(0, -1);
-                });
-                invalidateAnalysis();
-              }} className="grid h-11 w-11 place-items-center rounded-xl bg-slate-950 text-slate-400 disabled:opacity-30" aria-label="Rehacer punto">
+              <button type="button" disabled={redoWaypoints.length === 0 || routeStatus === 'loading'} onClick={() => {
+                void redoPoint();
+              }} className="grid h-11 w-11 place-items-center rounded-xl bg-slate-950 text-slate-400 disabled:opacity-30" aria-label="Rehacer punto de control">
                 <Redo2 className="h-4 w-4" />
               </button>
-              <button type="button" disabled={points.length === 0} onClick={() => {
+              <button type="button" disabled={points.length === 0 || routeStatus === 'loading'} onClick={() => {
                 setPoints([]);
-                setRedoPoints([]);
+                setWaypoints([]);
+                setRedoWaypoints([]);
+                setRouteStatus('idle');
+                setRoutingEstimate(null);
                 setRouteId(crypto.randomUUID());
                 invalidateAnalysis();
               }} className="grid h-11 w-11 place-items-center rounded-xl bg-slate-950 text-red-400 disabled:opacity-30" aria-label="Borrar ruta">
                 <Eraser className="h-4 w-4" />
               </button>
               <p className="ml-auto text-[10px] text-slate-500">
-                {drawing ? 'Toca el mapa para añadir puntos' : 'Arrastra, gira y amplía con los dedos'}
+                {routeStatus === 'loading'
+                  ? 'Calculando camino…'
+                  : drawing
+                    ? 'Toca el mapa para añadir controles'
+                    : 'Arrastra, gira y amplía con los dedos'}
               </p>
             </div>
             <div className="h-[52svh] min-h-[340px] max-h-[720px]">
-              <UniversalRouteMap points={points} drawing={drawing} onAddPoint={addPoint} />
+              <UniversalRouteMap
+                points={points}
+                controlPoints={waypoints}
+                drawing={drawing && routeStatus !== 'loading'}
+                onAddPoint={(point) => { void addPoint(point); }}
+              />
             </div>
           </section>
 
@@ -502,10 +647,17 @@ export default function UniversalRoutePlanner({
             <div className="grid grid-cols-3 gap-2">
               <Metric label="Distancia" value={`${metrics.distanceKm.toFixed(1)} km`} />
               <Metric label="Desnivel +" value={metrics.gainM > 0 ? `${Math.round(metrics.gainM)} m` : '—'} />
-              <Metric label="Puntos" value={String(points.length)} />
+              <Metric label="Controles" value={String(waypoints.length)} />
             </div>
             <p className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-3 text-[10px] leading-relaxed text-slate-400">
-              El dibujo une puntos directamente: marca los cambios del sendero con suficiente detalle. Para máxima fidelidad y altitud, importa un GPX grabado o preparado.
+              {routeMode === 'manual'
+                ? 'Modo manual: une puntos directamente. Marca cada cambio del sendero o importa un GPX para máxima fidelidad.'
+                : 'BRouter sigue la red ciclable de OpenStreetMap y añade altitud. Revisa siempre acceso, firme, dificultad y cierres antes de salir.'}
+              {routeMode !== 'manual' && (
+                <span className="mt-1 block text-slate-500">
+                  Los controles se procesan mediante nuestro servidor; BRouter recibe coordenadas, no tu cuenta.
+                </span>
+              )}
             </p>
             {error && <p role="alert" className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-300">{error}</p>}
             <button type="button" onClick={() => { void analyze(); }} disabled={points.length < 2 || analysisStatus === 'loading'}

@@ -5,6 +5,8 @@ export interface PlannedRoutePoint {
   referenceElapsedSeconds?: number;
 }
 
+export type RoutePlanningMode = 'mtb' | 'ebike' | 'manual';
+
 export interface PlannedRoute {
   id: string;
   name: string;
@@ -15,7 +17,9 @@ export interface PlannedRoute {
   difficulty: string;
   warnings: string[];
   points: PlannedRoutePoint[];
+  controlPoints?: PlannedRoutePoint[];
   createdAt: string;
+  routingMode?: RoutePlanningMode;
   reference?: {
     activityId: string;
     title: string;
