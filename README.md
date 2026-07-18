@@ -2,7 +2,7 @@
 
 **LEVO** es una aplicación web profesional para la planificación, exploración y construcción de rutas de MTB y enduro en la comarca de **Els Ports (Morella, Castellón)**. Combina un catálogo exhaustivo de tracks reales con un constructor de rutas interactivo sobre mapa 3D, perfiles altimétricos, datos meteorológicos en tiempo real (AEMET), y guardado en la nube con autenticación OAuth.
 
-**Desplegada en:** [levo-seven.vercel.app](https://levo-seven.vercel.app)
+**Desplegada en:** [levo-eta.vercel.app](https://levo-eta.vercel.app)
 
 ---
 
@@ -31,6 +31,13 @@
 - Catálogo de **29 tracks reales** en GPX, distribuidos en 5 sectores
 - Filtros combinados: dificultad, estado, tipo de track, exigencia técnica/física, distancia, apto e-bike, apto lluvia
 - Vistas de detalle por track: perfil de elevación, segmentos (subida/bajada/llano), mapa topográfico, descarga GPX
+
+### 🧭 Planificador universal (`/planifica`)
+- Búsqueda manual de localidades, puertos y senderos desde cualquier lugar
+- Dibujo táctil o con ratón e importación de cualquier GPX
+- Análisis AEMET triangulado por tramos, luz restante, ritmo y autonomía e-bike
+- Guardado local y en Supabase, exportación GPX y preparación de caminos offline
+- Inicio directo de navegación GPS guiada desde la ruta preparada
 
 ### 🏔️ Forfait MTB — Constructor de rutas (`/forfait`)
 Constructor drag-free que permite al usuario **combinar tracks secuencialmente** para crear una ruta personalizada:
@@ -209,6 +216,7 @@ Conexión detectada entre dos tracks:
 | `NEXT_PUBLIC_SUPABASE_URL` | URL del proyecto Supabase |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Clave anónima de Supabase |
 | `AEMET_API_KEY` | API key de la AEMET (meteorología) |
+| `GEOCODER_BASE_URL` | Proveedor Nominatim intercambiable; por defecto usa el servicio público de OSM con caché y límite de uso |
 
 ---
 

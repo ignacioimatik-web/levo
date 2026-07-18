@@ -30,6 +30,7 @@ import {
   notificationMessage,
   notificationRelativeTime,
 } from '../src/lib/social/notifications.ts';
+import { normalizeGeocodingResults } from '../src/lib/geocoding.ts';
 import {
   buildBatteryModel,
   predictBatteryForRoute,
@@ -932,4 +933,34 @@ test('el margen de luz usa el ritmo real y avisa si no alcanza para terminar', (
 test('la hora de ocaso se calcula con la hora local del dispositivo', () => {
   assert.equal(minutesUntilClockTime(new Date(2026, 0, 1, 18, 10), '19:25'), 75);
   assert.equal(minutesUntilClockTime(new Date(2026, 0, 1, 20, 10), '19:25'), -45);
+});
+
+test('normaliza resultados geográficos y descarta coordenadas inválidas o duplicadas', () => {
+  const results = normalizeGeocodingResults([
+    {
+      place_id: 1,
+      display_name: 'Morella, Castelló, España',
+      lat: '40.6199',
+      lon: '-0.0989',
+      addresstype: 'town',
+      boundingbox: ['40.60', '40.64', '-0.12', '-0.08'],
+    },
+    {
+      place_id: 2,
+      display_name: 'Duplicado',
+      lat: '40.6199001',
+      lon: '-0.0989001',
+    },
+    { place_id: 3, display_name: 'Coordenada imposible', lat: '140', lon: '0' },
+    { place_id: 4, display_name: '', lat: '40', lon: '-1' },
+  ]);
+
+  assert.deepEqual(results, [{
+    id: '1',
+    name: 'Morella, Castelló, España',
+    latitude: 40.6199,
+    longitude: -0.0989,
+    type: 'town',
+    boundingBox: [-0.12, 40.6, -0.08, 40.64],
+  }]);
 });

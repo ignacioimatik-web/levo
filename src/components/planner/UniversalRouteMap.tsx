@@ -7,6 +7,8 @@ import Map, {
 import type { MapRef } from 'react-map-gl/maplibre';
 import { Layers3 } from 'lucide-react';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import PlaceSearch from '@/components/planner/PlaceSearch';
+import type { GeocodingResult } from '@/lib/geocoding';
 import type { PlannedRoutePoint } from '@/lib/navigation/types';
 import { OPEN_MAP_STYLES } from '@/lib/open-map-styles';
 
@@ -33,6 +35,32 @@ export default function UniversalRouteMap({
   const mapRef = useRef<MapRef>(null);
   const [styleIndex, setStyleIndex] = useState(0);
   const route = useMemo(() => routeFeature(points), [points]);
+
+  const showPlace = (result: GeocodingResult) => {
+    if (result.boundingBox) {
+      const [west, south, east, north] = result.boundingBox;
+      mapRef.current?.fitBounds([[west, south], [east, north]], {
+        padding: 72,
+        duration: 650,
+        maxZoom: 15,
+      });
+      return;
+    }
+    mapRef.current?.flyTo({
+      center: [result.longitude, result.latitude],
+      zoom: 13,
+      duration: 650,
+    });
+  };
+
+  const usePlaceAsPoint = (result: GeocodingResult) => {
+    showPlace(result);
+    onAddPoint({
+      latitude: result.latitude,
+      longitude: result.longitude,
+      elevation: null,
+    });
+  };
 
   useEffect(() => {
     if (!mapRef.current || points.length < 2) return;
@@ -101,6 +129,9 @@ export default function UniversalRouteMap({
       />
       <FullscreenControl position="top-right" />
       </Map>
+      <div className="pointer-events-none absolute left-3 top-3 z-10">
+        <PlaceSearch onSelect={showPlace} onUseAsStart={usePlaceAsPoint} />
+      </div>
       <button
         type="button"
         aria-label={`Mapa ${OPEN_MAP_STYLES[styleIndex].label}. Cambiar estilo`}
