@@ -77,7 +77,9 @@ import {
   sampleOfflineRoute,
 } from '../src/lib/navigation/offline-map-data.ts';
 import {
+  buildLiveConditionAlert,
   deriveLiveRideConditions,
+  findUpcomingWeatherHazard,
   minutesUntilClockTime,
   selectCurrentWeatherPhase,
 } from '../src/lib/navigation/live-ride-conditions.ts';
@@ -1275,6 +1277,99 @@ test('el margen de luz usa el ritmo real y avisa si no alcanza para terminar', (
 test('la hora de ocaso se calcula con la hora local del dispositivo', () => {
   assert.equal(minutesUntilClockTime(new Date(2026, 0, 1, 18, 10), '19:25'), 75);
   assert.equal(minutesUntilClockTime(new Date(2026, 0, 1, 20, 10), '19:25'), -45);
+});
+
+test('anticipa el primer tramo meteorológico sensible dentro de cinco kilómetros', () => {
+  const phases = [
+    { id: 'W1', fromKm: 0, toKm: 2, centerKm: 1, riskLevel: 'green' },
+    { id: 'W2', fromKm: 2, toKm: 4, centerKm: 3, riskLevel: 'yellow' },
+    { id: 'W3', fromKm: 4, toKm: 6, centerKm: 5, riskLevel: 'red' },
+  ];
+  const hazard = findUpcomingWeatherHazard(phases, 1.25);
+  assert.equal(hazard?.phase.id, 'W2');
+  assert.equal(hazard?.distanceM, 750);
+  assert.equal(findUpcomingWeatherHazard(phases, 6.1), null);
+});
+
+test('genera una alerta preventiva antes de entrar en un tramo rojo', () => {
+  const common = {
+    routeBearingDeg: 0,
+    temperatureC: 20,
+    humidityPct: 55,
+    windKmh: 12,
+    maxWindKmh: 18,
+    precipitationMm: 0,
+    windEffect: 'headwind',
+    confidence: 'high',
+    nearestStationKm: 4,
+    stationCount: 3,
+  };
+  const summary = deriveLiveRideConditions({
+    phases: [
+      {
+        ...common,
+        id: 'W1',
+        fromKm: 0,
+        toKm: 2,
+        centerKm: 1,
+        feelLabel: 'sensación neutra',
+        riskLevel: 'green',
+      },
+      {
+        ...common,
+        id: 'W2',
+        fromKm: 2,
+        toKm: 4,
+        centerKm: 3,
+        maxWindKmh: 48,
+        feelLabel: 'viento lateral fuerte',
+        riskLevel: 'red',
+      },
+    ],
+    completedM: 500,
+    remainingM: 3_500,
+    averageSpeedKmh: 14,
+    movingSeconds: 900,
+    sportType: 'ebike',
+  });
+  const alert = buildLiveConditionAlert(summary);
+  assert.equal(alert?.key, 'weather:W2:red');
+  assert.equal(alert?.risk, 'red');
+  assert.match(alert?.message ?? '', /1.5 kilómetros/i);
+  assert.match(alert?.message ?? '', /viento lateral fuerte/i);
+});
+
+test('la alerta de falta de luz tiene prioridad sobre la meteo próxima', () => {
+  const summary = deriveLiveRideConditions({
+    phases: [{
+      id: 'W1',
+      fromKm: 0,
+      toKm: 10,
+      centerKm: 5,
+      routeBearingDeg: 0,
+      temperatureC: 20,
+      humidityPct: 55,
+      windKmh: 30,
+      maxWindKmh: 35,
+      precipitationMm: 0,
+      windEffect: 'crosswind',
+      confidence: 'high',
+      nearestStationKm: 4,
+      stationCount: 3,
+      feelLabel: 'viento lateral',
+      riskLevel: 'yellow',
+    }],
+    daylight: { sunset: '19:00' },
+    completedM: 1_000,
+    remainingM: 8_000,
+    averageSpeedKmh: 8,
+    movingSeconds: 900,
+    sportType: 'mtb',
+    now: new Date(2026, 0, 1, 18, 30),
+  });
+  const alert = buildLiveConditionAlert(summary);
+  assert.equal(alert?.key, 'light:red');
+  assert.match(alert?.message ?? '', /ocaso/i);
 });
 
 test('normaliza resultados geográficos y descarta coordenadas inválidas o duplicadas', () => {

@@ -7,8 +7,9 @@ import {
 import type { RidePoint, RideWeatherSample, SportType } from '@/lib/activities/types';
 import type { RideDisplayMode } from '@/lib/activities/display-mode';
 import {
-  deriveLiveRideConditions,
+  buildLiveConditionAlert, deriveLiveRideConditions,
 } from '@/lib/navigation/live-ride-conditions';
+import type { LiveRideConditionAlert } from '@/lib/navigation/live-ride-conditions';
 import type { PlannedRoutePoint } from '@/lib/navigation/types';
 import type { RouteStatusPayload } from '@/lib/route-status';
 
@@ -38,6 +39,11 @@ function formatMinutes(minutes: number | null): string {
   return minutes < 0 ? `-${value}` : value;
 }
 
+function formatDistance(distanceM: number): string {
+  if (distanceM < 1_000) return `${Math.max(0, Math.round(distanceM / 50) * 50)} m`;
+  return `${(distanceM / 1_000).toFixed(1)} km`;
+}
+
 export default function LiveRideConditions({
   active,
   routeId,
@@ -50,6 +56,7 @@ export default function LiveRideConditions({
   sportType,
   displayMode,
   onSample,
+  onAlert,
 }: {
   active: boolean;
   routeId?: string;
@@ -62,6 +69,7 @@ export default function LiveRideConditions({
   sportType: SportType;
   displayMode: RideDisplayMode;
   onSample?: (sample: RideWeatherSample) => void;
+  onAlert?: (alert: LiveRideConditionAlert) => void;
 }) {
   const [payload, setPayload] = useState<RouteStatusPayload | null>(null);
   const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'offline' | 'error'>('idle');
@@ -69,6 +77,7 @@ export default function LiveRideConditions({
   const latestInput = useRef({ routeId, routeName, routePoints });
   const lastFetchAt = useRef(0);
   const lastSampleKey = useRef('');
+  const lastAlertKey = useRef('');
   const requestRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -161,8 +170,21 @@ export default function LiveRideConditions({
     });
   }, [completedM, onSample, payload?.ridePlan?.sourceLabel, summary, updatedAt]);
 
+  useEffect(() => {
+    if (!onAlert || !updatedAt) return;
+    const alert = buildLiveConditionAlert(summary);
+    if (!alert) {
+      lastAlertKey.current = '';
+      return;
+    }
+    if (lastAlertKey.current === alert.key) return;
+    lastAlertKey.current = alert.key;
+    onAlert(alert);
+  }, [onAlert, summary, updatedAt]);
+
   if (!active) return null;
   const phase = summary.phase;
+  const upcomingHazard = summary.upcomingHazard;
   const riskClasses = summary.overallRisk === 'red'
     ? 'border-red-500/30 bg-red-500/10'
     : summary.overallRisk === 'yellow'
@@ -226,6 +248,29 @@ export default function LiveRideConditions({
         {summary.overallRisk !== 'green' && <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />}
         {phase?.feelLabel ? `${phase.feelLabel}. ` : ''}{summary.recommendation}
       </p>
+
+      {upcomingHazard && upcomingHazard.distanceM > 0 && (
+        <div className={`mt-3 flex items-start gap-2 rounded-xl border p-3 ${
+          upcomingHazard.phase.riskLevel === 'red'
+            ? 'border-red-500/25 bg-red-500/10 text-red-200'
+            : 'border-amber-500/25 bg-amber-500/10 text-amber-200'
+        }`}>
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div>
+            <p className="text-[9px] font-black uppercase tracking-widest">
+              Próximo tramo sensible · {formatDistance(upcomingHazard.distanceM)}
+            </p>
+            <p className="mt-1 text-xs font-bold">{upcomingHazard.phase.feelLabel}</p>
+            {displayMode === 'pro' && (
+              <p className="mt-1 text-[9px] text-slate-400">
+                km {upcomingHazard.phase.fromKm.toFixed(1)}–{upcomingHazard.phase.toKm.toFixed(1)}
+                {' · '}{windLabel(upcomingHazard.phase.windEffect)}
+                {' · '}{upcomingHazard.phase.maxWindKmh?.toFixed(0) ?? upcomingHazard.phase.windKmh?.toFixed(0) ?? '—'} km/h
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       {displayMode === 'pro' && (
         <div className="mt-3 grid grid-cols-2 gap-2 border-t border-white/10 pt-3 sm:grid-cols-4">

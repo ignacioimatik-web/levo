@@ -39,6 +39,7 @@ import {
   shouldRestartGpsWatch,
 } from '@/lib/activities/gps-watchdog';
 import { calculateNavigationProgress, cardinalForBearing } from '@/lib/navigation/progress';
+import type { LiveRideConditionAlert } from '@/lib/navigation/live-ride-conditions';
 import {
   calculateGhostComparison, calculateSecuredNavigation,
 } from '@/lib/navigation/repeat';
@@ -1011,6 +1012,19 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
     });
   }, []);
 
+  const announceConditionAlert = useCallback((alert: LiveRideConditionAlert) => {
+    navigator.vibrate?.(
+      alert.risk === 'red'
+        ? [240, 100, 240, 100, 240]
+        : [160, 90, 160],
+    );
+    if (!voiceGuidance || !('speechSynthesis' in window)) return;
+    const utterance = new SpeechSynthesisUtterance(alert.message);
+    utterance.lang = 'es-ES';
+    utterance.rate = 1.05;
+    window.speechSynthesis.speak(utterance);
+  }, [voiceGuidance]);
+
   const active = status === 'recording' || status === 'paused' || status === 'requesting';
   const activeDisplayMode: RideDisplayMode = active ? displayMode : 'basic';
   const changeDisplayMode = (mode: RideDisplayMode) => {
@@ -1260,6 +1274,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
               sportType={settings.sportType}
               displayMode={activeDisplayMode}
               onSample={recordWeatherSample}
+              onAlert={announceConditionAlert}
             />
 
             {settings.sportType === 'ebike' && active && (activeDisplayMode === 'pro' || !plannedRoute) && (
