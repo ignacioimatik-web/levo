@@ -22,6 +22,11 @@ import {
   saveOfflineMapPackage,
 } from '@/lib/navigation/offline-map-storage';
 import type { OfflineMapPackage } from '@/lib/navigation/offline-map-storage';
+import {
+  buildOverpassTrailQuery,
+  overpassWaysToGeoJson,
+} from '@/lib/navigation/offline-map-data';
+import type { OverpassWay } from '@/lib/navigation/offline-map-data';
 import type { RouteStatusPayload } from '@/lib/route-status';
 import {
   deleteSavedRoute, fetchSavedRoutes, saveRouteToCloud,
@@ -91,6 +96,50 @@ function escapeXml(value: string): string {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&apos;');
+}
+
+async function downloadOfflineMapFromDevice(route: PlannedRoute): Promise<OfflineMapPackage> {
+  const endpoints = [
+    'https://overpass-api.de/api/interpreter',
+    'https://overpass.kumi.systems/api/interpreter',
+  ];
+  const query = buildOverpassTrailQuery(route.points);
+  const controllers = endpoints.map(() => new AbortController());
+  const timeout = window.setTimeout(() => {
+    controllers.forEach((controller) => controller.abort());
+  }, 18_000);
+
+  try {
+    const elements = await Promise.any(endpoints.map(async (endpoint, index) => {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+        body: new URLSearchParams({ data: query }),
+        signal: controllers[index].signal,
+      });
+      if (!response.ok) throw new Error(`OpenStreetMap respondió ${response.status}.`);
+      const payload = await response.json() as { elements?: unknown };
+      if (!Array.isArray(payload.elements)) {
+        throw new Error('OpenStreetMap devolvió un mapa no válido.');
+      }
+      return payload.elements as OverpassWay[];
+    }));
+    const trails = overpassWaysToGeoJson(elements);
+    if (trails.features.length === 0) {
+      throw new Error('No se encontraron caminos cartografiados alrededor de esta ruta.');
+    }
+    return {
+      routeId: route.id,
+      routeName: route.name,
+      trails,
+      fetchedAt: new Date().toISOString(),
+      attribution: '© colaboradores de OpenStreetMap · datos obtenidos mediante Overpass API',
+      sampleRadiusM: 1_200,
+    };
+  } finally {
+    window.clearTimeout(timeout);
+    controllers.forEach((controller) => controller.abort());
+  }
 }
 
 export default function UniversalRoutePlanner() {
@@ -286,20 +335,34 @@ export default function UniversalRoutePlanner() {
     const route = buildPlannedRoute();
     savePlannedRoute(route);
     setOfflineStatus('loading');
-    setOfflineMessage('Preparando caminos y senderos cercanos…');
+    setOfflineMessage('Descargando caminos y senderos desde OpenStreetMap…');
     try {
-      const response = await fetch('/api/offline-map', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          routeId: route.id,
-          routeName: route.name,
-          points: route.points,
-        }),
-      });
-      const payload = await response.json() as OfflineMapPackage & { error?: string };
-      if (!response.ok || !payload.trails?.features) {
-        throw new Error(payload.error || 'No se pudo descargar el mapa offline.');
+      let payload: OfflineMapPackage;
+      try {
+        payload = await downloadOfflineMapFromDevice(route);
+      } catch {
+        const controller = new AbortController();
+        const timeout = window.setTimeout(() => controller.abort(), 20_000);
+        try {
+          const response = await fetch('/api/offline-map', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              routeId: route.id,
+              routeName: route.name,
+              points: route.points,
+            }),
+            signal: controller.signal,
+          });
+          const fallbackPayload = await response.json() as OfflineMapPackage & { error?: string };
+          if (!response.ok || !fallbackPayload.trails?.features) {
+            throw new Error(fallbackPayload.error || 'No se pudo descargar el mapa offline.');
+          }
+          payload = fallbackPayload;
+        } finally {
+          window.clearTimeout(timeout);
+          controller.abort();
+        }
       }
       await saveOfflineMapPackage(payload);
       setOfflineRouteIds((current) => new Set(current).add(route.id));
