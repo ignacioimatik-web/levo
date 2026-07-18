@@ -1,9 +1,9 @@
 import { MetadataRoute } from 'next';
 import { routes } from '@/data/routes';
-import { demoTrails } from '@/data/trails';
+import { realTrails } from '@/data/trails';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://ignacioimatik-web.github.io/levo';
+  const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://levo-eta.vercel.app').replace(/\/$/, '');
 
   const staticRoutes = [
     '', '/rutas', '/sectores', '/top-tracks', '/travesias',
@@ -22,7 +22,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.6,
   }));
 
-  const trailPages = demoTrails.map((trail) => ({
+  const trailPages = realTrails.map((trail) => ({
     url: `${baseUrl}/forfait/${trail.slug}`,
     lastModified: new Date(),
     changeFrequency: 'monthly' as const,

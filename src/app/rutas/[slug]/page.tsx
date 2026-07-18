@@ -1,6 +1,6 @@
 import { Metadata } from 'next';
 import { routes } from '@/data/routes';
-import { demoTrails } from '@/data/trails';
+import { realTrails } from '@/data/trails';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import TrailDetailMapWrapper from '@/components/TrailDetailMapWrapper';
@@ -104,7 +104,7 @@ export default async function RouteDetailPage({ params, searchParams }: PageProp
   const route = routes.find((r) => r.slug === slug);
   if (!route) notFound();
 
-  const trail = demoTrails.find(t => t.slug === slug);
+  const trail = realTrails.find(t => t.slug === slug);
   const statusData = await buildRouteStatus(slug);
   const segmentOverlays = statusData.ok && statusData.profile
     ? statusData.profile.segments

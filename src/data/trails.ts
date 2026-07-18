@@ -909,3 +909,6 @@ export const demoTrails: MTBTrail[] = [
     dataStatus: "real",
   },
 ];
+
+/** Only GPS-backed trails that are safe to expose in public catalogues. */
+export const realTrails = demoTrails.filter((trail) => trail.dataStatus === "real");
