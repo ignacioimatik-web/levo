@@ -80,4 +80,3 @@ export async function deleteOfflineMapPackage(routeId: string): Promise<void> {
     database.close();
   }
 }
-
