@@ -101,10 +101,10 @@ test('el service worker se instala aunque falle una pantalla secundaria', async 
   });
 
   await harness.dispatch('install');
-  assert.ok(harness.stores.get('e-nduro-shell-v4')?.has('/offline'));
-  assert.ok(harness.stores.get('e-nduro-shell-v4')?.has('/grabar'));
-  assert.equal(harness.stores.get('e-nduro-shell-v4')?.has('/progreso'), false);
-  assert.equal(harness.stores.get('e-nduro-shell-v4')?.has('/comunidad'), false);
+  assert.ok(harness.stores.get('e-nduro-shell-v5')?.has('/offline'));
+  assert.ok(harness.stores.get('e-nduro-shell-v5')?.has('/grabar'));
+  assert.equal(harness.stores.get('e-nduro-shell-v5')?.has('/progreso'), false);
+  assert.equal(harness.stores.get('e-nduro-shell-v5')?.has('/comunidad'), false);
 });
 
 test('sin red una ruta con parámetros recupera la pantalla base de grabación', async () => {
@@ -115,13 +115,33 @@ test('sin red una ruta con parámetros recupera la pantalla base de grabación',
       throw new Error('offline');
     },
   });
-  offlineHarness.stores.set('e-nduro-shell-v4', harness.stores.get('e-nduro-shell-v4'));
+  offlineHarness.stores.set('e-nduro-shell-v5', harness.stores.get('e-nduro-shell-v5'));
 
   const response = await offlineHarness.dispatch(
     'fetch',
     navigationRequest('/grabar?ruta=track-123'),
   );
   assert.equal(await response.text(), 'network:/grabar');
+});
+
+test('la instalación prepara también los módulos de grabación para arrancar sin red', async () => {
+  const harness = await serviceWorkerHarness({
+    network: async (input) => {
+      const key = cacheKey(input);
+      if (key === '/grabar') {
+        return new Response(
+          '<link rel="stylesheet" href="/_next/static/css/ride.css"><script src="/_next/static/chunks/ride.js"></script>',
+          { status: 200, headers: { 'Content-Type': 'text/html' } },
+        );
+      }
+      return new Response(`asset:${key}`, { status: 200 });
+    },
+  });
+
+  await harness.dispatch('install');
+
+  assert.ok(harness.stores.get('e-nduro-shell-v5')?.has('/_next/static/css/ride.css'));
+  assert.ok(harness.stores.get('e-nduro-shell-v5')?.has('/_next/static/chunks/ride.js'));
 });
 
 test('el callback OAuth nunca se guarda en la caché de navegación', async () => {

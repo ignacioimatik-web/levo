@@ -29,6 +29,16 @@ export const metadata: Metadata = {
   keywords: ["Morella", "Singletracks", "MTB", "Enduro", "Els Ports", "Rutas GPS", "All-Mountain"],
   authors: [{ name: "E-nduro Ebiketracks" }],
   creator: "E-nduro Ebiketracks",
+  icons: {
+    icon: "/favicon.ico",
+    apple: [
+      {
+        url: "/images/logo-enduro-ebiketracks.png",
+        sizes: "1024x1024",
+        type: "image/png",
+      },
+    ],
+  },
   openGraph: {
     type: "website",
     locale: "es_ES",

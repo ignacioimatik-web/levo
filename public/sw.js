@@ -1,6 +1,6 @@
 const CACHE_PREFIX = 'e-nduro-';
-const SHELL_CACHE = 'e-nduro-shell-v4';
-const RUNTIME_CACHE = 'e-nduro-runtime-v4';
+const SHELL_CACHE = 'e-nduro-shell-v5';
+const RUNTIME_CACHE = 'e-nduro-runtime-v5';
 const NAVIGATION_TIMEOUT_MS = 4_500;
 const APP_SHELL = [
   '/',
@@ -25,6 +25,8 @@ const OFFLINE_NAVIGATION_PATHS = new Set([
   '/mapa-personal',
   '/taller',
 ]);
+const FIELD_SHELL_PATHS = new Set(['/offline', '/grabar', '/planifica']);
+const STATIC_ASSET_PATTERN = /(?:src|href)=["'](\/_next\/static\/[^"'#]+)["']/g;
 
 async function cacheResponse(cacheName, request, response) {
   if (!response?.ok || response.type === 'opaqueredirect') return;
@@ -32,20 +34,38 @@ async function cacheResponse(cacheName, request, response) {
   await cache.put(request, response.clone());
 }
 
+function staticAssetsFromHtml(html) {
+  return [...html.matchAll(STATIC_ASSET_PATTERN)].map((match) => match[1]);
+}
+
+async function precacheEntry(cache, path, seenAssets) {
+  const response = await fetch(path, { cache: 'reload' });
+  if (!response.ok) throw new Error(`No se pudo precargar ${path}.`);
+  await cache.put(path, response.clone());
+  if (!FIELD_SHELL_PATHS.has(path)) return;
+
+  const html = await response.text();
+  const assets = staticAssetsFromHtml(html).filter((asset) => {
+    if (seenAssets.has(asset)) return false;
+    seenAssets.add(asset);
+    return true;
+  });
+  await Promise.allSettled(assets.map(async (asset) => {
+    const assetResponse = await fetch(asset, { cache: 'reload' });
+    if (!assetResponse.ok) throw new Error(`No se pudo precargar ${asset}.`);
+    await cache.put(asset, assetResponse);
+  }));
+}
+
 async function precacheShell() {
   const cache = await caches.open(SHELL_CACHE);
-  const offlineResponse = await fetch('/offline', { cache: 'reload' });
-  if (!offlineResponse.ok) throw new Error('No se pudo preparar la pantalla offline.');
-  await cache.put('/offline', offlineResponse);
+  const seenAssets = new Set();
+  await precacheEntry(cache, '/offline', seenAssets);
 
   await Promise.allSettled(
     APP_SHELL
       .filter((path) => path !== '/offline')
-      .map(async (path) => {
-        const response = await fetch(path, { cache: 'reload' });
-        if (!response.ok) throw new Error(`No se pudo precargar ${path}.`);
-        await cache.put(path, response);
-      }),
+      .map((path) => precacheEntry(cache, path, seenAssets)),
   );
 }
 

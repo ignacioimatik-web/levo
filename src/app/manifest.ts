@@ -4,6 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'E-nduro Ebiketracks',
     short_name: 'E-nduro',
+    id: '/',
     description: 'Planifica, descarga, navega y graba rutas MTB y e-bike con meteo y autonomía.',
     start_url: '/',
     scope: '/',
