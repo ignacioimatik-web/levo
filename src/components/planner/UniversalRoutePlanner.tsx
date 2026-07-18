@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   CloudDownload, CloudSun, Download, Eraser, FileUp, LocateFixed, Navigation,
   FolderOpen, Redo2, Save, Trash2, Undo2,
@@ -142,7 +142,16 @@ async function downloadOfflineMapFromDevice(route: PlannedRoute): Promise<Offlin
   }
 }
 
-export default function UniversalRoutePlanner() {
+type UniversalRoutePlannerProps = {
+  initialGpxUrl?: string;
+  initialRouteName?: string;
+};
+
+export default function UniversalRoutePlanner({
+  initialGpxUrl,
+  initialRouteName,
+}: UniversalRoutePlannerProps) {
+  const initialGpxLoaded = useRef(false);
   const [routeId, setRouteId] = useState(() => crypto.randomUUID());
   const [name, setName] = useState('Mi ruta MTB');
   const [points, setPoints] = useState<PlannedRoutePoint[]>([]);
@@ -180,6 +189,35 @@ export default function UniversalRoutePlanner() {
     });
     return () => window.clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    if (!initialGpxUrl || initialGpxLoaded.current) return;
+    initialGpxLoaded.current = true;
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        setSaveStatus('Abriendo el track real…');
+        const response = await fetch(initialGpxUrl, { signal: controller.signal });
+        if (!response.ok) throw new Error('El GPX de esta ruta no está disponible.');
+        const fileName = initialGpxUrl.split('/').at(-1) ?? 'ruta.gpx';
+        const route = parseNavigationGpx(await response.text(), fileName);
+        setRouteId(route.id);
+        setName(initialRouteName?.trim() || route.name);
+        setPoints(route.points);
+        setRedoPoints([]);
+        setAnalysis(null);
+        setAnalysisStatus('idle');
+        setOfflineStatus('idle');
+        setOfflineMessage('');
+        setSaveStatus('Track real cargado. Analízalo para actualizar meteo, luz y autonomía.');
+      } catch (loadError) {
+        if (controller.signal.aborted) return;
+        setSaveStatus('');
+        setError(loadError instanceof Error ? loadError.message : 'No se pudo abrir este GPX.');
+      }
+    })();
+    return () => controller.abort();
+  }, [initialGpxUrl, initialRouteName]);
 
   const invalidateAnalysis = () => {
     setAnalysis(null);

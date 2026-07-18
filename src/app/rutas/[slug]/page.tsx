@@ -475,6 +475,15 @@ export default async function RouteDetailPage({ params, searchParams }: PageProp
                 Descarga los archivos GPX para usarlos en tu dispositivo GPS o smartphone.
               </p>
               <div className="space-y-3">
+                {hasGpx && (
+                  <Link
+                    href={`/planifica?gpx=${encodeURIComponent(route.trackUrl || trail?.gpxFile || '')}&name=${encodeURIComponent(route.name)}`}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white text-slate-950 rounded-xl font-bold text-sm hover:bg-orange-500 hover:text-white transition-all"
+                  >
+                    <Map className="w-4 h-4" />
+                    Preparar meteo y navegar
+                  </Link>
+                )}
                 <a
                   href={route.trackUrl || trail?.gpxFile || '#'}
                   download

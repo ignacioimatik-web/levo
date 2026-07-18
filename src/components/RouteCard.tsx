@@ -6,7 +6,8 @@ import {
   Timer, 
   TrendingUp, 
   Mountain, 
-  Download 
+  Download,
+  Route,
 } from 'lucide-react';
 
 interface RouteCardProps {
@@ -131,11 +132,21 @@ const RouteCard = ({ route }: RouteCardProps) => {
           <a
             href={route.trackUrl || '#'}
             download
-            className={`p-2 bg-slate-800 text-white rounded-lg hover:bg-orange-500 transition-colors disabled:opacity-30 ${(!route.trackUrl || isClosed || isPending) ? 'pointer-events-none opacity-30' : ''}`}
+            className={`min-h-11 min-w-11 inline-flex items-center justify-center bg-slate-800 text-white rounded-lg hover:bg-orange-500 transition-colors disabled:opacity-30 ${(!route.trackUrl || isClosed || isPending) ? 'pointer-events-none opacity-30' : ''}`}
             title="Descargar GPX"
           >
             <Download className="w-4 h-4" />
           </a>
+          <Link
+            href={route.trackUrl
+              ? `/planifica?gpx=${encodeURIComponent(route.trackUrl)}&name=${encodeURIComponent(route.name)}`
+              : '#'}
+            className={`min-h-11 min-w-11 inline-flex items-center justify-center bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors ${(!route.trackUrl || isClosed || isPending) ? 'pointer-events-none opacity-30' : ''}`}
+            title="Preparar y navegar"
+            aria-label={`Preparar y navegar ${route.name}`}
+          >
+            <Route className="w-4 h-4" />
+          </Link>
         </div>
       </div>
     </div>
@@ -143,4 +154,3 @@ const RouteCard = ({ route }: RouteCardProps) => {
 };
 
 export default RouteCard;
-

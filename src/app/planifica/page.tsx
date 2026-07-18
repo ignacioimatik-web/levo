@@ -6,6 +6,19 @@ export const metadata: Metadata = {
   description: 'Dibuja o importa una ruta MTB y analiza desnivel, meteo AEMET por tramos, ritmo, luz y autonomía.',
 };
 
-export default function PlanificaPage() {
-  return <UniversalRoutePlanner />;
+type PageProps = {
+  searchParams: Promise<{ gpx?: string; name?: string }>;
+};
+
+export default async function PlanificaPage({ searchParams }: PageProps) {
+  const { gpx, name } = await searchParams;
+  const initialGpxUrl = typeof gpx === 'string' && /^\/tracks\/[^/?#]+\.gpx$/i.test(gpx)
+    ? gpx
+    : undefined;
+  return (
+    <UniversalRoutePlanner
+      initialGpxUrl={initialGpxUrl}
+      initialRouteName={typeof name === 'string' ? name.slice(0, 120) : undefined}
+    />
+  );
 }
