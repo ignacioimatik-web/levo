@@ -91,7 +91,13 @@ import {
   matchCompetitiveSegments,
   personalSegmentBests,
 } from '../src/lib/segments/matcher.ts';
-import { getPostAuthDestination, normalizeAuthNextPath } from '../src/lib/auth/redirect.ts';
+import {
+  buildAuthCallbackUrl,
+  getPostAuthDestination,
+  normalizeAuthExchangeError,
+  normalizeAuthNextPath,
+  resolveAuthSiteOrigin,
+} from '../src/lib/auth/redirect.ts';
 import {
   normalizeProviderAvailability,
 } from '../src/lib/supabase/provider-status.ts';
@@ -1548,6 +1554,46 @@ test('el callback de acceso solo acepta destinos internos seguros', () => {
     getPostAuthDestination('/planifica?ruta=abc', '2026-07-18T17:35:00Z'),
     '/planifica?ruta=abc',
   );
+});
+
+test('OAuth vuelve al mismo origen para conservar el verificador PKCE', () => {
+  assert.equal(
+    resolveAuthSiteOrigin(undefined, 'https://levo-git-feature-example.vercel.app'),
+    'https://levo-git-feature-example.vercel.app',
+  );
+  assert.equal(
+    resolveAuthSiteOrigin('https://rutas.example.com/', 'https://levo-preview.vercel.app'),
+    'https://levo-preview.vercel.app',
+  );
+  assert.equal(resolveAuthSiteOrigin('https://rutas.example.com/', undefined), 'https://rutas.example.com');
+});
+
+test('OAuth conserva el desarrollo local y codifica un destino interno seguro', () => {
+  assert.equal(
+    resolveAuthSiteOrigin(undefined, 'http://localhost:3000'),
+    'http://localhost:3000',
+  );
+  assert.equal(
+    buildAuthCallbackUrl(
+      '/planifica?ruta=sierra norte',
+      undefined,
+      'https://levo-preview.vercel.app',
+    ),
+    'https://levo-preview.vercel.app/auth/callback?next=%2Fplanifica%3Fruta%3Dsierra%2520norte',
+  );
+  assert.equal(
+    buildAuthCallbackUrl('https://evil.example', undefined, 'https://levo-preview.vercel.app'),
+    'https://levo-preview.vercel.app/auth/callback?next=%2Faccount',
+  );
+});
+
+test('el callback oculta errores OAuth técnicos y ofrece códigos accionables', () => {
+  assert.equal(
+    normalizeAuthExchangeError('PKCE code verifier not found in storage'),
+    'invalid_code',
+  );
+  assert.equal(normalizeAuthExchangeError('session_not_found'), 'session_not_found');
+  assert.equal(normalizeAuthExchangeError('unexpected upstream failure'), 'auth_exchange_failed');
 });
 
 test('la pantalla de acceso refleja los proveedores realmente activados', () => {

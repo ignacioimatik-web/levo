@@ -1,6 +1,16 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { getPostAuthDestination, normalizeAuthNextPath } from '@/lib/auth/redirect';
+import {
+  getPostAuthDestination,
+  normalizeAuthExchangeError,
+  normalizeAuthNextPath,
+} from '@/lib/auth/redirect';
+
+function privateRedirect(url: string) {
+  const response = NextResponse.redirect(url);
+  response.headers.set('Cache-Control', 'private, no-store, max-age=0');
+  return response;
+}
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -14,17 +24,18 @@ export async function GET(request: Request) {
       error: providerError || 'invalid_code',
       next,
     });
-    return NextResponse.redirect(`${origin}/auth?${params.toString()}`);
+    return privateRedirect(`${origin}/auth?${params.toString()}`);
   }
 
   const supabase = await createClient();
   const { data: authData, error } = await supabase.auth.exchangeCodeForSession(code);
 
   if (error) {
-    const msg = error.message?.toLowerCase().includes('session_not_found')
-      ? 'session_not_found'
-      : error.message;
-    return NextResponse.redirect(`${origin}/auth?error=${encodeURIComponent(msg)}`);
+    const params = new URLSearchParams({
+      error: normalizeAuthExchangeError(error.message),
+      next,
+    });
+    return privateRedirect(`${origin}/auth?${params.toString()}`);
   }
 
   try { await supabase.rpc('update_last_login') } catch {}
@@ -36,5 +47,5 @@ export async function GET(request: Request) {
     .maybeSingle();
 
   const destination = getPostAuthDestination(requestedNext, profile?.onboarding_completed_at);
-  return NextResponse.redirect(`${origin}${destination}`);
+  return privateRedirect(`${origin}${destination}`);
 }

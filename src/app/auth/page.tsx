@@ -18,6 +18,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   'network_error': 'Error de conexión. Comprueba tu conexión a internet y vuelve a intentarlo.',
   'invalid_code': 'El enlace de inicio de sesión no es válido o ha expirado. Vuelve a iniciar sesión.',
   'session_not_found': 'No se ha podido iniciar la sesión. Inténtalo de nuevo.',
+  'auth_exchange_failed': 'No se ha podido completar el acceso. Vuelve a intentarlo desde este dispositivo.',
 };
 
 function getErrorMessage(raw: string): string {

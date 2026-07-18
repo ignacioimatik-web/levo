@@ -1,14 +1,16 @@
 import { createClient } from './browser';
+import { buildAuthCallbackUrl } from '@/lib/auth/redirect';
 
 const AUTH_UNAVAILABLE = new Error(
   'El acceso a la cuenta no está disponible en este entorno. Puedes seguir explorando y planificando rutas como invitado.',
 );
 
-function getRedirectTo(path: string, next?: string): string {
-  if (typeof window === 'undefined') return path;
-  const url = `${window.location.origin}${path}`;
-  if (next) return `${url}?next=${encodeURIComponent(next)}`;
-  return url;
+function getRedirectTo(next?: string): string {
+  return buildAuthCallbackUrl(
+    next,
+    process.env.NEXT_PUBLIC_SITE_URL,
+    typeof window === 'undefined' ? undefined : window.location.origin,
+  );
 }
 
 export async function signInWithGoogle(next?: string) {
@@ -17,7 +19,7 @@ export async function signInWithGoogle(next?: string) {
   const { error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: getRedirectTo('/auth/callback', next),
+      redirectTo: getRedirectTo(next),
     },
   });
   return { error };
@@ -29,7 +31,7 @@ export async function signInWithApple(next?: string) {
   const { error } = await supabase.auth.signInWithOAuth({
     provider: 'apple',
     options: {
-      redirectTo: getRedirectTo('/auth/callback', next),
+      redirectTo: getRedirectTo(next),
     },
   });
   return { error };
@@ -41,7 +43,7 @@ export async function signInWithEmail(email: string, next?: string) {
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
-      emailRedirectTo: getRedirectTo('/auth/callback', next),
+      emailRedirectTo: getRedirectTo(next),
     },
   });
   return { error };
