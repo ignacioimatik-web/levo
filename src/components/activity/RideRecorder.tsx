@@ -49,6 +49,7 @@ import { requestPersistentRideStorage } from '@/lib/activities/durable-storage';
 import { getOfflineMapPackage } from '@/lib/navigation/offline-map-storage';
 import type { OfflineMapPackage } from '@/lib/navigation/offline-map-storage';
 import { summarizeOfflineMap } from '@/lib/navigation/offline-map-data';
+import { offlineMapMatchesRoute } from '@/lib/navigation/offline-map-version';
 import { parseNavigationGpx } from '@/lib/navigation/gpx';
 import {
   calculateUpcomingTurn, turnAlertMessage, turnAlertStage,
@@ -306,10 +307,12 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
     let cancelled = false;
     if (!plannedRoute?.id) return;
     void getOfflineMapPackage(plannedRoute.id).then((mapPackage) => {
-      if (!cancelled) setOfflineMap(mapPackage);
+      if (!cancelled) {
+        setOfflineMap(offlineMapMatchesRoute(mapPackage, plannedRoute.points) ? mapPackage : null);
+      }
     });
     return () => { cancelled = true; };
-  }, [plannedRoute?.id]);
+  }, [plannedRoute]);
   const activeOfflineMap = offlineMap?.routeId === plannedRoute?.id ? offlineMap : null;
   const activeOfflineSummary = activeOfflineMap
     ? activeOfflineMap.summary ?? summarizeOfflineMap(activeOfflineMap.trails)

@@ -24,10 +24,16 @@ import {
 } from '@/lib/navigation/routing';
 import {
   deleteOfflineMapPackage,
+  getOfflineMapPackage,
   listOfflineMapPackages,
   saveOfflineMapPackage,
 } from '@/lib/navigation/offline-map-storage';
 import type { OfflineMapPackage } from '@/lib/navigation/offline-map-storage';
+import {
+  OFFLINE_MAP_VERSION,
+  offlineMapMatchesRoute,
+  offlineRouteFingerprint,
+} from '@/lib/navigation/offline-map-version';
 import {
   buildOverpassMapQuery,
   buildOverpassTrailOnlyQuery,
@@ -51,6 +57,8 @@ type RouteLibraryEntry = {
   route: PlannedRoute;
   cloud: boolean;
 };
+
+type OfflineMapIdentity = Pick<OfflineMapPackage, 'version' | 'routeFingerprint'>;
 
 function cloudRoute(saved: SavedRouteData): PlannedRoute {
   return {
@@ -142,7 +150,8 @@ async function downloadOfflineMapFromDevice(route: PlannedRoute): Promise<Offlin
       throw new Error('No se encontraron caminos cartografiados alrededor de esta ruta.');
     }
     return {
-      version: 2,
+      version: OFFLINE_MAP_VERSION,
+      routeFingerprint: offlineRouteFingerprint(route.points),
       routeId: route.id,
       routeName: route.name,
       trails,
@@ -168,6 +177,7 @@ export default function UniversalRoutePlanner({
 }: UniversalRoutePlannerProps) {
   const initialGpxLoaded = useRef(false);
   const routingInFlight = useRef(false);
+  const offlineCheckToken = useRef(0);
   const [routeId, setRouteId] = useState(() => crypto.randomUUID());
   const [name, setName] = useState('Mi ruta MTB');
   const [points, setPoints] = useState<PlannedRoutePoint[]>([]);
@@ -186,9 +196,12 @@ export default function UniversalRoutePlanner({
   const [briefingView, setBriefingView] = useState<RideBriefingView>('basic');
   const [routeLibrary, setRouteLibrary] = useState<RouteLibraryEntry[]>([]);
   const [deleteArmedId, setDeleteArmedId] = useState<string | null>(null);
-  const [offlineRouteIds, setOfflineRouteIds] = useState<Set<string>>(() => new Set());
+  const [offlineMapIdentities, setOfflineMapIdentities] = useState<Map<string, OfflineMapIdentity>>(
+    () => new Map(),
+  );
   const [offlineStatus, setOfflineStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [offlineMessage, setOfflineMessage] = useState('');
+  const [navigationStatus, setNavigationStatus] = useState<'idle' | 'preparing' | 'fallback'>('idle');
   const [now, setNow] = useState(() => new Date(0));
   const metrics = useMemo(() => routeMetrics(points), [points]);
 
@@ -197,7 +210,13 @@ export default function UniversalRoutePlanner({
       setNow(new Date());
       setRouteLibrary(mergeRouteLibrary(getPlannedRoutes()));
       void listOfflineMapPackages().then((packages) => {
-        setOfflineRouteIds(new Set(packages.map((mapPackage) => mapPackage.routeId)));
+        setOfflineMapIdentities(new Map(packages.map((mapPackage) => [
+          mapPackage.routeId,
+          {
+            version: mapPackage.version,
+            routeFingerprint: mapPackage.routeFingerprint,
+          },
+        ])));
       });
     }, 0);
     const supabase = createClient();
@@ -229,10 +248,12 @@ export default function UniversalRoutePlanner({
         setRouteMode('manual');
         setRouteStatus('idle');
         setRoutingEstimate(null);
+        offlineCheckToken.current += 1;
         setAnalysis(null);
         setAnalysisStatus('idle');
         setOfflineStatus('idle');
         setOfflineMessage('');
+        setNavigationStatus('idle');
         setSaveStatus('Track real cargado. Analízalo para actualizar meteo, luz y autonomía.');
       } catch (loadError) {
         if (controller.signal.aborted) return;
@@ -244,12 +265,14 @@ export default function UniversalRoutePlanner({
   }, [initialGpxUrl, initialRouteName]);
 
   const invalidateAnalysis = () => {
+    offlineCheckToken.current += 1;
     setAnalysis(null);
     setAnalysisStatus('idle');
     setError('');
     setSaveStatus('');
     setOfflineStatus('idle');
     setOfflineMessage('');
+    setNavigationStatus('idle');
   };
 
   const calculateRoutedPath = async (
@@ -383,9 +406,11 @@ export default function UniversalRoutePlanner({
       setRouteMode('manual');
       setRouteStatus('idle');
       setRoutingEstimate(null);
+      offlineCheckToken.current += 1;
       setSaveStatus('');
       setOfflineStatus('idle');
       setOfflineMessage('');
+      setNavigationStatus('idle');
       await analyze(route.points, route.name);
     } catch (importError) {
       setError(importError instanceof Error ? importError.message : 'No se pudo leer el GPX.');
@@ -462,8 +487,26 @@ export default function UniversalRoutePlanner({
     setAnalysisStatus('idle');
     setError('');
     setSaveStatus('Ruta abierta. Analízala para actualizar meteo y luz.');
-    setOfflineStatus(offlineRouteIds.has(route.id) ? 'ready' : 'idle');
-    setOfflineMessage(offlineRouteIds.has(route.id) ? 'Esta ruta ya tiene un mapa offline preparado.' : '');
+    setOfflineStatus('idle');
+    setOfflineMessage('');
+    setNavigationStatus('idle');
+    const checkToken = ++offlineCheckToken.current;
+    void getOfflineMapPackage(route.id).then((mapPackage) => {
+      if (offlineCheckToken.current !== checkToken) return;
+      if (offlineMapMatchesRoute(mapPackage, route.points)) {
+        setOfflineStatus('ready');
+        setOfflineMessage('Mapa offline vigente para este trazado exacto.');
+        return;
+      }
+      if (mapPackage) {
+        setOfflineStatus('error');
+        setOfflineMessage('El mapa offline guardado pertenece a una versión anterior. Se actualizará antes de navegar.');
+      }
+    }).catch(() => {
+      if (offlineCheckToken.current !== checkToken) return;
+      setOfflineStatus('error');
+      setOfflineMessage('No se pudo comprobar el mapa guardado. Se verificará de nuevo antes de navegar.');
+    });
   };
 
   const removeLibraryRoute = async (entry: RouteLibraryEntry) => {
@@ -474,8 +517,8 @@ export default function UniversalRoutePlanner({
     deletePlannedRoute(entry.route.id);
     await deleteOfflineMapPackage(entry.route.id);
     if (entry.cloud) await deleteSavedRoute(entry.route.id);
-    setOfflineRouteIds((current) => {
-      const next = new Set(current);
+    setOfflineMapIdentities((current) => {
+      const next = new Map(current);
       next.delete(entry.route.id);
       return next;
     });
@@ -484,52 +527,94 @@ export default function UniversalRoutePlanner({
     setRouteLibrary(mergeRouteLibrary(getPlannedRoutes(), cloud));
   };
 
-  const startNavigation = () => {
-    if (points.length < 2) return;
+  const prepareOfflineMap = async (route: PlannedRoute): Promise<OfflineMapPackage> => {
+    let payload: OfflineMapPackage;
+    try {
+      payload = await downloadOfflineMapFromDevice(route);
+    } catch {
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 20_000);
+      try {
+        const response = await fetch('/api/offline-map', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            routeId: route.id,
+            routeName: route.name,
+            points: route.points,
+          }),
+          signal: controller.signal,
+        });
+        const fallbackPayload = await response.json() as OfflineMapPackage & { error?: string };
+        if (!response.ok || !fallbackPayload.trails?.features) {
+          throw new Error(fallbackPayload.error || 'No se pudo descargar el mapa offline.');
+        }
+        payload = fallbackPayload;
+      } finally {
+        window.clearTimeout(timeout);
+        controller.abort();
+      }
+    }
+    const currentPayload: OfflineMapPackage = {
+      ...payload,
+      version: OFFLINE_MAP_VERSION,
+      routeId: route.id,
+      routeName: route.name,
+      routeFingerprint: offlineRouteFingerprint(route.points),
+    };
+    await saveOfflineMapPackage(currentPayload);
+    setOfflineMapIdentities((current) => new Map(current).set(route.id, {
+      version: currentPayload.version,
+      routeFingerprint: currentPayload.routeFingerprint,
+    }));
+    setOfflineStatus('ready');
+    const summary = currentPayload.summary ?? summarizeOfflineMap(currentPayload.trails);
+    setOfflineMessage(`Offline listo: ${summary.trails.toLocaleString('es-ES')} caminos · ${summary.pois.toLocaleString('es-ES')} puntos útiles · ${summary.water.toLocaleString('es-ES')} referencias de agua.`);
+    return currentPayload;
+  };
+
+  const startNavigation = async () => {
+    if (points.length < 2 || navigationStatus === 'preparing') return;
     const route = buildPlannedRoute();
     savePlannedRoute(route);
-    window.location.assign(`/grabar?ruta=${encodeURIComponent(route.id)}`);
+    const navigationUrl = `/grabar?ruta=${encodeURIComponent(route.id)}`;
+    if (navigationStatus === 'fallback') {
+      window.location.assign(navigationUrl);
+      return;
+    }
+
+    setNavigationStatus('preparing');
+    setOfflineStatus('loading');
+    setOfflineMessage('Comprobando el mapa exacto de esta ruta antes de salir…');
+    try {
+      const storedPackage = await getOfflineMapPackage(route.id);
+      if (!offlineMapMatchesRoute(storedPackage, route.points)) {
+        setOfflineMessage('Preparando caminos, agua y puntos útiles para navegar sin cobertura…');
+        await prepareOfflineMap(route);
+      } else {
+        setOfflineStatus('ready');
+        setOfflineMessage('Mapa offline comprobado para este trazado exacto.');
+      }
+      window.location.assign(navigationUrl);
+    } catch (downloadError) {
+      setNavigationStatus('fallback');
+      setOfflineStatus('error');
+      const reason = downloadError instanceof Error
+        ? downloadError.message
+        : 'No se pudo preparar el mapa offline.';
+      setOfflineMessage(`${reason} Pulsa “Navegar solo con track” para continuar sin cartografía offline.`);
+    }
   };
 
   const downloadOfflineMap = async () => {
-    if (points.length < 2) return;
+    if (points.length < 2 || navigationStatus === 'preparing') return;
     const route = buildPlannedRoute();
     savePlannedRoute(route);
+    setNavigationStatus('idle');
     setOfflineStatus('loading');
     setOfflineMessage('Descargando caminos, agua y puntos útiles desde OpenStreetMap…');
     try {
-      let payload: OfflineMapPackage;
-      try {
-        payload = await downloadOfflineMapFromDevice(route);
-      } catch {
-        const controller = new AbortController();
-        const timeout = window.setTimeout(() => controller.abort(), 20_000);
-        try {
-          const response = await fetch('/api/offline-map', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              routeId: route.id,
-              routeName: route.name,
-              points: route.points,
-            }),
-            signal: controller.signal,
-          });
-          const fallbackPayload = await response.json() as OfflineMapPackage & { error?: string };
-          if (!response.ok || !fallbackPayload.trails?.features) {
-            throw new Error(fallbackPayload.error || 'No se pudo descargar el mapa offline.');
-          }
-          payload = fallbackPayload;
-        } finally {
-          window.clearTimeout(timeout);
-          controller.abort();
-        }
-      }
-      await saveOfflineMapPackage(payload);
-      setOfflineRouteIds((current) => new Set(current).add(route.id));
-      setOfflineStatus('ready');
-      const summary = payload.summary ?? summarizeOfflineMap(payload.trails);
-      setOfflineMessage(`Offline listo: ${summary.trails.toLocaleString('es-ES')} caminos · ${summary.pois.toLocaleString('es-ES')} puntos útiles · ${summary.water.toLocaleString('es-ES')} referencias de agua.`);
+      await prepareOfflineMap(route);
     } catch (downloadError) {
       setOfflineStatus('error');
       setOfflineMessage(downloadError instanceof Error
@@ -680,18 +765,32 @@ export default function UniversalRoutePlanner({
                 <Save className="h-4 w-4" /> Guardar
               </button>
               <button type="button" onClick={() => { void downloadOfflineMap(); }}
-                disabled={points.length < 2 || offlineStatus === 'loading'}
+                disabled={points.length < 2 || offlineStatus === 'loading' || navigationStatus === 'preparing'}
                 className="flex min-h-12 items-center justify-center gap-1.5 rounded-xl bg-blue-500/15 text-[10px] font-black uppercase text-blue-300 disabled:opacity-30">
                 <CloudDownload className="h-4 w-4" />
-                {offlineStatus === 'loading' ? 'Descargando…' : offlineRouteIds.has(routeId) ? 'Actualizar offline' : 'Mapa offline'}
+                {offlineStatus === 'loading'
+                  ? 'Descargando…'
+                  : offlineMapMatchesRoute(offlineMapIdentities.get(routeId), points)
+                    ? 'Actualizar offline'
+                    : offlineMapIdentities.has(routeId)
+                      ? 'Renovar offline'
+                      : 'Mapa offline'}
               </button>
               <button type="button" onClick={exportGpx} disabled={points.length < 2}
                 className="flex min-h-12 items-center justify-center gap-1.5 rounded-xl bg-slate-800 text-[10px] font-black uppercase disabled:opacity-30">
                 <Download className="h-4 w-4" /> GPX
               </button>
-              <button type="button" onClick={startNavigation} disabled={points.length < 2}
+              <button type="button" onClick={() => { void startNavigation(); }}
+                disabled={points.length < 2 || navigationStatus === 'preparing'}
                 className="flex min-h-12 items-center justify-center gap-1.5 rounded-xl bg-emerald-500 text-[10px] font-black uppercase text-slate-950 disabled:opacity-30">
-                <Navigation className="h-4 w-4" /> Navegar
+                <Navigation className="h-4 w-4" />
+                {navigationStatus === 'preparing'
+                  ? 'Preparando…'
+                  : navigationStatus === 'fallback'
+                    ? 'Navegar solo con track'
+                    : offlineStatus === 'ready'
+                      ? 'Navegar offline'
+                      : 'Preparar y navegar'}
               </button>
             </div>
             {saveStatus && <p role="status" className="text-[10px] text-emerald-300">{saveStatus}</p>}
@@ -723,7 +822,14 @@ export default function UniversalRoutePlanner({
                         <span className="mt-1 block text-[9px] text-slate-500">
                           {entry.route.distanceKm.toFixed(1)} km · +{Math.round(entry.route.elevationGainM)} m
                           {entry.cloud ? ' · cuenta' : ' · dispositivo'}
-                          {offlineRouteIds.has(entry.route.id) ? ' · offline' : ''}
+                          {offlineMapMatchesRoute(
+                            offlineMapIdentities.get(entry.route.id),
+                            entry.route.points,
+                          )
+                            ? ' · offline'
+                            : offlineMapIdentities.has(entry.route.id)
+                              ? ' · offline antiguo'
+                              : ''}
                         </span>
                       </button>
                       <button

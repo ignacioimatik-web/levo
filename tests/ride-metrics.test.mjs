@@ -77,6 +77,11 @@ import {
   sampleOfflineRoute,
 } from '../src/lib/navigation/offline-map-data.ts';
 import {
+  OFFLINE_MAP_VERSION,
+  offlineMapMatchesRoute,
+  offlineRouteFingerprint,
+} from '../src/lib/navigation/offline-map-version.ts';
+import {
   buildLiveConditionAlert,
   deriveLiveRideConditions,
   findUpcomingWeatherHazard,
@@ -1145,6 +1150,28 @@ test('el paquete offline muestrea una ruta larga sin perder inicio ni final', ()
   assert.equal(samples.length, 12);
   assert.deepEqual(samples[0], route[0]);
   assert.deepEqual(samples.at(-1), route.at(-1));
+});
+
+test('el paquete offline solo sirve para la versión exacta del trazado', () => {
+  const route = [
+    { latitude: 40.123456, longitude: -0.123456, elevation: 600 },
+    { latitude: 40.223456, longitude: -0.023456, elevation: 700 },
+  ];
+  const routeFingerprint = offlineRouteFingerprint(route);
+
+  assert.equal(routeFingerprint, offlineRouteFingerprint(structuredClone(route)));
+  assert.equal(offlineMapMatchesRoute({
+    version: OFFLINE_MAP_VERSION,
+    routeFingerprint,
+  }, route), true);
+  assert.equal(offlineMapMatchesRoute({
+    version: 2,
+    routeFingerprint,
+  }, route), false);
+  assert.equal(offlineMapMatchesRoute({
+    version: OFFLINE_MAP_VERSION,
+    routeFingerprint,
+  }, [{ ...route[0], longitude: -0.123455 }, route[1]]), false);
 });
 
 test('la consulta offline compacta corredores solapados y cubre caminos, agua y puntos útiles', () => {

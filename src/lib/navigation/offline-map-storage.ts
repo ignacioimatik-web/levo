@@ -8,7 +8,8 @@ const STORE_NAME = 'route-maps';
 const DATABASE_VERSION = 1;
 
 export type OfflineMapPackage = {
-  version?: 2;
+  version?: 2 | 3;
+  routeFingerprint?: string;
   routeId: string;
   routeName: string;
   trails: OfflineTrailCollection;

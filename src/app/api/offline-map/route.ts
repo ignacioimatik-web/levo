@@ -7,6 +7,10 @@ import {
 } from '@/lib/navigation/offline-map-data';
 import type { OverpassElement } from '@/lib/navigation/offline-map-data';
 import type { PlannedRoutePoint } from '@/lib/navigation/types';
+import {
+  OFFLINE_MAP_VERSION,
+  offlineRouteFingerprint,
+} from '@/lib/navigation/offline-map-version';
 
 type InputPoint = {
   latitude?: unknown;
@@ -94,7 +98,8 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
-      version: 2,
+      version: OFFLINE_MAP_VERSION,
+      routeFingerprint: offlineRouteFingerprint(points),
       routeId: typeof body.routeId === 'string' ? body.routeId.slice(0, 120) : crypto.randomUUID(),
       routeName: typeof body.routeName === 'string' ? body.routeName.slice(0, 120) : 'Ruta offline',
       trails,
