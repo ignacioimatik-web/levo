@@ -4,7 +4,6 @@ import { normalizeAuthNextPath } from '@/lib/auth/redirect';
 
 export const PROTECTED_ROUTES = [
   '/account',
-  '/notificaciones',
   '/onboarding',
 ] as const;
 

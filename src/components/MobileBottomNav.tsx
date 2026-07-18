@@ -2,10 +2,10 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Activity, CircleDot, Compass, Route, Users } from 'lucide-react';
+import { Activity, CircleDot, Compass, Route, TrendingUp } from 'lucide-react';
 
 const items = [
-  { href: '/comunidad', label: 'Comunidad', icon: Users },
+  { href: '/progreso', label: 'Progreso', icon: TrendingUp },
   { href: '/rutas', label: 'Explorar', icon: Compass },
   { href: '/grabar', label: 'Grabar', icon: CircleDot, primary: true },
   { href: '/forfait', label: 'Planificar', icon: Route },

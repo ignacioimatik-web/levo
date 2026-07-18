@@ -21,6 +21,7 @@ const productionMigrationHashes = new Map([
   ['20260718173857_complete_rider_onboarding.sql', '56042e7aeb62a5321a670be5e671f9b3'],
   ['20260718223557_harden_data_api_grants.sql', 'ee2bb32c053857ee45de176c0b4c5afc'],
   ['20260718223650_optimize_live_session_rls.sql', 'a8fb1bd3cce144f99ffb2a231d558c4e'],
+  ['20260718225606_pause_social_features_for_private_beta.sql', 'c9cd7ea7d927dbfc48df2800ae5d7b36'],
 ]);
 
 function compactSqlHash(sql) {
@@ -73,23 +74,31 @@ test('every Data API table enables RLS in the reproducible migration chain', asy
   }
 });
 
-test('the final grants opt in only to operations used by the application', async () => {
-  const grants = await readFile(
+test('the final grants expose only the private beta surface', async () => {
+  const hardenedGrants = await readFile(
     new URL('20260718223557_harden_data_api_grants.sql', migrationsDirectory),
     'utf8',
   );
+  const privateBeta = await readFile(
+    new URL('20260718225606_pause_social_features_for_private_beta.sql', migrationsDirectory),
+    'utf8',
+  );
 
-  assert.match(grants, /revoke all on table[\s\S]+from public, anon, authenticated;/);
-  assert.match(grants, /grant select on table public\.activities to anon;/);
+  assert.match(hardenedGrants, /revoke all on table[\s\S]+from public, anon, authenticated;/);
+  assert.match(privateBeta, /revoke all on table public\.activities from public, anon, authenticated;/);
   assert.match(
-    grants,
+    privateBeta,
     /grant select, insert, update, delete on table public\.activities to authenticated;/,
   );
-  assert.match(grants, /grant select on table public\.live_sessions to anon;/);
-  assert.match(grants, /grant select on table public\.segments to anon, authenticated;/);
-  assert.doesNotMatch(grants, /grant (?:all|insert|update|delete)[^;]+ to anon;/i);
+  assert.match(privateBeta, /grant select, insert, update on table public\.profiles to authenticated;/);
+  assert.match(privateBeta, /grant select, insert, delete on table public\.segment_efforts to authenticated;/);
   assert.match(
-    grants,
+    privateBeta,
+    /public\.activity_kudos,[\s\S]+public\.notifications[\s\S]+from public, anon, authenticated;/,
+  );
+  assert.doesNotMatch(privateBeta, /grant [^;]+ to anon;/i);
+  assert.match(
+    hardenedGrants,
     /alter default privileges for role postgres in schema public[\s\S]+revoke execute on functions from public, anon, authenticated;/,
   );
 });

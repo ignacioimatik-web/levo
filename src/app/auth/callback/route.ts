@@ -46,6 +46,10 @@ export async function GET(request: Request) {
     .eq('user_id', authData.user.id)
     .maybeSingle();
 
-  const destination = getPostAuthDestination(requestedNext, profile?.onboarding_completed_at);
+  const destination = getPostAuthDestination(
+    requestedNext,
+    profile?.onboarding_completed_at,
+    authData.user.app_metadata.provider,
+  );
   return privateRedirect(`${origin}${destination}`);
 }

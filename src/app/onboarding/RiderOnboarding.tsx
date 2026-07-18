@@ -6,6 +6,7 @@ import {
   BatteryCharging,
   Bike,
   Check,
+  CheckCircle2,
   ChevronRight,
   Gauge,
   Loader2,
@@ -13,6 +14,7 @@ import {
   Mountain,
   UserRound,
 } from 'lucide-react';
+import type { AuthProvider } from '@/lib/auth/redirect';
 import { createClient } from '@/lib/supabase/browser';
 
 type RiderType = 'ebike' | 'mtb' | 'both';
@@ -20,6 +22,7 @@ type RiderType = 'ebike' | 'mtb' | 'both';
 type RiderOnboardingProps = {
   userId: string;
   next: string;
+  signedInWith: AuthProvider | null;
   initialDisplayName: string;
   initialBikeName: string;
   initialBatteryCapacityWh: number;
@@ -41,6 +44,7 @@ const RIDER_TYPES: Array<{
 export default function RiderOnboarding({
   userId,
   next,
+  signedInWith,
   initialDisplayName,
   initialBikeName,
   initialBatteryCapacityWh,
@@ -54,6 +58,11 @@ export default function RiderOnboarding({
   const [homeRegion, setHomeRegion] = useState(initialHomeRegion);
   const [riderType, setRiderType] = useState<RiderType>(initialRiderType);
   const [status, setStatus] = useState<'idle' | 'saving' | 'skipping' | 'error'>('idle');
+  const providerLabel = signedInWith === 'google'
+    ? 'Google'
+    : signedInWith === 'email'
+      ? 'email'
+      : null;
 
   const completeOnboarding = async (skip = false) => {
     if (!skip && !displayName.trim()) return;
@@ -88,6 +97,20 @@ export default function RiderOnboarding({
   return (
     <main className="topo-pattern-subtle min-h-[calc(100svh-4rem)] px-4 pb-28 pt-6 sm:px-6 sm:pt-10 md:pb-16">
       <div className="mx-auto max-w-4xl">
+        {providerLabel && (
+          <div
+            role="status"
+            className="mb-5 flex items-start gap-3 rounded-2xl border border-emerald-500/25 bg-emerald-500/10 p-4 text-emerald-100"
+          >
+            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-400" />
+            <div>
+              <p className="text-sm font-black">Acceso con {providerLabel} completado</p>
+              <p className="mt-1 text-xs leading-relaxed text-emerald-100/70">
+                Tu cuenta ya está conectada. Este último paso personaliza autonomía, rutas y avisos para tu forma de rodar.
+              </p>
+            </div>
+          </div>
+        )}
         <div className="mb-6 flex items-center gap-3 text-xs font-black uppercase tracking-[0.2em] text-orange-400">
           <span className="h-px w-10 bg-orange-500" />
           Primera puesta a punto

@@ -41,7 +41,7 @@ export function SegmentExplorer() {
             </p>
             <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Segmentos MTB</h1>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-400">
-              Tramos extraídos de tracks GPS reales. La app reconoce automáticamente cada paso y mantiene clasificaciones separadas para MTB y e-bike.
+              Tramos extraídos de tracks GPS reales. La app reconoce automáticamente cada paso y conserva tus mejores tiempos por separado para MTB y e-bike.
             </p>
           </div>
           <Link href="/grabar" className="flex min-h-11 items-center rounded-xl bg-orange-500 px-5 text-xs font-black uppercase">
@@ -124,7 +124,7 @@ export function SegmentExplorer() {
                       Ver ruta
                     </Link>
                     <Link href={`/segmentos/${segment.id}`} className="flex min-h-11 items-center justify-center gap-1 rounded-xl bg-orange-500 text-xs font-black">
-                      Clasificación <ChevronRight className="h-4 w-4" />
+                      Mis tiempos <ChevronRight className="h-4 w-4" />
                     </Link>
                   </div>
                 </div>

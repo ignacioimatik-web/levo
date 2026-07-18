@@ -44,7 +44,7 @@ export async function syncActivity(activity: RideActivity): Promise<'synced' | '
       route: activity.points,
       route_preview: buildRoutePreview(activity.points),
       weather_samples: activity.weatherSamples ?? [],
-      privacy: activity.privacy ?? 'private',
+      privacy: 'private',
     }, { onConflict: 'user_id,client_id' })
     .select('id')
     .single();
@@ -176,9 +176,7 @@ export async function pullActivities(): Promise<number> {
       points: row.route as RidePoint[],
       weatherSamples: Array.isArray(row.weather_samples) ? row.weather_samples : [],
       segmentEfforts: effortsByActivity.get(row.id) ?? [],
-      privacy: row.privacy === 'public' || row.privacy === 'followers'
-        ? row.privacy
-        : 'private',
+      privacy: 'private',
       syncStatus: 'synced',
     });
     imported += 1;

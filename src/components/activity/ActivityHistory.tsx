@@ -89,7 +89,7 @@ export default function ActivityHistory() {
     deleteActivity(activity.id);
     setUndoActivity(activity);
     setDeleteMessage(activity.remoteId
-      ? 'Salida retirada del dispositivo. Puede seguir visible en la Comunidad hasta confirmar la sincronización.'
+      ? 'Salida retirada del dispositivo. La copia privada de la nube se eliminará al confirmar la sincronización.'
       : 'Salida eliminada de este dispositivo.');
     undoTimerRef.current = window.setTimeout(() => {
       setUndoActivity(null);
@@ -205,11 +205,7 @@ export default function ActivityHistory() {
                         </Link>
                       </h2>
                       <span className="mt-1 block text-[9px] font-bold uppercase tracking-widest text-slate-600">
-                        {activity.privacy === 'public'
-                          ? 'Pública'
-                          : activity.privacy === 'followers'
-                            ? 'Seguidores'
-                            : 'Privada'}
+                        Privada
                       </span>
                     </div>
                     <SyncBadge status={activity.syncStatus} />

@@ -14,7 +14,7 @@
 | **Lenguaje** | TypeScript 5 |
 | **Mapas** | Mapbox GL JS (`outdoors-v12`) con terreno 3D (`mapbox-terrain-dem-v1`) |
 | **Mapa React** | `react-map-gl/mapbox` v8 |
-| **Autenticación** | Supabase Auth (Google OAuth + enlace seguro por email; Apple al configurar credenciales) con `@supabase/ssr` |
+| **Autenticación** | Supabase Auth (Google OAuth + enlace seguro por email) con `@supabase/ssr` |
 | **Base de datos** | Supabase PostgreSQL (RLS por usuario) |
 | **Estilos** | Tailwind CSS v4 |
 | **Iconos** | Lucide React |
@@ -54,13 +54,15 @@ Constructor drag-free que permite al usuario **combinar tracks secuencialmente**
 
 ### ☁️ Guardado en la nube
 - Rutas guardadas en Supabase (`saved_routes`) con RLS por usuario
+- Actividades, perfiles y tiempos de segmento privados y accesibles solo por su propietario
+- Beta cerrada para un grupo inicial de cinco riders; comunidad y rankings públicos pausados
 - Auto-nombrado incremental ("Mi ruta Forfait", "Mi ruta Forfait 2", …)
 - Listado persistente en el panel lateral; carga instantánea al hacer clic
 - Copia local en localStorage como respaldo sin conexión
 
 ### 🔐 Autenticación
 - Google OAuth y acceso sin contraseña mediante enlace seguro por email
-- Apple se ofrece únicamente cuando el propietario configura sus credenciales
+- Apple no se ofrece en esta beta porque requiere una cuenta Apple Developer
 - Flujo PKCE con `@supabase/ssr` y cookies
 - Perfiles auto-creados al registrarse vía trigger de base de datos
 - Doble capa de protección: proxy en edge + guard server-side
@@ -113,7 +115,7 @@ src/
 │   │   ├── MTBMap.tsx          # Mapa Mapbox con tracks, rutas, marcadores
 │   │   ├── ContinuousProfile.tsx # Perfil altimétrico interactivo
 │   │   └── ElevationProfile.tsx  # Perfil estático (legacy)
-│   ├── Navbar.tsx              # Navegación principal con auth + redes sociales
+│   ├── Navbar.tsx              # Navegación principal con auth y tema
 │   ├── RouteFilter.tsx         # Filtros y ordenación del catálogo
 │   ├── RouteCard.tsx           # Tarjeta de ruta en catálogo
 │   ├── TrailCard.tsx           # Tarjeta de trail
@@ -262,7 +264,7 @@ local coincide con el aplicado en producción para evitar deriva de esquema.
 
 ## Autenticación
 
-El sistema usa **Supabase Auth** con Google OAuth y enlaces seguros por email. Apple queda disponible cuando se configuran sus credenciales; no se muestra como operativo mientras falten.
+El sistema usa **Supabase Auth** con Google OAuth y enlaces seguros por email. El acceso con Apple queda fuera de esta beta.
 
 Flujo:
 1. El usuario elige Google o solicita un enlace seguro en `/auth`

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { requireAuth } from '@/lib/auth/guards';
-import { normalizeAuthNextPath } from '@/lib/auth/redirect';
+import { normalizeAuthNextPath, normalizeAuthProvider } from '@/lib/auth/redirect';
 import { createClient } from '@/lib/supabase/server';
 import RiderOnboarding from './RiderOnboarding';
 
@@ -12,13 +12,20 @@ export const metadata: Metadata = {
 };
 
 type OnboardingPageProps = {
-  searchParams: Promise<{ next?: string | string[] }>;
+  searchParams: Promise<{
+    next?: string | string[];
+    signed_in?: string | string[];
+  }>;
 };
 
 export default async function OnboardingPage({ searchParams }: OnboardingPageProps) {
   const params = await searchParams;
   const requestedNext = Array.isArray(params.next) ? params.next[0] : params.next;
+  const requestedProvider = Array.isArray(params.signed_in)
+    ? params.signed_in[0]
+    : params.signed_in;
   const next = normalizeAuthNextPath(requestedNext);
+  const signedInWith = normalizeAuthProvider(requestedProvider);
   const user = await requireAuth('/account');
   const supabase = await createClient();
 
@@ -40,6 +47,7 @@ export default async function OnboardingPage({ searchParams }: OnboardingPagePro
     <RiderOnboarding
       userId={user.id}
       next={next}
+      signedInWith={signedInWith}
       initialDisplayName={displayName}
       initialBikeName={profile?.bike_name ?? ''}
       initialBatteryCapacityWh={profile?.battery_capacity_wh ?? 700}

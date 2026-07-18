@@ -9,7 +9,6 @@ const APP_SHELL = [
   '/planifica',
   '/actividades',
   '/progreso',
-  '/comunidad',
   '/mapa-personal',
   '/taller',
   '/favicon.ico',
@@ -23,7 +22,6 @@ const OFFLINE_NAVIGATION_PATHS = new Set([
   '/planifica',
   '/actividades',
   '/progreso',
-  '/comunidad',
   '/mapa-personal',
   '/taller',
 ]);

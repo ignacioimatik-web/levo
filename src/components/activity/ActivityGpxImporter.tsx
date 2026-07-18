@@ -9,7 +9,7 @@ import { parseActivityGpx, type ActivityGpxPreview } from '@/lib/activities/impo
 import { saveActivity } from '@/lib/activities/storage';
 import { syncActivity } from '@/lib/activities/sync';
 import type {
-  ActivityPrivacy, AssistMode, RideActivity, SportType,
+  AssistMode, RideActivity, SportType,
 } from '@/lib/activities/types';
 import { matchCompetitiveSegments } from '@/lib/segments/matcher';
 
@@ -28,7 +28,6 @@ export default function ActivityGpxImporter({
   const [preview, setPreview] = useState<ActivityGpxPreview | null>(null);
   const [title, setTitle] = useState('');
   const [sportType, setSportType] = useState<SportType>('ebike');
-  const [privacy, setPrivacy] = useState<ActivityPrivacy>('private');
   const [batteryStart, setBatteryStart] = useState(100);
   const [batteryEnd, setBatteryEnd] = useState(40);
   const [batteryCapacityWh, setBatteryCapacityWh] = useState(700);
@@ -85,7 +84,7 @@ export default function ActivityGpxImporter({
       points: preview.points,
       weatherSamples: [],
       segmentEfforts: matchCompetitiveSegments(preview.points),
-      privacy,
+      privacy: 'private',
       syncStatus: 'local',
     };
     await saveActivity(activity);
@@ -196,22 +195,9 @@ export default function ActivityGpxImporter({
                 </section>
               )}
 
-              <fieldset>
-                <legend className="text-[10px] font-black uppercase tracking-widest text-slate-500">Visibilidad</legend>
-                <div className="mt-2 grid grid-cols-3 gap-2">
-                  {([
-                    ['private', 'Solo yo'],
-                    ['followers', 'Seguidores'],
-                    ['public', 'Comunidad'],
-                  ] as const).map(([value, label]) => (
-                    <button key={value} type="button" onClick={() => setPrivacy(value)}
-                      aria-pressed={privacy === value}
-                      className={`min-h-11 rounded-xl border px-3 py-3 text-xs font-black ${privacy === value ? 'border-orange-500 bg-orange-500/10 text-orange-300' : 'border-white/10 text-slate-500'}`}>
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </fieldset>
+              <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-xs text-emerald-200">
+                Esta actividad se importará de forma privada y solo será visible en tu cuenta.
+              </div>
             </div>
 
             <div className="mt-6 flex flex-wrap gap-2">

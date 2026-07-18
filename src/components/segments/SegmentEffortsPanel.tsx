@@ -123,7 +123,7 @@ export function SegmentEffortsPanel({
                 href={`/segmentos/${segment!.id}`}
                 className="mt-3 flex min-h-11 items-center justify-between rounded-xl border border-white/10 bg-slate-950/50 px-3 text-xs font-black text-slate-300 hover:border-amber-500/30 hover:text-amber-300"
               >
-                <span className="flex items-center gap-2"><Gauge className="h-4 w-4" /> Ver clasificación MTB / e-bike</span>
+                <span className="flex items-center gap-2"><Gauge className="h-4 w-4" /> Ver récord personal MTB / e-bike</span>
                 <ChevronRight className="h-4 w-4" />
               </Link>
             </article>

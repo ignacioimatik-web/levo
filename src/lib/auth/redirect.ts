@@ -1,6 +1,9 @@
 const DEFAULT_AUTH_DESTINATION = '/account';
 const DEFAULT_SITE_ORIGIN = 'https://levo-eta.vercel.app';
 const AUTH_FLOW_PATHS = ['/auth', '/onboarding'] as const;
+const AUTH_PROVIDERS = ['google', 'email'] as const;
+
+export type AuthProvider = (typeof AUTH_PROVIDERS)[number];
 
 function normalizeHttpOrigin(value: string | null | undefined): string | null {
   if (!value) return null;
@@ -71,8 +74,19 @@ export function normalizeAuthNextPath(
 export function getPostAuthDestination(
   requestedNext: string | null | undefined,
   onboardingCompletedAt: string | null | undefined,
+  signedInWith?: string | null,
 ): string {
   const next = normalizeAuthNextPath(requestedNext);
   if (onboardingCompletedAt) return next;
-  return `/onboarding?next=${encodeURIComponent(next)}`;
+  const searchParams = new URLSearchParams({ next });
+  if (normalizeAuthProvider(signedInWith)) {
+    searchParams.set('signed_in', signedInWith!);
+  }
+  return `/onboarding?${searchParams.toString()}`;
+}
+
+export function normalizeAuthProvider(value: string | null | undefined): AuthProvider | null {
+  return AUTH_PROVIDERS.includes(value as AuthProvider)
+    ? value as AuthProvider
+    : null;
 }

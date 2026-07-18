@@ -94,7 +94,7 @@ function navigationRequest(path) {
 test('el service worker se instala aunque falle una pantalla secundaria', async () => {
   const harness = await serviceWorkerHarness({
     network: async (input) => (
-      cacheKey(input) === '/comunidad'
+      cacheKey(input) === '/progreso'
         ? new Response('fallo temporal', { status: 503 })
         : new Response(`shell:${cacheKey(input)}`, { status: 200 })
     ),
@@ -103,6 +103,7 @@ test('el service worker se instala aunque falle una pantalla secundaria', async 
   await harness.dispatch('install');
   assert.ok(harness.stores.get('e-nduro-shell-v4')?.has('/offline'));
   assert.ok(harness.stores.get('e-nduro-shell-v4')?.has('/grabar'));
+  assert.equal(harness.stores.get('e-nduro-shell-v4')?.has('/progreso'), false);
   assert.equal(harness.stores.get('e-nduro-shell-v4')?.has('/comunidad'), false);
 });
 

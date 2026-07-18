@@ -8,7 +8,6 @@ import Link from 'next/link';
 
 const PROVIDER_LABELS: Record<string, { label: string; color: string }> = {
   google: { label: 'Google', color: 'text-orange-400' },
-  apple: { label: 'Apple', color: 'text-slate-300' },
 };
 
 function formatDate(dateString: string): string {
@@ -127,9 +126,6 @@ export default async function AccountPage() {
         </div>
 
         <div className="pt-4 border-t border-white/10">
-          <Link href={`/riders/${user.id}`} className="mb-5 inline-flex min-h-11 items-center rounded-xl border border-orange-500/20 bg-orange-500/5 px-4 text-xs font-black uppercase text-orange-300">
-            Ver mi perfil rider
-          </Link>
           <ProfileSettings
             userId={user.id}
             initialDisplayName={displayName}

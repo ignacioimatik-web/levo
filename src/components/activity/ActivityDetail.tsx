@@ -4,19 +4,19 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  ArrowDown, ArrowLeft, ArrowUp, BarChart3, BatteryCharging, Bike, Check,
-  Clock3, Download, Gauge, Globe2, LockKeyhole, Mountain, Pencil, RotateCcw,
-  Route, Share2, Sparkles, TimerReset, Trophy, UploadCloud, UsersRound, X, Zap,
+  ArrowDown, ArrowLeft, ArrowUp, BarChart3, BatteryCharging, Bike,
+  Clock3, Download, Gauge, LockKeyhole, Mountain, Pencil, RotateCcw,
+  Route, Sparkles, TimerReset, Trophy, X, Zap,
 } from 'lucide-react';
 import ActivityMap from './ActivityMap';
 import ActivityElevationProfile from './ActivityElevationProfile';
 import ActivityWeatherTimeline from './ActivityWeatherTimeline';
 import { SegmentEffortsPanel } from '@/components/segments/SegmentEffortsPanel';
-import { activityEditNotice, normalizeActivityTitle } from '@/lib/activities/edit';
+import { normalizeActivityTitle } from '@/lib/activities/edit';
 import { downloadActivityGpx } from '@/lib/activities/gpx';
 import { getActivityDurable, saveActivity } from '@/lib/activities/storage';
 import { syncActivity } from '@/lib/activities/sync';
-import type { ActivityPrivacy, RideActivity } from '@/lib/activities/types';
+import type { RideActivity } from '@/lib/activities/types';
 import { analyzeActivityTrack } from '@/lib/activities/track-analysis';
 import { plannedRouteFromActivity } from '@/lib/navigation/repeat';
 import { savePlannedRoute } from '@/lib/navigation/storage';
@@ -49,13 +49,9 @@ export default function ActivityDetail({ activityId }: { activityId: string }) {
   const router = useRouter();
   const [activity, setActivity] = useState<RideActivity | null>(null);
   const [loaded, setLoaded] = useState(false);
-  const [shared, setShared] = useState(false);
-  const [publishing, setPublishing] = useState(false);
   const [shareMessage, setShareMessage] = useState('');
-  const [messageUrgent, setMessageUrgent] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState('');
-  const [editPrivacy, setEditPrivacy] = useState<ActivityPrivacy>('private');
   const [savingEdits, setSavingEdits] = useState(false);
 
   useEffect(() => {
@@ -64,7 +60,6 @@ export default function ActivityDetail({ activityId }: { activityId: string }) {
         setActivity(storedActivity);
         if (storedActivity) {
           setEditTitle(storedActivity.title);
-          setEditPrivacy(storedActivity.privacy);
         }
         setLoaded(true);
       });
@@ -102,69 +97,22 @@ export default function ActivityDetail({ activityId }: { activityId: string }) {
     : null;
   const stoppedSeconds = Math.max(0, activity.durationSeconds - activity.movingSeconds);
 
-  const sharePublicActivity = async (publicActivity: RideActivity) => {
-    if (!publicActivity.remoteId) return;
-    const url = `${window.location.origin}/actividad/${publicActivity.remoteId}`;
-    const shareData = {
-      title: publicActivity.title,
-      text: `${publicActivity.title}: ${(publicActivity.distanceM / 1000).toFixed(1)} km y ${Math.round(publicActivity.elevationGainM)} m+ en E-nduro Ebiketracks`,
-      url,
-    };
-    try {
-      if (navigator.share) await navigator.share(shareData);
-      else await navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`);
-      setShared(true);
-      setMessageUrgent(false);
-      setShareMessage('Enlace público listo para abrir desde cualquier dispositivo.');
-      window.setTimeout(() => setShared(false), 2_000);
-    } catch (error) {
-      if (!(error instanceof DOMException && error.name === 'AbortError')) {
-        setMessageUrgent(false);
-        setShareMessage('No hemos podido abrir el menú de compartir.');
-      }
-    }
-  };
-
-  const publishAndShare = async () => {
-    setPublishing(true);
-    setShareMessage('');
-    setMessageUrgent(false);
-    const publicActivity: RideActivity = { ...activity, privacy: 'public', syncStatus: 'local' };
-    await saveActivity(publicActivity);
-    setActivity(publicActivity);
-    const result = await syncActivity(publicActivity);
-    const updated = await getActivityDurable(activity.id) ?? publicActivity;
-    setActivity(updated);
-    setPublishing(false);
-    if (result === 'synced' && updated.remoteId) {
-      await sharePublicActivity(updated);
-    } else {
-      setShareMessage('La salida está marcada para la Comunidad. Inicia sesión y sincronízala para obtener su enlace público.');
-    }
-  };
-
-  const canShare = activity.privacy === 'public' && Boolean(activity.remoteId);
   const openEditor = () => {
     setEditTitle(activity.title);
-    setEditPrivacy(activity.privacy);
     setEditing(true);
   };
   const closeEditor = () => {
     setEditTitle(activity.title);
-    setEditPrivacy(activity.privacy);
     setEditing(false);
   };
   const saveEdits = async () => {
     if (savingEdits) return;
     setSavingEdits(true);
     setShareMessage('');
-    setMessageUrgent(false);
-    const previousPrivacy = activity.privacy;
-    const hadRemoteId = Boolean(activity.remoteId);
     const editedActivity: RideActivity = {
       ...activity,
       title: normalizeActivityTitle(editTitle, activity.title),
-      privacy: editPrivacy,
+      privacy: 'private',
       syncStatus: 'local',
     };
     await saveActivity(editedActivity);
@@ -177,17 +125,13 @@ export default function ActivityDetail({ activityId }: { activityId: string }) {
       result = 'error';
     }
     const updated = await getActivityDurable(activity.id) ?? editedActivity;
-    const notice = activityEditNotice({
-      previousPrivacy,
-      nextPrivacy: editPrivacy,
-      result,
-      hadRemoteId,
-    });
     setActivity(updated);
     setEditTitle(updated.title);
-    setEditPrivacy(updated.privacy);
-    setShareMessage(notice.message);
-    setMessageUrgent(notice.urgent);
+    setShareMessage(
+      result === 'synced'
+        ? 'Cambios guardados y sincronizados de forma privada.'
+        : 'Cambios guardados en este dispositivo. Se sincronizarán cuando recuperes la conexión.',
+    );
     setSavingEdits(false);
     setEditing(false);
   };
@@ -228,14 +172,6 @@ export default function ActivityDetail({ activityId }: { activityId: string }) {
             <button onClick={() => downloadActivityGpx(activity)} className="flex items-center gap-2 rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-xs font-black">
               <Download className="h-4 w-4" /> GPX
             </button>
-            <button
-              onClick={() => { void (canShare ? sharePublicActivity(activity) : publishAndShare()); }}
-              disabled={publishing}
-              className="flex items-center gap-2 rounded-xl bg-orange-500 px-4 py-3 text-xs font-black disabled:opacity-50"
-            >
-              {shared ? <Check className="h-4 w-4" /> : canShare ? <Share2 className="h-4 w-4" /> : <UploadCloud className="h-4 w-4" />}
-              {publishing ? 'Publicando…' : shared ? 'Copiado' : canShare ? 'Compartir' : activity.privacy === 'public' ? 'Sincronizar' : 'Publicar'}
-            </button>
           </div>
         </header>
         {editing && (
@@ -243,7 +179,7 @@ export default function ActivityDetail({ activityId }: { activityId: string }) {
             <div className="flex items-center justify-between gap-4">
               <div>
                 <h2 className="font-black">Editar actividad</h2>
-                <p className="mt-1 text-xs text-slate-400">El nombre y la privacidad se guardan también en Supabase al sincronizar.</p>
+                <p className="mt-1 text-xs text-slate-400">El nombre se guarda también en Supabase al sincronizar.</p>
               </div>
               <button
                 type="button"
@@ -271,50 +207,10 @@ export default function ActivityDetail({ activityId }: { activityId: string }) {
                   className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-sm font-bold outline-none transition focus:border-orange-500"
                 />
               </label>
-              <fieldset>
-                <legend className="text-[10px] font-black uppercase tracking-widest text-slate-500">Visibilidad</legend>
-                <div className="mt-2 grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setEditPrivacy('private')}
-                    aria-pressed={editPrivacy === 'private'}
-                    className={`flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-xs font-black transition ${
-                      editPrivacy === 'private'
-                        ? 'border-orange-500 bg-orange-500/10 text-orange-300'
-                        : 'border-white/10 bg-slate-950 text-slate-400'
-                    }`}
-                  >
-                    <LockKeyhole className="h-4 w-4" /> Solo yo
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEditPrivacy('followers')}
-                    aria-pressed={editPrivacy === 'followers'}
-                    className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-3 text-xs font-black transition ${
-                      editPrivacy === 'followers'
-                        ? 'border-orange-500 bg-orange-500/10 text-orange-300'
-                        : 'border-white/10 bg-slate-950 text-slate-400'
-                    }`}
-                  >
-                    <UsersRound className="h-4 w-4" /> Seguidores
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEditPrivacy('public')}
-                    aria-pressed={editPrivacy === 'public'}
-                    className={`flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-xs font-black transition ${
-                      editPrivacy === 'public'
-                        ? 'border-orange-500 bg-orange-500/10 text-orange-300'
-                        : 'border-white/10 bg-slate-950 text-slate-400'
-                    }`}
-                  >
-                    <Globe2 className="h-4 w-4" /> Comunidad
-                  </button>
-                </div>
-              </fieldset>
-              <p className="text-xs leading-relaxed text-slate-400 lg:col-span-2">
-                “Seguidores” protege la salida con tu red de riders. Al reducir la visibilidad, el cambio se aplica en la nube cuando termina la sincronización.
-              </p>
+              <div className="flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 text-xs text-emerald-200">
+                <LockKeyhole className="h-4 w-4 shrink-0" />
+                Actividad privada: solo tú puedes verla.
+              </div>
               <div className="flex flex-wrap gap-2 lg:col-span-2">
                 <button
                   type="submit"
@@ -332,12 +228,8 @@ export default function ActivityDetail({ activityId }: { activityId: string }) {
         )}
         {shareMessage && (
           <p
-            role={messageUrgent ? 'alert' : 'status'}
-            className={`mb-5 rounded-xl border px-4 py-3 text-xs ${
-              messageUrgent
-                ? 'border-red-500/30 bg-red-500/10 text-red-200'
-                : 'border-orange-500/20 bg-orange-500/10 text-orange-200'
-            }`}
+            role="status"
+            className="mb-5 rounded-xl border border-orange-500/20 bg-orange-500/10 px-4 py-3 text-xs text-orange-200"
           >
             {shareMessage}
           </p>

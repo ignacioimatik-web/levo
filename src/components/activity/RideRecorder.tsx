@@ -24,7 +24,7 @@ import {
 } from '@/lib/activities/storage';
 import { syncActivity } from '@/lib/activities/sync';
 import type {
-  ActivityPrivacy, AssistMode, RideActivity, RideDraft, RidePoint, RideSettings, SportType,
+  AssistMode, RideActivity, RideDraft, RidePoint, RideSettings, SportType,
   RideWeatherSample,
 } from '@/lib/activities/types';
 import {
@@ -160,7 +160,6 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
   const [error, setError] = useState('');
   const [title, setTitle] = useState('');
   const [batteryEnd, setBatteryEnd] = useState(100);
-  const [privacy, setPrivacy] = useState<ActivityPrivacy>('private');
   const [liveSession, setLiveSession] = useState<{ id: string; shareToken: string } | null>(null);
   const [liveStatus, setLiveStatus] = useState<'idle' | 'starting' | 'active' | 'error'>('idle');
   const [liveError, setLiveError] = useState('');
@@ -1024,7 +1023,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
       points,
       weatherSamples,
       segmentEfforts: matchCompetitiveSegments(points),
-      privacy,
+      privacy: 'private',
       syncStatus: 'local',
     };
     await saveActivity(activity);
@@ -1571,31 +1570,12 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
                     </span>
                   </label>
                 )}
-                <div>
-                  <p className="mb-2 text-xs font-bold text-slate-300">Quién puede verla</p>
-                  <div className="grid grid-cols-3 gap-2 rounded-2xl bg-slate-950 p-1.5">
-                    {([
-                      ['private', 'Solo yo'],
-                      ['followers', 'Seguidores'],
-                      ['public', 'Comunidad'],
-                    ] as const).map(([value, label]) => (
-                      <button
-                        key={value}
-                        onClick={() => setPrivacy(value)}
-                        className={`min-h-11 rounded-xl py-3 text-xs font-black ${
-                          privacy === value ? 'bg-white text-slate-950' : 'text-slate-500'
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
+                <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+                  <p className="flex items-center gap-2 text-xs font-bold text-emerald-200">
+                    <ShieldCheck className="h-4 w-4" /> Actividad privada
+                  </p>
                   <p className="mt-2 text-[10px] leading-relaxed text-slate-500">
-                    {privacy === 'public'
-                      ? 'Aparecerá en Descubrir con métricas y trazado reducido.'
-                      : privacy === 'followers'
-                        ? 'Solo aparecerá en el feed de quienes te siguen.'
-                        : 'Solo tú podrás verla y sincronizarla.'}
+                    Solo tú podrás verla. Se sincroniza de forma segura entre tus dispositivos.
                   </p>
                 </div>
                 <button onClick={save}

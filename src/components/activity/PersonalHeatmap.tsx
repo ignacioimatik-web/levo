@@ -281,7 +281,7 @@ export default function PersonalHeatmap() {
 
         <p className="mt-4 flex items-start gap-2 text-[10px] leading-relaxed text-slate-600">
           <LockKeyhole className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          Este mapa combina tus actividades privadas y públicas únicamente para ti. Los recorridos privados no aparecen en la Comunidad.
+          Este mapa combina tus actividades y recorridos únicamente para ti.
         </p>
       </div>
     </main>
