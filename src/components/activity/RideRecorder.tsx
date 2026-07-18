@@ -1066,8 +1066,8 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
         ? 'fixed inset-0 z-[2000] overflow-y-auto overscroll-contain pb-24'
         : 'pb-28 md:pb-16'
     }`}>
-      <div className={`mx-auto max-w-6xl px-4 sm:px-6 ${rideFocused ? 'py-3' : 'py-6 md:py-10'}`}>
-        <header className="mb-6 flex items-end justify-between gap-4">
+      <div className={`mx-auto max-w-6xl px-4 sm:px-6 ${rideFocused ? 'ride-focus-shell py-3' : 'py-6 md:py-10'}`}>
+        <header className={`mb-6 flex items-end justify-between gap-4 ${rideFocused ? 'ride-focus-header' : ''}`}>
           <div>
             <p className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-orange-400">
               <Radio className={`h-4 w-4 ${status === 'recording' ? 'animate-pulse' : ''}`} />
@@ -1121,7 +1121,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
           </div>
         )}
 
-        <div className="grid gap-5 lg:grid-cols-[1.15fr_.85fr]">
+        <div className={`grid gap-5 lg:grid-cols-[1.15fr_.85fr] ${rideFocused ? 'ride-focus-grid' : ''}`}>
           <section className="space-y-5">
             <RideNavigationMap
               points={points}

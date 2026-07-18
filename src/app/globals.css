@@ -90,6 +90,10 @@ body {
   color: #92400e;
 }
 
+:root[data-theme="light"] .ride-focus-exit {
+  color: #1e40af !important;
+}
+
 @layer components {
   .topo-pattern {
     background-image: radial-gradient(circle at 2px 2px, rgba(255,255,255,0.04) 1px, transparent 0);
@@ -193,5 +197,40 @@ body {
     width: 44px !important;
     height: 44px !important;
     line-height: 44px !important;
+  }
+}
+
+/* Field cockpit: maximize the map when a phone is mounted horizontally. */
+@media (orientation: landscape) and (max-height: 600px) and (pointer: coarse) {
+  .ride-focus-header {
+    display: none;
+  }
+
+  .ride-focus-shell {
+    max-width: none;
+    padding:
+      max(.5rem, env(safe-area-inset-top))
+      max(.5rem, env(safe-area-inset-right))
+      max(.5rem, env(safe-area-inset-bottom))
+      max(.5rem, env(safe-area-inset-left));
+  }
+
+  .ride-focus-toolbar {
+    position: fixed;
+    top: max(.5rem, env(safe-area-inset-top));
+    left: max(.5rem, env(safe-area-inset-left));
+    width: min(60vw, 22rem);
+    margin: 0;
+    z-index: 2050;
+  }
+
+  .ride-focus-grid {
+    display: block;
+  }
+
+  .ride-navigation-focused {
+    height: calc(100svh - max(1rem, env(safe-area-inset-top) + env(safe-area-inset-bottom))) !important;
+    min-height: 0 !important;
+    border-radius: 1.25rem;
   }
 }

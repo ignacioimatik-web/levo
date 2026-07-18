@@ -20,7 +20,7 @@ export default function RideDisplayToolbar({
     <nav
       aria-label="Vista de conducción"
       className={`z-50 mb-4 flex items-center justify-between gap-2 rounded-2xl border border-white/10 bg-slate-950/95 p-1.5 shadow-xl backdrop-blur ${
-        focused ? 'sticky top-[max(.5rem,env(safe-area-inset-top))]' : ''
+        focused ? 'ride-focus-toolbar sticky top-[max(.5rem,env(safe-area-inset-top))]' : ''
       }`}
     >
       <div className="grid flex-1 grid-cols-2 rounded-xl bg-slate-900 p-1" role="group" aria-label="Nivel de información">
@@ -46,7 +46,7 @@ export default function RideDisplayToolbar({
         onClick={() => onFocusedChange(!focused)}
         className={`flex min-h-12 items-center justify-center gap-2 rounded-xl border px-3 text-[10px] font-black uppercase ${
           focused
-            ? 'border-blue-400/40 bg-blue-500/15 text-blue-200'
+            ? 'ride-focus-exit border-blue-400/40 bg-blue-500/15 text-blue-200'
             : 'border-white/10 bg-slate-900 text-slate-300'
         }`}
       >

@@ -194,7 +194,7 @@ export default function RideNavigationMap({
   return (
     <div className={`relative overflow-hidden rounded-3xl border bg-slate-900 ${
       (offRouteM ?? 0) > 75 ? 'border-red-500/60' : 'border-white/10'
-    } ${active
+    } ${focused ? 'ride-navigation-focused' : ''} ${active
       ? focused
         ? 'h-[min(68svh,38rem)] min-h-56'
         : 'h-[min(55svh,26rem)] min-h-52'
