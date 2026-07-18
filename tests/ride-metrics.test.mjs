@@ -84,9 +84,11 @@ import {
 import {
   buildLiveConditionAlert,
   deriveLiveRideConditions,
+  effectiveWeatherAgeMinutes,
   findUpcomingWeatherHazard,
   minutesUntilClockTime,
   selectCurrentWeatherPhase,
+  shouldRefreshLiveWeather,
 } from '../src/lib/navigation/live-ride-conditions.ts';
 import {
   normalizeBRouterResponse,
@@ -1310,6 +1312,86 @@ test('el margen de luz usa el ritmo real y avisa si no alcanza para terminar', (
 test('la hora de ocaso se calcula con la hora local del dispositivo', () => {
   assert.equal(minutesUntilClockTime(new Date(2026, 0, 1, 18, 10), '19:25'), 75);
   assert.equal(minutesUntilClockTime(new Date(2026, 0, 1, 20, 10), '19:25'), -45);
+});
+
+test('la antigüedad meteorológica sigue aumentando después de la consulta', () => {
+  const now = new Date('2026-07-18T12:45:00Z');
+  const fetchedAt = new Date('2026-07-18T12:00:00Z');
+  assert.equal(effectiveWeatherAgeMinutes(90, fetchedAt, now), 135);
+  assert.equal(effectiveWeatherAgeMinutes(null, fetchedAt, now), null);
+});
+
+test('una observación de más de dos horas deja de presentarse como favorable en vivo', () => {
+  const summary = deriveLiveRideConditions({
+    phases: [{
+      id: 'W1',
+      fromKm: 0,
+      toKm: 10,
+      centerKm: 5,
+      routeBearingDeg: 0,
+      temperatureC: 22,
+      humidityPct: 55,
+      windKmh: 8,
+      maxWindKmh: 12,
+      precipitationMm: 0,
+      windEffect: 'calm',
+      confidence: 'low',
+      nearestStationKm: 18,
+      stationCount: 1,
+      feelLabel: 'sensación neutra',
+      riskLevel: 'green',
+    }],
+    completedM: 2_000,
+    remainingM: 8_000,
+    averageSpeedKmh: 14,
+    movingSeconds: 1_200,
+    sportType: 'ebike',
+    weatherDataAgeMin: 121,
+  });
+
+  assert.equal(summary.weatherDataIsStale, true);
+  assert.equal(summary.overallRisk, 'yellow');
+  assert.match(summary.recommendation, /no la trates como tiempo real/i);
+  assert.equal(buildLiveConditionAlert(summary)?.key, 'weather:stale');
+});
+
+test('el refresco meteo evita rate limit, respeta ocho minutos y reacciona al volver la cobertura', () => {
+  const now = 1_000_000;
+  assert.equal(shouldRefreshLiveWeather({
+    now,
+    lastFetchAt: now - 60_000,
+    lastAttemptAt: 0,
+    force: false,
+    online: true,
+  }), false);
+  assert.equal(shouldRefreshLiveWeather({
+    now,
+    lastFetchAt: now - 9 * 60_000,
+    lastAttemptAt: 0,
+    force: false,
+    online: true,
+  }), true);
+  assert.equal(shouldRefreshLiveWeather({
+    now,
+    lastFetchAt: now - 60_000,
+    lastAttemptAt: now - 10_000,
+    force: true,
+    online: true,
+  }), false);
+  assert.equal(shouldRefreshLiveWeather({
+    now,
+    lastFetchAt: now - 60_000,
+    lastAttemptAt: 0,
+    force: true,
+    online: true,
+  }), true);
+  assert.equal(shouldRefreshLiveWeather({
+    now,
+    lastFetchAt: 0,
+    lastAttemptAt: 0,
+    force: true,
+    online: false,
+  }), false);
 });
 
 test('anticipa el primer tramo meteorológico sensible dentro de cinco kilómetros', () => {

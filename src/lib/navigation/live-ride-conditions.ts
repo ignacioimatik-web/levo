@@ -3,6 +3,9 @@ import type { RouteWeatherPhase } from '@/lib/route-ride-plan';
 
 export type LiveConditionRisk = 'green' | 'yellow' | 'red';
 
+export const LIVE_WEATHER_REFRESH_MS = 8 * 60_000;
+export const LIVE_WEATHER_REQUEST_COOLDOWN_MS = 30_000;
+
 export interface UpcomingWeatherHazard {
   phase: RouteWeatherPhase;
   distanceM: number;
@@ -22,6 +25,8 @@ export interface LiveRideConditionSummary {
   lightMarginMinutes: number | null;
   lightRisk: LiveConditionRisk;
   overallRisk: LiveConditionRisk;
+  weatherDataAgeMin: number | null;
+  weatherDataIsStale: boolean;
   paceKmh: number;
   recommendation: string;
 }
@@ -32,6 +37,24 @@ function riskScore(risk: LiveConditionRisk): number {
 
 function maxRisk(a: LiveConditionRisk, b: LiveConditionRisk): LiveConditionRisk {
   return riskScore(a) >= riskScore(b) ? a : b;
+}
+
+export function shouldRefreshLiveWeather({
+  now,
+  lastFetchAt,
+  lastAttemptAt,
+  force,
+  online,
+}: {
+  now: number;
+  lastFetchAt: number;
+  lastAttemptAt: number;
+  force: boolean;
+  online: boolean;
+}): boolean {
+  if (!online) return false;
+  if (lastAttemptAt > 0 && now - lastAttemptAt < LIVE_WEATHER_REQUEST_COOLDOWN_MS) return false;
+  return force || lastFetchAt <= 0 || now - lastFetchAt >= LIVE_WEATHER_REFRESH_MS;
 }
 
 export function selectCurrentWeatherPhase(
@@ -81,6 +104,18 @@ export function minutesUntilClockTime(now: Date, clockTime?: string): number | n
   return hours * 60 + minutes - (now.getHours() * 60 + now.getMinutes());
 }
 
+export function effectiveWeatherAgeMinutes(
+  dataAgeMin: number | null | undefined,
+  fetchedAt: Date | null | undefined,
+  now = new Date(),
+): number | null {
+  if (dataAgeMin == null || !Number.isFinite(dataAgeMin)) return null;
+  const elapsedMinutes = fetchedAt
+    ? Math.max(0, Math.floor((now.getTime() - fetchedAt.getTime()) / 60_000))
+    : 0;
+  return Math.max(0, Math.round(dataAgeMin) + elapsedMinutes);
+}
+
 export function deriveLiveRideConditions({
   phases,
   daylight,
@@ -89,6 +124,9 @@ export function deriveLiveRideConditions({
   averageSpeedKmh,
   movingSeconds,
   sportType,
+  weatherDataAgeMin,
+  weatherDataIsStale = false,
+  weatherFetchedAt,
   now = new Date(),
 }: {
   phases: RouteWeatherPhase[];
@@ -98,6 +136,9 @@ export function deriveLiveRideConditions({
   averageSpeedKmh: number;
   movingSeconds: number;
   sportType: 'ebike' | 'mtb';
+  weatherDataAgeMin?: number | null;
+  weatherDataIsStale?: boolean;
+  weatherFetchedAt?: Date | null;
   now?: Date;
 }): LiveRideConditionSummary {
   const fallbackPace = sportType === 'ebike' ? 16 : 12;
@@ -121,14 +162,24 @@ export function deriveLiveRideConditions({
 
   const phase = selectCurrentWeatherPhase(phases, completedM / 1000);
   const upcomingHazard = findUpcomingWeatherHazard(phases, completedM / 1000);
-  const overallRisk = maxRisk(phase?.riskLevel ?? 'green', lightRisk);
-  const recommendation = overallRisk === 'red'
+  const effectiveDataAgeMin = effectiveWeatherAgeMinutes(weatherDataAgeMin, weatherFetchedAt, now);
+  const staleWeather = weatherDataIsStale || (effectiveDataAgeMin != null && effectiveDataAgeMin > 120);
+  const weatherFreshnessRisk: LiveConditionRisk = staleWeather ? 'yellow' : 'green';
+  const overallRisk = maxRisk(
+    maxRisk(phase?.riskLevel ?? 'green', lightRisk),
+    weatherFreshnessRisk,
+  );
+  let recommendation = overallRisk === 'red'
     ? lightRisk === 'red'
       ? 'Margen de luz crítico: recorta o busca una salida segura.'
       : 'Condiciones comprometidas en este tramo: baja el ritmo y valora alternativa.'
     : overallRisk === 'yellow'
       ? 'Rueda con margen y revisa de nuevo en el próximo tramo.'
       : 'Condiciones favorables con la prudencia habitual de montaña.';
+  if (staleWeather) {
+    const age = effectiveDataAgeMin == null ? '' : ` (${Math.round(effectiveDataAgeMin)} min)`;
+    recommendation = `${recommendation} Observación meteorológica antigua${age}: no la trates como tiempo real.`;
+  }
 
   return {
     phase,
@@ -138,6 +189,8 @@ export function deriveLiveRideConditions({
     lightMarginMinutes,
     lightRisk,
     overallRisk,
+    weatherDataAgeMin: effectiveDataAgeMin,
+    weatherDataIsStale: staleWeather,
     paceKmh,
     recommendation,
   };
@@ -197,6 +250,16 @@ export function buildLiveConditionAlert(
       key: `weather:${summary.phase.id}:yellow`,
       risk: 'yellow',
       message: `Precaución meteorológica en el tramo actual. ${summary.phase.feelLabel}.`,
+    };
+  }
+
+  if (summary.weatherDataIsStale) {
+    return {
+      key: 'weather:stale',
+      risk: 'yellow',
+      message: summary.weatherDataAgeMin == null
+        ? 'Aviso. La observación meteorológica no tiene una hora fiable. Comprueba las condiciones sobre el terreno.'
+        : `Aviso. La observación meteorológica tiene ${Math.round(summary.weatherDataAgeMin)} minutos. No la trates como tiempo real.`,
     };
   }
 

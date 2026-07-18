@@ -81,6 +81,11 @@ function parseAemetTimestamp(value?: string): number | null {
   return Number.isFinite(ts) ? ts : null;
 }
 
+function normalizeAemetTimestamp(value?: string): string | undefined {
+  const timestamp = parseAemetTimestamp(value);
+  return timestamp == null ? value : new Date(timestamp).toISOString();
+}
+
 function parseAemetCoord(value: string): number | null {
   // Common AEMET format: DDMMSSN / DDDMMSSW
   const m = value.trim().toUpperCase().match(/^(\d{2,3})(\d{2})(\d{2})([NSEW])$/);
@@ -287,7 +292,7 @@ async function getAemetObservationsForTargets(
     stationName: nearest.nombre,
     stationProvince: nearest.provincia,
     stationDistanceKm: Math.round(nearest.distanceKm * 10) / 10,
-    updatedAt: obs.fint,
+    updatedAt: normalizeAemetTimestamp(obs.fint),
     dataAgeMin,
     dataIsStale,
     temperatureC: toNumber(obs.ta),
@@ -319,7 +324,7 @@ async function getAemetObservationsForTargets(
           dataAgeMin: stationTimestamp
             ? Math.max(0, Math.round((Date.now() - stationTimestamp) / 60_000))
             : undefined,
-          updatedAt: o?.fint,
+          updatedAt: normalizeAemetTimestamp(o?.fint),
         };
       }),
     temperatureRangeC,

@@ -22,6 +22,10 @@ export interface RideMetrics {
 
 export interface RideWeatherSample {
   sourceLabel?: string;
+  source?: 'aemet-observation' | 'open-meteo-model' | 'unavailable';
+  observedAt?: string | null;
+  dataAgeMin?: number | null;
+  dataIsStale?: boolean;
   capturedAt: string;
   distanceM: number;
   phaseId: string;

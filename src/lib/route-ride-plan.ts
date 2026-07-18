@@ -33,6 +33,10 @@ export interface RouteRidePlan {
   stationCount: number;
   overallConfidence: WeatherConfidence;
   sourceLabel: string;
+  source: AemetNow['source'] | 'unavailable';
+  observedAt: string | null;
+  dataAgeMin: number | null;
+  dataIsStale: boolean;
 }
 
 type RoutePoint = RouteSamplePoint;
@@ -171,6 +175,10 @@ export function buildRouteRidePlan({
       stationCount: stations.length,
       overallConfidence: 'low',
       sourceLabel: 'Sin trazado suficiente',
+      source: weather?.source ?? 'unavailable',
+      observedAt: weather?.updatedAt ?? null,
+      dataAgeMin: weather?.dataAgeMin ?? null,
+      dataIsStale: weather?.dataIsStale ?? false,
     };
   }
 
@@ -259,5 +267,9 @@ export function buildRouteRidePlan({
       ?? (stations.length > 0
         ? `Inferencia AEMET con ${stations.length} ${stations.length === 1 ? 'estación' : 'estaciones'}`
         : 'Sin cobertura meteorológica'),
+    source: weather?.source ?? 'unavailable',
+    observedAt: weather?.updatedAt ?? null,
+    dataAgeMin: weather?.dataAgeMin ?? null,
+    dataIsStale: weather?.dataIsStale ?? false,
   };
 }

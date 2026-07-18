@@ -34,6 +34,14 @@ function effectLabel(effect: RideWeatherSample['windEffect']): string {
   return 'variable';
 }
 
+function sampleAgeLabel(sample: RideWeatherSample): string | null {
+  if (sample.dataAgeMin == null) return null;
+  if (sample.dataAgeMin < 60) return `dato ${Math.round(sample.dataAgeMin)} min`;
+  const hours = Math.floor(sample.dataAgeMin / 60);
+  const minutes = Math.round(sample.dataAgeMin % 60);
+  return `dato ${hours} h${minutes ? ` ${minutes} min` : ''}`;
+}
+
 export default function ActivityWeatherTimeline({ samples }: { samples: RideWeatherSample[] }) {
   const ordered = [...samples]
     .filter((sample) => Number.isFinite(sample.distanceM))
@@ -53,6 +61,7 @@ export default function ActivityWeatherTimeline({ samples }: { samples: RideWeat
   const temperaturePath = sparkPath(ordered, (sample) => sample.temperatureC);
   const windPath = sparkPath(ordered, (sample) => sample.windKmh);
   const sourceLabel = ordered.find((sample) => sample.sourceLabel)?.sourceLabel;
+  const staleSampleCount = ordered.filter((sample) => sample.dataIsStale).length;
 
   return (
     <section className="mt-5 overflow-hidden rounded-3xl border border-cyan-500/20 bg-cyan-500/5">
@@ -62,6 +71,7 @@ export default function ActivityWeatherTimeline({ samples }: { samples: RideWeat
         </p>
         <p className="mt-1 text-[10px] text-slate-500">
           {sourceLabel ?? 'Meteo inferida por tramos'} capturada durante la marcha; no procede de sensores montados en la bicicleta.
+          {staleSampleCount > 0 ? ` ${staleSampleCount} ${staleSampleCount === 1 ? 'lectura era antigua' : 'lecturas eran antiguas'}.` : ''}
         </p>
       </div>
 
@@ -105,8 +115,14 @@ export default function ActivityWeatherTimeline({ samples }: { samples: RideWeat
             <div className="flex items-center justify-between gap-2">
               <p className="text-[9px] font-black uppercase text-cyan-300">km {(sample.distanceM / 1000).toFixed(1)}</p>
               <span className={`rounded-full px-2 py-0.5 text-[8px] font-black uppercase ${
-                sample.riskLevel === 'red' ? 'bg-red-500/20 text-red-300' : sample.riskLevel === 'yellow' ? 'bg-amber-500/20 text-amber-300' : 'bg-emerald-500/15 text-emerald-300'
-              }`}>{sample.confidence}</span>
+                sample.dataIsStale
+                  ? 'bg-amber-500/20 text-amber-300'
+                  : sample.riskLevel === 'red'
+                    ? 'bg-red-500/20 text-red-300'
+                    : sample.riskLevel === 'yellow'
+                      ? 'bg-amber-500/20 text-amber-300'
+                      : 'bg-emerald-500/15 text-emerald-300'
+              }`}>{sample.dataIsStale ? 'dato antiguo' : sample.confidence}</span>
             </div>
             <p className="mt-2 text-sm font-black">
               {sample.temperatureC == null ? '—' : `${sample.temperatureC.toFixed(0)}°`}
@@ -115,6 +131,11 @@ export default function ActivityWeatherTimeline({ samples }: { samples: RideWeat
             </p>
             <p className="mt-1 text-[10px] text-slate-500">{effectLabel(sample.windEffect)} · {sample.humidityPct == null ? 'humedad —' : `${sample.humidityPct}% humedad`}</p>
             <p className="mt-2 text-xs leading-relaxed text-slate-300">{sample.feelLabel}</p>
+            {sampleAgeLabel(sample) && (
+              <p className={`mt-2 text-[9px] ${sample.dataIsStale ? 'font-bold text-amber-300' : 'text-slate-500'}`}>
+                {sampleAgeLabel(sample)} al capturar
+              </p>
+            )}
           </article>
         ))}
       </div>

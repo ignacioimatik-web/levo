@@ -25,6 +25,14 @@ function confidenceLabel(value: 'high' | 'medium' | 'low'): string {
   return value === 'high' ? 'Alta' : value === 'medium' ? 'Media' : 'Baja';
 }
 
+function weatherAgeLabel(minutes: number | null | undefined): string | null {
+  if (minutes == null) return null;
+  if (minutes < 60) return `${Math.round(minutes)} min`;
+  const hours = Math.floor(minutes / 60);
+  const rest = Math.round(minutes % 60);
+  return `${hours} h${rest ? ` ${rest} min` : ''}`;
+}
+
 function windLabel(effect: string): string {
   if (effect === 'headwind') return 'de cara';
   if (effect === 'tailwind') return 'a favor';
@@ -157,7 +165,11 @@ export default function RouteRideBriefing({
       : lightMarginMinutes >= 0
         ? 'tight'
         : 'dark';
-  const routeRisk = maxRisk(phases);
+  const phaseRisk = maxRisk(phases);
+  const weatherStale = data.ridePlan?.dataIsStale === true
+    || (data.ridePlan?.dataAgeMin ?? 0) > 120;
+  const routeRisk = weatherStale && phaseRisk === 'green' ? 'yellow' : phaseRisk;
+  const weatherAge = weatherAgeLabel(data.ridePlan?.dataAgeMin);
   const criticalPhase = [...phases].sort((a, b) => {
     const risk = { red: 3, yellow: 2, green: 1 };
     const riskDifference = risk[b.riskLevel] - risk[a.riskLevel];
@@ -183,6 +195,7 @@ export default function RouteRideBriefing({
           <h3 className="mt-1 text-xl font-black sm:text-2xl">Ruta, meteo, ritmo y luz</h3>
           <p className="mt-1 max-w-2xl text-xs leading-relaxed text-slate-400">
             {data.ridePlan?.sourceLabel ?? 'Meteo inferida por tramo'}. No es un sensor situado sobre el sendero.
+            {weatherAge ? ` Antigüedad de la observación: ${weatherAge}.` : ''}
           </p>
         </div>
         <div className="grid grid-cols-2 gap-2 sm:flex">
@@ -222,6 +235,8 @@ export default function RouteRideBriefing({
                     ? 'Meteo no disponible'
                     : routeRisk === 'red'
                       ? 'Condiciones comprometidas'
+                      : weatherStale
+                        ? 'Datos antiguos: verifica'
                       : routeRisk === 'yellow'
                         ? 'Sal con precaución'
                         : 'Ventana favorable'}
@@ -301,6 +316,7 @@ export default function RouteRideBriefing({
 
       <p className="mt-3 text-[9px] leading-relaxed text-slate-600">
         {data.ridePlan?.sourceLabel ?? 'Sin fuente meteorológica'} · La evolución por tramo es una estimación espacial actual; no una predicción de la hora futura de paso.
+        {weatherStale ? ' La observación supera dos horas y no debe tratarse como tiempo real.' : ''}
       </p>
     </section>
   );

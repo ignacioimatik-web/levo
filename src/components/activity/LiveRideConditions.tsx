@@ -7,7 +7,7 @@ import {
 import type { RidePoint, RideWeatherSample, SportType } from '@/lib/activities/types';
 import type { RideDisplayMode } from '@/lib/activities/display-mode';
 import {
-  buildLiveConditionAlert, deriveLiveRideConditions,
+  buildLiveConditionAlert, deriveLiveRideConditions, shouldRefreshLiveWeather,
 } from '@/lib/navigation/live-ride-conditions';
 import type { LiveRideConditionAlert } from '@/lib/navigation/live-ride-conditions';
 import type { PlannedRoutePoint } from '@/lib/navigation/types';
@@ -44,6 +44,15 @@ function formatDistance(distanceM: number): string {
   return `${(distanceM / 1_000).toFixed(1)} km`;
 }
 
+function formatWeatherAge(minutes: number | null): string {
+  if (minutes == null) return 'hora del dato desconocida';
+  if (minutes < 2) return 'dato de ahora';
+  if (minutes < 60) return `dato de hace ${Math.round(minutes)} min`;
+  const hours = Math.floor(minutes / 60);
+  const rest = Math.round(minutes % 60);
+  return `dato de hace ${hours} h${rest ? ` ${rest} min` : ''}`;
+}
+
 export default function LiveRideConditions({
   active,
   routeId,
@@ -73,12 +82,15 @@ export default function LiveRideConditions({
 }) {
   const [payload, setPayload] = useState<RouteStatusPayload | null>(null);
   const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'offline' | 'error'>('idle');
-  const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
+  const [fetchedAt, setFetchedAt] = useState<Date | null>(null);
   const latestInput = useRef({ routeId, routeName, routePoints });
+  const payloadRef = useRef<RouteStatusPayload | null>(null);
   const lastFetchAt = useRef(0);
+  const lastAttemptAt = useRef(0);
   const lastSampleKey = useRef('');
   const lastAlertKey = useRef('');
   const requestRef = useRef<AbortController | null>(null);
+  const previousSession = useRef({ active: false, routeId });
 
   useEffect(() => {
     latestInput.current = { routeId, routeName, routePoints };
@@ -87,11 +99,19 @@ export default function LiveRideConditions({
   const refresh = useCallback(async (force = false) => {
     const input = latestInput.current;
     if (!active || input.routePoints.length < 2) return;
-    if (!force && Date.now() - lastFetchAt.current < 8 * 60_000) return;
+    const requestNow = Date.now();
     if (!navigator.onLine) {
-      setStatus(payload ? 'offline' : 'error');
+      setStatus(payloadRef.current ? 'offline' : 'error');
       return;
     }
+    if (!shouldRefreshLiveWeather({
+      now: requestNow,
+      lastFetchAt: lastFetchAt.current,
+      lastAttemptAt: lastAttemptAt.current,
+      force,
+      online: true,
+    })) return;
+    lastAttemptAt.current = requestNow;
     requestRef.current?.abort();
     const controller = new AbortController();
     requestRef.current = controller;
@@ -112,23 +132,58 @@ export default function LiveRideConditions({
       const next = await response.json() as RouteStatusPayload & { error?: string };
       if (!response.ok || !next.ok) throw new Error(next.error || next.message || 'Meteo no disponible.');
       lastFetchAt.current = Date.now();
+      payloadRef.current = next;
       setPayload(next);
-      setUpdatedAt(new Date());
+      setFetchedAt(new Date());
       setStatus('ready');
     } catch {
       if (controller.signal.aborted) return;
-      setStatus(payload ? 'offline' : 'error');
+      setStatus(payloadRef.current ? 'offline' : 'error');
     }
-  }, [active, payload]);
+  }, [active]);
+
+  useEffect(() => {
+    const sessionStarted = active && !previousSession.current.active;
+    const routeChanged = active && previousSession.current.routeId !== routeId;
+    previousSession.current = { active, routeId };
+    if (!sessionStarted && !routeChanged) return;
+    requestRef.current?.abort();
+    payloadRef.current = null;
+    lastFetchAt.current = 0;
+    lastAttemptAt.current = 0;
+    lastSampleKey.current = '';
+    lastAlertKey.current = '';
+    setPayload(null);
+    setFetchedAt(null);
+    setStatus('idle');
+  }, [active, routeId]);
 
   useEffect(() => {
     if (!active) return;
-    const initial = window.setTimeout(() => { void refresh(); }, 1_000);
-    const interval = window.setInterval(() => { void refresh(); }, 60_000);
+    const scheduledRouteId = routeId;
+    const refreshScheduledRoute = () => {
+      if (latestInput.current.routeId === scheduledRouteId) void refresh();
+    };
+    const initial = window.setTimeout(refreshScheduledRoute, 1_000);
+    const interval = window.setInterval(refreshScheduledRoute, 60_000);
     return () => {
       window.clearTimeout(initial);
       window.clearInterval(interval);
       requestRef.current?.abort();
+    };
+  }, [active, refresh, routeId]);
+
+  useEffect(() => {
+    if (!active) return;
+    const refreshAfterReconnect = () => { void refresh(true); };
+    const refreshAfterResume = () => {
+      if (document.visibilityState === 'visible') void refresh();
+    };
+    window.addEventListener('online', refreshAfterReconnect);
+    document.addEventListener('visibilitychange', refreshAfterResume);
+    return () => {
+      window.removeEventListener('online', refreshAfterReconnect);
+      document.removeEventListener('visibilitychange', refreshAfterResume);
     };
   }, [active, refresh]);
 
@@ -140,17 +195,24 @@ export default function LiveRideConditions({
     averageSpeedKmh,
     movingSeconds,
     sportType,
-  }), [averageSpeedKmh, completedM, movingSeconds, payload, remainingM, sportType]);
+    weatherDataAgeMin: payload?.ridePlan?.dataAgeMin,
+    weatherDataIsStale: payload?.ridePlan?.dataIsStale,
+    weatherFetchedAt: fetchedAt,
+  }), [averageSpeedKmh, completedM, fetchedAt, movingSeconds, payload, remainingM, sportType]);
 
   useEffect(() => {
     const phase = summary.phase;
-    if (!phase || !updatedAt || !onSample) return;
-    const key = `${updatedAt.getTime()}-${phase.id}`;
+    if (!phase || !fetchedAt || !onSample) return;
+    const key = `${fetchedAt.getTime()}-${phase.id}`;
     if (lastSampleKey.current === key) return;
     lastSampleKey.current = key;
     onSample({
       sourceLabel: payload?.ridePlan?.sourceLabel,
-      capturedAt: updatedAt.toISOString(),
+      source: payload?.ridePlan?.source,
+      observedAt: payload?.ridePlan?.observedAt,
+      dataAgeMin: summary.weatherDataAgeMin,
+      dataIsStale: summary.weatherDataIsStale,
+      capturedAt: fetchedAt.toISOString(),
       distanceM: Math.max(0, completedM),
       phaseId: phase.id,
       phaseFromKm: phase.fromKm,
@@ -168,10 +230,10 @@ export default function LiveRideConditions({
       riskLevel: phase.riskLevel,
       lightMarginMinutes: summary.lightMarginMinutes,
     });
-  }, [completedM, onSample, payload?.ridePlan?.sourceLabel, summary, updatedAt]);
+  }, [completedM, fetchedAt, onSample, payload?.ridePlan, summary]);
 
   useEffect(() => {
-    if (!onAlert || !updatedAt) return;
+    if (!onAlert || !fetchedAt) return;
     const alert = buildLiveConditionAlert(summary);
     if (!alert) {
       lastAlertKey.current = '';
@@ -180,11 +242,13 @@ export default function LiveRideConditions({
     if (lastAlertKey.current === alert.key) return;
     lastAlertKey.current = alert.key;
     onAlert(alert);
-  }, [onAlert, summary, updatedAt]);
+  }, [fetchedAt, onAlert, summary]);
 
   if (!active) return null;
   const phase = summary.phase;
   const upcomingHazard = summary.upcomingHazard;
+  const weatherAgeLabel = formatWeatherAge(summary.weatherDataAgeMin);
+  const sourceLabel = payload?.ridePlan?.sourceLabel;
   const riskClasses = summary.overallRisk === 'red'
     ? 'border-red-500/30 bg-red-500/10'
     : summary.overallRisk === 'yellow'
@@ -198,14 +262,16 @@ export default function LiveRideConditions({
           <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-cyan-300">
             <CloudSun className="h-4 w-4" /> Condiciones en ruta
           </p>
-          <p className="mt-1 text-xs text-slate-400">
+          <p className={`mt-1 text-xs ${summary.weatherDataIsStale ? 'font-bold text-amber-300' : 'text-slate-400'}`}>
             {status === 'loading' && !payload
               ? 'Consultando meteo por tramos…'
               : status === 'error' && !payload
                 ? 'Sin datos ahora; la grabación y navegación continúan.'
                 : status === 'offline'
-                  ? 'Sin cobertura · conservando la última lectura.'
-                  : payload?.ridePlan?.sourceLabel || 'Esperando trazado GPS suficiente.'}
+                  ? `Sin cobertura · ${weatherAgeLabel}.`
+                  : sourceLabel
+                    ? `${sourceLabel} · ${weatherAgeLabel}${status === 'loading' ? ' · renovando…' : ''}.`
+                    : 'Esperando trazado GPS suficiente.'}
           </p>
         </div>
         <div className="flex gap-1">
@@ -293,7 +359,8 @@ export default function LiveRideConditions({
           <p className="col-span-2 text-[9px] leading-relaxed text-slate-500 sm:col-span-4">
             Tramo {phase ? `${phase.fromKm.toFixed(1)}–${phase.toKm.toFixed(1)} km` : 'sin localizar'}
             {phase?.nearestStationKm != null ? ` · estación más cercana a ${phase.nearestStationKm.toFixed(1)} km` : ''}
-            {updatedAt ? ` · actualizado ${updatedAt.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}` : ''}
+            {summary.weatherDataAgeMin != null ? ` · ${weatherAgeLabel}` : ''}
+            {fetchedAt ? ` · consulta ${fetchedAt.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}` : ''}
             {' · '}inferencia de estaciones, no sensor sobre la bicicleta.
           </p>
         </div>
