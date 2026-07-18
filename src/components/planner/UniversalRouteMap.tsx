@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Map, {
   FullscreenControl, GeolocateControl, Layer, Marker, NavigationControl, Source,
 } from 'react-map-gl/maplibre';
@@ -24,6 +24,16 @@ function routeFeature(points: PlannedRoutePoint[]) {
   };
 }
 
+function visibleControls(points: PlannedRoutePoint[], maxControls = 24) {
+  if (points.length <= maxControls) {
+    return points.map((point, originalIndex) => ({ point, originalIndex }));
+  }
+  return Array.from({ length: maxControls }, (_, index) => {
+    const originalIndex = Math.round(index / (maxControls - 1) * (points.length - 1));
+    return { point: points[originalIndex], originalIndex };
+  });
+}
+
 export default function UniversalRouteMap({
   points,
   controlPoints,
@@ -40,6 +50,16 @@ export default function UniversalRouteMap({
   const [selectedStyleIndex, setSelectedStyleIndex] = useState<number | null>(null);
   const styleIndex = selectedStyleIndex ?? (theme === 'dark' ? 2 : 0);
   const route = useMemo(() => routeFeature(points), [points]);
+  const displayedControls = useMemo(() => visibleControls(controlPoints), [controlPoints]);
+  const fitRoute = useCallback(() => {
+    if (!mapRef.current || points.length < 2) return;
+    const lngs = points.map((point) => point.longitude);
+    const lats = points.map((point) => point.latitude);
+    mapRef.current.fitBounds(
+      [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
+      { padding: 56, duration: 450, maxZoom: 15 },
+    );
+  }, [points]);
 
   const showPlace = (result: GeocodingResult) => {
     if (result.boundingBox) {
@@ -68,16 +88,8 @@ export default function UniversalRouteMap({
   };
 
   useEffect(() => {
-    if (!mapRef.current || points.length < 2) return;
-    const lngs = points.map((point) => point.longitude);
-    const lats = points.map((point) => point.latitude);
-    const fit = () => mapRef.current?.fitBounds(
-      [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
-      { padding: 56, duration: 450, maxZoom: 15 },
-    );
-    if (mapRef.current.isStyleLoaded()) fit();
-    else mapRef.current.once('load', fit);
-  }, [points]);
+    fitRoute();
+  }, [fitRoute]);
 
   return (
     <div className="relative h-full">
@@ -99,6 +111,7 @@ export default function UniversalRouteMap({
       touchZoomRotate
       dragRotate
       reuseMaps
+      onLoad={fitRoute}
     >
       {points.length > 1 && (
         <Source id="custom-route-line" type="geojson" data={route}>
@@ -116,12 +129,12 @@ export default function UniversalRouteMap({
           />
         </Source>
       )}
-      {controlPoints.map((point, index) => {
-        const first = index === 0;
-        const last = index === controlPoints.length - 1;
+      {displayedControls.map(({ point, originalIndex }, index) => {
+        const first = originalIndex === 0;
+        const last = originalIndex === controlPoints.length - 1;
         return (
           <Marker
-            key={`${point.longitude}-${point.latitude}-${index}`}
+            key={`${point.longitude}-${point.latitude}-${originalIndex}`}
             longitude={point.longitude}
             latitude={point.latitude}
             anchor="center"
@@ -134,9 +147,9 @@ export default function UniversalRouteMap({
                     ? 'h-7 w-7 bg-orange-500 text-[9px]'
                     : 'h-5 w-5 bg-blue-400 text-[7px]'
               }`}
-              aria-label={first ? 'Inicio' : last ? 'Final' : `Control ${index + 1}`}
+              aria-label={first ? 'Inicio' : last ? 'Final' : `Punto de referencia ${originalIndex + 1}`}
             >
-              {first ? 'A' : last ? 'B' : index + 1}
+              {first ? 'A' : last ? 'B' : index}
             </span>
           </Marker>
         );

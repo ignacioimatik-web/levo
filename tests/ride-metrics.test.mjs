@@ -120,6 +120,12 @@ import {
   mergeActivityVersions,
   mergeRideDraftVersions,
 } from '../src/lib/activities/durable-storage.ts';
+import {
+  externalGpxFileName,
+  isPublicNetworkAddress,
+  looksLikeGpx,
+  validateExternalGpxUrl,
+} from '../src/lib/navigation/external-gpx.ts';
 
 function point({
   latitude = 40,
@@ -131,6 +137,42 @@ function point({
 } = {}) {
   return { latitude, longitude, elevation, accuracy, speed, timestamp };
 }
+
+test('la importación por enlace solo admite destinos HTTPS públicos', () => {
+  assert.equal(validateExternalGpxUrl('https://example.com/routes/day.gpx').hostname, 'example.com');
+  assert.throws(() => validateExternalGpxUrl('http://example.com/route.gpx'), /https/);
+  assert.throws(() => validateExternalGpxUrl('https://localhost/route.gpx'), /público/);
+  assert.throws(() => validateExternalGpxUrl('https://127.0.0.1/route.gpx'), /público/);
+  assert.throws(() => validateExternalGpxUrl('https://10.0.0.4/route.gpx'), /público/);
+  assert.throws(() => validateExternalGpxUrl('https://[::1]/route.gpx'), /público/);
+  assert.throws(() => validateExternalGpxUrl('https://user:secret@example.com/route.gpx'), /credenciales/);
+});
+
+test('clasifica direcciones públicas y privadas para impedir SSRF', () => {
+  assert.equal(isPublicNetworkAddress('1.1.1.1'), true);
+  assert.equal(isPublicNetworkAddress('8.8.8.8'), true);
+  assert.equal(isPublicNetworkAddress('192.168.1.8'), false);
+  assert.equal(isPublicNetworkAddress('169.254.169.254'), false);
+  assert.equal(isPublicNetworkAddress('fc00::1'), false);
+  assert.equal(isPublicNetworkAddress('2001:4860:4860::8888'), true);
+});
+
+test('reconoce contenido GPX y genera un nombre de archivo seguro', () => {
+  const xml = '<?xml version="1.0"?><gpx version="1.1"><trk><trkseg><trkpt lat="40" lon="-0.1"/></trkseg></trk></gpx>';
+  assert.equal(looksLikeGpx(xml), true);
+  assert.equal(looksLikeGpx('<html><body>Login</body></html>'), false);
+  assert.equal(
+    externalGpxFileName(
+      new URL('https://example.com/download/123'),
+      'attachment; filename="Ruta Els Ports.gpx"',
+    ),
+    'Ruta Els Ports.gpx',
+  );
+  assert.equal(
+    externalGpxFileName(new URL('https://example.com/files/track'), null),
+    'track.gpx',
+  );
+});
 
 test('rechaza deriva estacionaria e incorpora movimiento acumulado real', () => {
   const origin = point({ timestamp: 1_000, accuracy: 20 });

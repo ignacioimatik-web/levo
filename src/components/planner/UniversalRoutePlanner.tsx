@@ -4,7 +4,7 @@ import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   CloudDownload, CloudSun, Download, Eraser, FileUp, LocateFixed, Navigation,
-  FolderOpen, Mountain, PenLine, Redo2, Save, Trash2, Undo2, Zap,
+  FolderOpen, Link2, Mountain, PenLine, Redo2, Save, Trash2, Undo2, Zap,
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import RouteRideBriefing, {
@@ -202,6 +202,8 @@ export default function UniversalRoutePlanner({
   const [offlineStatus, setOfflineStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [offlineMessage, setOfflineMessage] = useState('');
   const [navigationStatus, setNavigationStatus] = useState<'idle' | 'preparing' | 'fallback'>('idle');
+  const [externalGpxUrl, setExternalGpxUrl] = useState('');
+  const [externalImporting, setExternalImporting] = useState(false);
   const [now, setNow] = useState(() => new Date(0));
   const metrics = useMemo(() => routeMetrics(points), [points]);
 
@@ -246,6 +248,7 @@ export default function UniversalRoutePlanner({
         setWaypoints(route.points);
         setRedoWaypoints([]);
         setRouteMode('manual');
+        setDrawing(false);
         setRouteStatus('idle');
         setRoutingEstimate(null);
         offlineCheckToken.current += 1;
@@ -363,7 +366,11 @@ export default function UniversalRoutePlanner({
     setError('');
   };
 
-  const analyze = async (routePoints = points, routeName = name) => {
+  const analyze = async (
+    routePoints = points,
+    routeName = name,
+    analyzedRouteId = routeId,
+  ) => {
     if (routePoints.length < 2) {
       setError('Añade al menos dos puntos o importa un GPX.');
       return;
@@ -375,7 +382,7 @@ export default function UniversalRoutePlanner({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          id: routeId,
+          id: analyzedRouteId,
           title: routeName,
           timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Madrid',
           points: routePoints,
@@ -393,29 +400,66 @@ export default function UniversalRoutePlanner({
     }
   };
 
+  const applyImportedGpx = async (xml: string, fileName: string) => {
+    const route = parseNavigationGpx(xml, fileName);
+    setRouteId(route.id);
+    setName(route.name);
+    setPoints(route.points);
+    setWaypoints(route.points);
+    setRedoWaypoints([]);
+    setRouteMode('manual');
+    setDrawing(false);
+    setRouteStatus('idle');
+    setRoutingEstimate(null);
+    offlineCheckToken.current += 1;
+    setSaveStatus('');
+    setOfflineStatus('idle');
+    setOfflineMessage('');
+    setNavigationStatus('idle');
+    await analyze(route.points, route.name, route.id);
+  };
+
   const importGpx = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
     try {
-      const route = parseNavigationGpx(await file.text(), file.name);
-      setRouteId(route.id);
-      setName(route.name);
-      setPoints(route.points);
-      setWaypoints(route.points);
-      setRedoWaypoints([]);
-      setRouteMode('manual');
-      setRouteStatus('idle');
-      setRoutingEstimate(null);
-      offlineCheckToken.current += 1;
-      setSaveStatus('');
-      setOfflineStatus('idle');
-      setOfflineMessage('');
-      setNavigationStatus('idle');
-      await analyze(route.points, route.name);
+      await applyImportedGpx(await file.text(), file.name);
     } catch (importError) {
       setError(importError instanceof Error ? importError.message : 'No se pudo leer el GPX.');
     } finally {
       event.target.value = '';
+    }
+  };
+
+  const importExternalGpx = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (externalImporting) return;
+    setExternalImporting(true);
+    setError('');
+    setSaveStatus('Descargando el GPX desde su origen…');
+    try {
+      const response = await fetch('/api/import-gpx', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: externalGpxUrl.trim() }),
+      });
+      const payload = await response.json() as {
+        xml?: string;
+        fileName?: string;
+        sourceHost?: string;
+        error?: string;
+      };
+      if (!response.ok || !payload.xml) {
+        throw new Error(payload.error || 'No se pudo importar el enlace GPX.');
+      }
+      await applyImportedGpx(payload.xml, payload.fileName || 'ruta-importada.gpx');
+      setExternalGpxUrl('');
+      setSaveStatus(`Ruta importada desde ${payload.sourceHost || 'el enlace público'} y analizada.`);
+    } catch (importError) {
+      setSaveStatus('');
+      setError(importError instanceof Error ? importError.message : 'No se pudo importar el enlace GPX.');
+    } finally {
+      setExternalImporting(false);
     }
   };
 
@@ -656,6 +700,39 @@ export default function UniversalRoutePlanner({
           </label>
         </header>
 
+        <form
+          onSubmit={importExternalGpx}
+          className="mb-5 flex flex-col gap-2 rounded-2xl border border-white/10 bg-slate-900/55 p-3 sm:flex-row sm:items-center"
+        >
+          <label htmlFor="external-gpx-url" className="flex shrink-0 items-center gap-2 px-1 text-[10px] font-black uppercase tracking-widest text-slate-400">
+            <Link2 className="h-4 w-4 text-orange-400" /> Enlace GPX público
+          </label>
+          <input
+            id="external-gpx-url"
+            type="url"
+            inputMode="url"
+            autoCapitalize="none"
+            autoCorrect="off"
+            required
+            maxLength={2048}
+            placeholder="https://sitio.com/ruta.gpx"
+            value={externalGpxUrl}
+            onChange={(event) => setExternalGpxUrl(event.target.value)}
+            className="min-h-12 min-w-0 flex-1 rounded-xl border border-white/10 bg-slate-950 px-4 text-sm text-white outline-none placeholder:text-slate-600 focus:border-orange-500"
+          />
+          <button
+            type="submit"
+            disabled={externalImporting || !externalGpxUrl.trim()}
+            className="flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-5 text-[10px] font-black uppercase text-slate-950 disabled:opacity-40"
+          >
+            <CloudDownload className={`h-4 w-4 ${externalImporting ? 'animate-pulse' : ''}`} />
+            {externalImporting ? 'Importando…' : 'Traer ruta'}
+          </button>
+          <p className="px-1 text-[9px] leading-relaxed text-slate-500 sm:max-w-52">
+            HTTPS · máximo 5 MB · sin compartir tu cuenta con la web de origen.
+          </p>
+        </form>
+
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
           <section className="overflow-hidden rounded-3xl border border-white/10 bg-slate-900/50">
             <div className="grid grid-cols-3 gap-1.5 border-b border-white/10 bg-slate-950/35 p-2 sm:flex sm:gap-2 sm:p-3">
@@ -742,7 +819,10 @@ export default function UniversalRoutePlanner({
             <div className="grid grid-cols-3 gap-2">
               <Metric label="Distancia" value={`${metrics.distanceKm.toFixed(1)} km`} />
               <Metric label="Desnivel +" value={metrics.gainM > 0 ? `${Math.round(metrics.gainM)} m` : '—'} />
-              <Metric label="Controles" value={String(waypoints.length)} />
+              <Metric
+                label={routeMode === 'manual' && waypoints.length > 100 ? 'Puntos GPX' : 'Controles'}
+                value={String(waypoints.length)}
+              />
             </div>
             <p className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-3 text-[10px] leading-relaxed text-slate-400">
               {routeMode === 'manual'
