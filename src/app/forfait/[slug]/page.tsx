@@ -11,6 +11,7 @@ import { getTrailStatusLabel, getTrailTypeLabel } from '@/lib/trail-utils';
 import TrailDetailMapWrapper from '@/components/TrailDetailMapWrapper';
 import TrailNowInsights from '@/components/TrailNowInsights';
 import TrailSidebarControls from '@/components/TrailSidebarControls';
+import PrintReportButton from '@/components/PrintReportButton';
 import { buildRouteStatus } from '@/lib/route-status';
 import { TrailHoverProvider } from '@/lib/trail-hover-context';
 
@@ -319,12 +320,7 @@ export default async function TrailDetailPage({ params, searchParams }: PageProp
             <TrailSidebarControls />
 
             {/* Export PDF */}
-            <button
-              onClick={() => window.print()}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-800 text-white rounded-xl font-bold text-sm hover:bg-slate-700 transition-all"
-            >
-              Exportar informe (PDF)
-            </button>
+            <PrintReportButton />
 
             {/* Downloads */}
             <div className="bg-slate-900 border border-white/5 rounded-2xl p-6">
