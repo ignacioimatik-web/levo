@@ -2,14 +2,15 @@
 
 import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { Map as MapboxMap, Source, Layer, Popup } from 'react-map-gl/maplibre';
-import type { MapRef, MapMouseEvent } from 'react-map-gl/maplibre';
-import type { LineLayerSpecification } from 'maplibre-gl';
-import 'maplibre-gl/dist/maplibre-gl.css';
+import { Map as MapboxMap, Source, Layer, Popup } from 'react-map-gl/mapbox';
+import type { MapRef, MapMouseEvent } from 'react-map-gl/mapbox';
+import type { LineLayerSpecification } from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
 import type { TrackMTB, DificultadMTB, TrackPoint } from '@/lib/forfait/types';
 import type { SendaSegment, CameraView } from '@/lib/forfait/senda-utils';
 import { splitIntoSendas } from '@/lib/forfait/senda-utils';
 import { buildProfileSeries } from '@/lib/forfait/geo-utils';
+import { MAPBOX_ACCESS_TOKEN, OPEN_MAP_STYLES } from '@/lib/open-map-styles';
 
 const SENDA_VIEWS_KEY = 'vista-forfait-senda-views';
 type LinePaint = NonNullable<LineLayerSpecification['paint']>;
@@ -44,15 +45,6 @@ const DIF_CONFIG: Record<string, VisualConfig> = {
 };
 
 const ALL_DIFICULTADES = ['verde', 'azul', 'rojo', 'negro', 'doble-negro'] as const;
-
-const MINIMAL_STYLE = {
-  version: 8 as const,
-  sources: {},
-  layers: [],
-};
-
-const FALLBACK_SATELLITE_URL = 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-const GOOGLE_LABELS_URL = 'https://mt1.google.com/vt/lyrs=h&x={x}&y={y}&z={z}';
 
 function getVisualCfg(track: TrackMTB): VisualConfig {
   if (track.estado === 'cerrado') return DIF_CONFIG.gris;
@@ -200,32 +192,10 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
   const [viewState, setViewState] = useState({ latitude: 40.6, longitude: -0.02, zoom: 15.3, pitch: 60, bearing: 0 });
   const mapRef = useRef<MapRef>(null);
   const [mapReady, setMapReady] = useState(false);
-  const [eeTileUrl, setEeTileUrl] = useState<string | null>(null);
-  const [eeStatus, setEeStatus] = useState<'loading' | 'ok' | 'error'>('loading');
   const [cameraView, setCameraView] = useState<CameraView | null>(null);
   const [showPanel, setShowPanel] = useState(true);
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [cursorPos, setCursorPos] = useState<{ x: number; y: number; containerWidth: number } | null>(null);
-
-  /* ── Fetch EE satellite layer on mount ── */
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      try {
-        const res = await fetch('/api/ee/map');
-        if (!res.ok) throw new Error('EE API error');
-        const data = await res.json();
-        if (!cancelled && data.tileUrlTemplate) {
-          setEeTileUrl(data.tileUrlTemplate);
-          setEeStatus('ok');
-        }
-      } catch {
-        if (!cancelled) setEeStatus('error');
-      }
-    }
-    load();
-    return () => { cancelled = true; };
-  }, []);
 
   /* ── Sector data ── */
   const sectorsData = useMemo(() => {
@@ -448,7 +418,11 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
       'line-color': color,
       'line-width': weight,
       'line-opacity': opacity,
-      'line-dasharray': isClosed ? [5, 5] as [number, number] : isSel ? [6, 4] as [number, number] : undefined,
+      ...(isClosed
+        ? { 'line-dasharray': [5, 5] as [number, number] }
+        : isSel
+          ? { 'line-dasharray': [6, 4] as [number, number] }
+          : {}),
     };
   }, [hoveredTrackId, activeTrackId, selectedTrackIds, activeSendaId, activeSenda]);
 
@@ -574,7 +548,8 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
       <section className="relative mx-3 sm:mx-6 lg:mx-8 2xl:mx-16 overflow-hidden rounded-xl bg-slate-900 flex-1 min-h-[300px]">
         <MapboxMap
           ref={mapRef}
-          mapStyle={MINIMAL_STYLE}
+          mapboxAccessToken={MAPBOX_ACCESS_TOKEN}
+          mapStyle={OPEN_MAP_STYLES[1].style}
           initialViewState={{ latitude: sectorCenter.latitude, longitude: sectorCenter.longitude, zoom: 15.3, pitch: 60, bearing: 0 }}
           onMove={e => {
             setViewState(e.viewState);
@@ -603,22 +578,6 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
           doubleClickZoom={true}
           keyboard={true}
         >
-          {/* Base satellite layer (Earth Engine or Google fallback) */}
-          <Source id="satellite" type="raster"
-            tiles={[eeTileUrl || FALLBACK_SATELLITE_URL]}
-            tileSize={256}
-          >
-            <Layer id="satellite-layer" type="raster" />
-          </Source>
-
-          {/* Labels overlay (transparent Google hybrid labels) */}
-          <Source id="labels" type="raster"
-            tiles={[GOOGLE_LABELS_URL]}
-            tileSize={256}
-          >
-            <Layer id="labels-layer" type="raster" />
-          </Source>
-
           {/* Track layers */}
           {trackGeoJsons.map(t => (
             <Source key={t.id} id={t.id} type="geojson" data={t.data}>
@@ -703,12 +662,8 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
           <span className="px-2.5 py-1 rounded-full bg-slate-950/70 backdrop-blur-sm text-[11px] font-bold text-orange-400 border border-orange-500/30">
             {activeSector}
           </span>
-          <span className={`px-2 py-0.5 rounded-full backdrop-blur-sm text-[9px] font-mono border ${
-            eeStatus === 'ok' ? 'bg-emerald-950/60 text-emerald-400 border-emerald-500/30' :
-            eeStatus === 'loading' ? 'bg-slate-950/60 text-slate-500 border-white/5' :
-            'bg-amber-950/60 text-amber-400 border-amber-500/30'
-          }`}>
-            {eeStatus === 'ok' ? 'EE ✓' : eeStatus === 'loading' ? 'EE …' : 'ESRI'}
+          <span className="rounded-full border border-emerald-500/30 bg-emerald-950/60 px-2 py-0.5 font-mono text-[9px] text-emerald-400 backdrop-blur-sm">
+            MAPBOX
           </span>
         </div>
 

@@ -1,14 +1,14 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import Map, { Layer, Marker, Source } from 'react-map-gl/maplibre';
-import type { MapRef } from 'react-map-gl/maplibre';
+import Map, { Layer, Marker, Source } from 'react-map-gl/mapbox';
+import type { MapRef } from 'react-map-gl/mapbox';
 import { CloudOff, Layers3, LocateFixed, MapPinned, Navigation2, Target } from 'lucide-react';
-import 'maplibre-gl/dist/maplibre-gl.css';
+import 'mapbox-gl/dist/mapbox-gl.css';
 import type { RidePoint } from '@/lib/activities/types';
 import type { PlannedRoutePoint } from '@/lib/navigation/types';
 import type { OfflineMapPackage } from '@/lib/navigation/offline-map-storage';
-import { OFFLINE_MAP_STYLE, OPEN_MAP_STYLES } from '@/lib/open-map-styles';
+import { MAPBOX_ACCESS_TOKEN, OFFLINE_MAP_STYLE, OPEN_MAP_STYLES } from '@/lib/open-map-styles';
 import { useTheme } from '@/components/theme/ThemeProvider';
 import { cardinalForBearing } from '@/lib/navigation/progress';
 import { formatTurnDistance } from '@/lib/navigation/turns';
@@ -202,6 +202,7 @@ export default function RideNavigationMap({
     }`}>
       <Map
         ref={mapRef}
+        mapboxAccessToken={MAPBOX_ACCESS_TOKEN}
         initialViewState={{
           longitude: initialPoint.longitude,
           latitude: initialPoint.latitude,

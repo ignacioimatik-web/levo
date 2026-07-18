@@ -1,8 +1,8 @@
 'use client';
 
-import Map, { Marker, NavigationControl } from 'react-map-gl/maplibre';
-import 'maplibre-gl/dist/maplibre-gl.css';
-import { DEFAULT_OPEN_MAP_STYLE } from '@/lib/open-map-styles';
+import Map, { Marker, NavigationControl } from 'react-map-gl/mapbox';
+import 'mapbox-gl/dist/mapbox-gl.css';
+import { DEFAULT_OPEN_MAP_STYLE, MAPBOX_ACCESS_TOKEN } from '@/lib/open-map-styles';
 
 export default function LivePositionMap({
   latitude,
@@ -13,6 +13,7 @@ export default function LivePositionMap({
 }) {
   return (
     <Map
+      mapboxAccessToken={MAPBOX_ACCESS_TOKEN}
       initialViewState={{ latitude, longitude, zoom: 14.5 }}
       mapStyle={DEFAULT_OPEN_MAP_STYLE}
       attributionControl={false}

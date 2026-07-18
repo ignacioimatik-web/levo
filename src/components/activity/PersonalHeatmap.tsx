@@ -5,9 +5,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Bike, Flame, Layers3, Loader2, LockKeyhole, Map, Mountain, Route, Sparkles,
 } from 'lucide-react';
-import MapboxMap, { Layer, NavigationControl, Source } from 'react-map-gl/maplibre';
-import type { MapRef } from 'react-map-gl/maplibre';
-import 'maplibre-gl/dist/maplibre-gl.css';
+import MapboxMap, { Layer, NavigationControl, Source } from 'react-map-gl/mapbox';
+import type { MapRef } from 'react-map-gl/mapbox';
+import 'mapbox-gl/dist/mapbox-gl.css';
 import { getActivitiesDurable } from '@/lib/activities/storage';
 import { pullActivities } from '@/lib/activities/sync';
 import {
@@ -17,7 +17,7 @@ import type {
   HeatmapPeriod, HeatmapSportFilter,
 } from '@/lib/activities/heatmap';
 import type { RideActivity, RidePoint } from '@/lib/activities/types';
-import { DEFAULT_OPEN_MAP_STYLE } from '@/lib/open-map-styles';
+import { DEFAULT_OPEN_MAP_STYLE, MAPBOX_ACCESS_TOKEN } from '@/lib/open-map-styles';
 
 type MapMode = 'heat' | 'routes';
 
@@ -109,6 +109,7 @@ function PersonalRoutesMap({ activities, mode }: { activities: RideActivity[]; m
   return (
     <MapboxMap
       ref={mapRef}
+      mapboxAccessToken={MAPBOX_ACCESS_TOKEN}
       initialViewState={{ longitude: -0.1, latitude: 40.62, zoom: 10 }}
       mapStyle={DEFAULT_OPEN_MAP_STYLE}
       attributionControl={false}

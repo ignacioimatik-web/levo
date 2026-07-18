@@ -3,14 +3,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Map, {
   FullscreenControl, GeolocateControl, Layer, Marker, NavigationControl, Source,
-} from 'react-map-gl/maplibre';
-import type { MapRef } from 'react-map-gl/maplibre';
+} from 'react-map-gl/mapbox';
+import type { MapRef } from 'react-map-gl/mapbox';
 import { Layers3 } from 'lucide-react';
-import 'maplibre-gl/dist/maplibre-gl.css';
+import 'mapbox-gl/dist/mapbox-gl.css';
 import PlaceSearch from '@/components/planner/PlaceSearch';
 import type { GeocodingResult } from '@/lib/geocoding';
 import type { PlannedRoutePoint } from '@/lib/navigation/types';
-import { OPEN_MAP_STYLES } from '@/lib/open-map-styles';
+import { MAPBOX_ACCESS_TOKEN, OPEN_MAP_STYLES } from '@/lib/open-map-styles';
 import { useTheme } from '@/components/theme/ThemeProvider';
 
 function routeFeature(points: PlannedRoutePoint[]) {
@@ -93,8 +93,9 @@ export default function UniversalRouteMap({
 
   return (
     <div className="relative h-full">
-      <Map
+    <Map
       ref={mapRef}
+      mapboxAccessToken={MAPBOX_ACCESS_TOKEN}
       initialViewState={{ longitude: -3.7, latitude: 40.25, zoom: 5.4 }}
       mapStyle={OPEN_MAP_STYLES[styleIndex].style}
       attributionControl={false}

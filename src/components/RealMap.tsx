@@ -6,6 +6,7 @@ import type { LatLngExpression } from 'leaflet';
 import { MTBTrail, TrailDifficulty } from '@/data/trails';
 import { getTrailDifficultyLabel } from '@/lib/trail-utils';
 import 'leaflet/dist/leaflet.css';
+import { MAPBOX_RASTER_ATTRIBUTION, MAPBOX_RASTER_TILE_URL } from '@/lib/open-map-styles';
 
 const DIFFICULTY_BASE: Record<TrailDifficulty, { weight: number; opacity: number }> = {
   green: { weight: 4, opacity: 0.85 },
@@ -205,8 +206,8 @@ export default function RealMap({ trails, selectedTrailId, onTrailSelect }: Real
         scrollWheelZoom={true}
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution={MAPBOX_RASTER_ATTRIBUTION}
+          url={MAPBOX_RASTER_TILE_URL}
         />
 
         <MapController

@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import Map, { Layer, Marker, NavigationControl, Source } from 'react-map-gl/maplibre';
-import type { MapRef } from 'react-map-gl/maplibre';
-import 'maplibre-gl/dist/maplibre-gl.css';
+import Map, { Layer, Marker, NavigationControl, Source } from 'react-map-gl/mapbox';
+import type { MapRef } from 'react-map-gl/mapbox';
+import 'mapbox-gl/dist/mapbox-gl.css';
 import type { RidePoint } from '@/lib/activities/types';
 import { MapPinned } from 'lucide-react';
-import { DEFAULT_OPEN_MAP_STYLE } from '@/lib/open-map-styles';
+import { DEFAULT_OPEN_MAP_STYLE, MAPBOX_ACCESS_TOKEN } from '@/lib/open-map-styles';
 
 function SchematicMap({ points }: { points: RidePoint[] }) {
   const path = useMemo(() => {
@@ -71,6 +71,7 @@ export default function ActivityMap({ points }: { points: RidePoint[] }) {
   return (
     <Map
       ref={mapRef}
+      mapboxAccessToken={MAPBOX_ACCESS_TOKEN}
       initialViewState={{
         longitude: points[0].longitude,
         latitude: points[0].latitude,

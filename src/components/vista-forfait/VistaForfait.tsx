@@ -2,13 +2,13 @@
 
 import { useMemo, useState, useCallback, useEffect, useRef, Fragment } from 'react';
 import Link from 'next/link';
-import { Map as MapboxMap, Source, Layer, NavigationControl } from 'react-map-gl/maplibre';
-import type { MapRef, MapMouseEvent } from 'react-map-gl/maplibre';
-import 'maplibre-gl/dist/maplibre-gl.css';
+import { Map as MapboxMap, Source, Layer, NavigationControl } from 'react-map-gl/mapbox';
+import type { MapRef, MapMouseEvent } from 'react-map-gl/mapbox';
+import 'mapbox-gl/dist/mapbox-gl.css';
 import type { TrackMTB, DificultadMTB } from '@/lib/forfait/types';
 import { buildProfileSeries } from '@/lib/forfait/geo-utils';
 import { splitIntoSendas, type SendaSegment, type CameraView } from '@/lib/forfait/senda-utils';
-import { DEFAULT_OPEN_MAP_STYLE } from '@/lib/open-map-styles';
+import { DEFAULT_OPEN_MAP_STYLE, MAPBOX_ACCESS_TOKEN } from '@/lib/open-map-styles';
 
 /* ─── Types ─── */
 interface Bounds {
@@ -425,6 +425,7 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
         <div className="relative w-full aspect-[2/1] min-h-[300px]">
           {sectorBounds ? (
             <MapboxMap ref={mapRef}
+              mapboxAccessToken={MAPBOX_ACCESS_TOKEN}
               mapStyle={DEFAULT_OPEN_MAP_STYLE}
               initialViewState={{ latitude: sectorCenter.lat, longitude: sectorCenter.lng, zoom: sectorCenter.zoom, pitch: 78, bearing: 170 }}
               interactiveLayerIds={trackLineIds}

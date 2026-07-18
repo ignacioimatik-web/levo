@@ -1,67 +1,31 @@
-import type { StyleSpecification } from 'maplibre-gl';
+import type { StyleSpecification } from 'mapbox-gl';
 
-function rasterStyle({
-  id,
-  name,
-  tiles,
-  attribution,
-  maxzoom = 19,
-}: {
-  id: string;
-  name: string;
-  tiles: string[];
-  attribution: string;
-  maxzoom?: number;
-}): StyleSpecification {
-  return {
-    version: 8,
-    name,
-    sources: {
-      [id]: {
-        type: 'raster',
-        tiles,
-        tileSize: 256,
-        attribution,
-        maxzoom,
-      },
-    },
-    layers: [{ id: `${id}-layer`, type: 'raster', source: id }],
-  };
-}
+export const MAPBOX_ACCESS_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? '';
 
 export const OPEN_MAP_STYLES = [
   {
     label: 'Topo',
-    style: rasterStyle({
-      id: 'open-topo',
-      name: 'OpenTopoMap',
-      tiles: ['https://tile.opentopomap.org/{z}/{x}/{y}.png'],
-      attribution: '© OpenStreetMap contributors · SRTM · OpenTopoMap',
-      maxzoom: 17,
-    }),
+    style: 'mapbox://styles/mapbox/outdoors-v12',
   },
   {
     label: 'Satélite',
-    style: rasterStyle({
-      id: 'esri-satellite',
-      name: 'Esri World Imagery',
-      tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
-      attribution: 'Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics',
-    }),
+    style: 'mapbox://styles/mapbox/satellite-streets-v12',
   },
   {
     label: 'Oscuro',
-    style: rasterStyle({
-      id: 'carto-dark',
-      name: 'CARTO Dark',
-      tiles: ['https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'],
-      attribution: '© OpenStreetMap contributors · © CARTO',
-      maxzoom: 20,
-    }),
+    style: 'mapbox://styles/mapbox/navigation-night-v1',
   },
 ] as const;
 
 export const DEFAULT_OPEN_MAP_STYLE = OPEN_MAP_STYLES[0].style;
+
+export const MAPBOX_RASTER_TILE_URL = MAPBOX_ACCESS_TOKEN
+  ? `https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/tiles/256/{z}/{x}/{y}@2x?access_token=${MAPBOX_ACCESS_TOKEN}`
+  : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+
+export const MAPBOX_RASTER_ATTRIBUTION = MAPBOX_ACCESS_TOKEN
+  ? '© Mapbox © OpenStreetMap'
+  : '© OpenStreetMap contributors';
 
 export const OFFLINE_MAP_STYLE: StyleSpecification = {
   version: 8,

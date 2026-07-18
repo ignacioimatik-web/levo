@@ -1,14 +1,13 @@
 'use client';
 
 import { useRef, useEffect, useMemo, useCallback, useState, Fragment } from 'react';
-import { Map, Source, Layer, useMap, useControl, NavigationControl, FullscreenControl, Marker } from 'react-map-gl/maplibre';
-import type { MapMouseEvent } from 'react-map-gl/maplibre';
-import type { StyleSpecification } from 'maplibre-gl';
-import 'maplibre-gl/dist/maplibre-gl.css';
+import { Map, Source, Layer, useMap, useControl, NavigationControl, FullscreenControl, Marker } from 'react-map-gl/mapbox';
+import type { MapMouseEvent } from 'react-map-gl/mapbox';
+import 'mapbox-gl/dist/mapbox-gl.css';
 import type { TrackMTB, TrackPoint, RutaConstruida } from '@/lib/forfait/types';
 import type { RouteHoverData } from '@/components/forfait/ContinuousProfile';
 import { MapPinned } from 'lucide-react';
-import { OPEN_MAP_STYLES } from '@/lib/open-map-styles';
+import { MAPBOX_ACCESS_TOKEN, OPEN_MAP_STYLES } from '@/lib/open-map-styles';
 
 function distM(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
   const R = 6371000;
@@ -141,7 +140,7 @@ function PitchToggle() {
   return null;
 }
 
-function StyleSwitcherControl({ current, onChange }: { current: StyleSpecification; onChange: (style: StyleSpecification) => void }) {
+function StyleSwitcherControl({ current, onChange }: { current: string; onChange: (style: string) => void }) {
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -303,7 +302,7 @@ export default function MTBMap({
   hoveredRouteKm: RouteHoverData | null;
   onTrackClick: (track: TrackMTB) => void;
 }) {
-  const [mapStyle, setMapStyle] = useState<StyleSpecification>(OPEN_MAP_STYLES[0].style);
+  const [mapStyle, setMapStyle] = useState<string>(OPEN_MAP_STYLES[0].style);
   const [mapFailed, setMapFailed] = useState(false);
   const hasSelection = selectedTrackIds.length > 0 || previewTrackIds.length > 0;
   const fitTrack = fitToTrackId ? tracks.find(t => t.id === fitToTrackId) || null : null;
@@ -331,6 +330,7 @@ export default function MTBMap({
 
   return (
     <Map
+      mapboxAccessToken={MAPBOX_ACCESS_TOKEN}
       mapStyle={mapStyle}
       initialViewState={{ latitude: 40.6, longitude: -0.02, zoom: 13, pitch: 40 }}
       interactiveLayerIds={lineLayerIds}

@@ -8,6 +8,7 @@ import { parseGPX, haversineKm } from '@/lib/gpx-utils';
 import { useTrailHover } from '@/lib/trail-hover-context';
 import { Map, Maximize2, Minimize2 } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
+import { MAPBOX_RASTER_ATTRIBUTION, MAPBOX_RASTER_TILE_URL } from '@/lib/open-map-styles';
 
 interface GpxMapProps {
   coordinates?: TrailPoint[];
@@ -186,8 +187,8 @@ export default function GpxMap({ coordinates, gpxUrl, preparsedPoints, title, fa
             zoomControl={true}
           >
             <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution={MAPBOX_RASTER_ATTRIBUTION}
+              url={MAPBOX_RASTER_TILE_URL}
             />
             {trackCoords.length > 1 && (
               <Polyline
@@ -242,8 +243,8 @@ export default function GpxMap({ coordinates, gpxUrl, preparsedPoints, title, fa
           zoomControl={true}
         >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution={MAPBOX_RASTER_ATTRIBUTION}
+          url={MAPBOX_RASTER_TILE_URL}
         />
         {trackCoords.length > 1 && (
           <Polyline 
