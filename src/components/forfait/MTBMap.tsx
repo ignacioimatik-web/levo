@@ -6,6 +6,7 @@ import type { MapMouseEvent } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import type { TrackMTB, TrackPoint, RutaConstruida } from '@/lib/forfait/types';
 import type { RouteHoverData } from '@/components/forfait/ContinuousProfile';
+import { MapPinned } from 'lucide-react';
 
 function distM(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
   const R = 6371000;
@@ -68,11 +69,16 @@ function FitBounds({ tracks, routePoints }: { tracks: TrackMTB[]; routePoints: T
     if (!allPoints.length) return;
     const lats = allPoints.map(p => p.lat);
     const lngs = allPoints.map(p => p.lng);
-    mapRef.fitBounds(
-      [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
-      { padding: 40 },
-    );
-    fitted.current = true;
+    const fit = () => {
+      mapRef.fitBounds(
+        [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
+        { padding: 40 },
+      );
+      fitted.current = true;
+    };
+    if (mapRef.isStyleLoaded()) fit();
+    else mapRef.once('load', fit);
+    return () => { mapRef.off('load', fit); };
   }, [tracks, routePoints, mapRef]);
 
   return null;
@@ -85,10 +91,13 @@ function FlyToTrack({ track }: { track: TrackMTB | null }) {
     if (!track || !track.points.length || !mapRef) return;
     const lats = track.points.map(p => p.lat);
     const lngs = track.points.map(p => p.lng);
-    mapRef.fitBounds(
-      [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
-      { padding: 50 },
-    );
+    const fit = () => mapRef.fitBounds(
+        [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
+        { padding: 50 },
+      );
+    if (mapRef.isStyleLoaded()) fit();
+    else mapRef.once('load', fit);
+    return () => { mapRef.off('load', fit); };
   }, [track, mapRef]);
 
   return null;
@@ -191,6 +200,88 @@ function StyleSwitcherControl({ current, onChange }: { current: string; onChange
   return null;
 }
 
+function BasicTrackMap({
+  tracks,
+  selectedTrackIds,
+  builtRoute,
+}: {
+  tracks: TrackMTB[];
+  selectedTrackIds: string[];
+  builtRoute: RutaConstruida | null;
+}) {
+  const allPoints = tracks.flatMap(track => track.points);
+  if (allPoints.length === 0) {
+    return (
+      <div className="flex h-full items-center justify-center bg-slate-950 text-sm text-slate-500">
+        No hay geometría disponible.
+      </div>
+    );
+  }
+
+  const minLat = Math.min(...allPoints.map(point => point.lat));
+  const maxLat = Math.max(...allPoints.map(point => point.lat));
+  const minLng = Math.min(...allPoints.map(point => point.lng));
+  const maxLng = Math.max(...allPoints.map(point => point.lng));
+  const latRange = Math.max(maxLat - minLat, 0.001);
+  const lngRange = Math.max(maxLng - minLng, 0.001);
+  const project = (point: TrackPoint) => {
+    const x = 40 + ((point.lng - minLng) / lngRange) * 920;
+    const y = 30 + ((maxLat - point.lat) / latRange) * 640;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  };
+  const toPolyline = (points: TrackPoint[]) => {
+    const step = Math.max(1, Math.ceil(points.length / 220));
+    return points.filter((_, index) => index % step === 0 || index === points.length - 1)
+      .map(project)
+      .join(' ');
+  };
+
+  return (
+    <div className="relative h-full overflow-hidden rounded-xl bg-slate-950 topo-pattern-subtle">
+      <svg
+        viewBox="0 0 1000 700"
+        className="h-full w-full"
+        role="img"
+        aria-label="Mapa básico de tracks"
+        preserveAspectRatio="xMidYMid meet"
+      >
+        {tracks.map(track => {
+          const selected = selectedTrackIds.includes(track.id);
+          return (
+            <polyline
+              key={track.id}
+              points={toPolyline(track.points)}
+              fill="none"
+              stroke={selected ? '#3b82f6' : DIFICULTAD_COLORS[track.dificultad] || '#64748b'}
+              strokeWidth={selected ? 7 : 2.5}
+              strokeOpacity={selected ? 1 : selectedTrackIds.length > 0 ? 0.2 : 0.65}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          );
+        })}
+        {builtRoute && (
+          <polyline
+            points={toPolyline(builtRoute.pointsCombinados)}
+            fill="none"
+            stroke="#ffffff"
+            strokeWidth="3"
+            strokeOpacity="0.9"
+            strokeDasharray="10 7"
+            strokeLinecap="round"
+          />
+        )}
+      </svg>
+      <div className="absolute left-3 top-3 flex max-w-[260px] items-start gap-2 rounded-xl border border-orange-500/20 bg-slate-950/90 px-3 py-2 text-[10px] text-slate-400 shadow-xl backdrop-blur">
+        <MapPinned className="mt-0.5 h-4 w-4 shrink-0 text-orange-400" />
+        <span>
+          Mapa básico activo. Añade el token de Mapbox para terreno 3D, satélite y controles avanzados.
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export default function MTBMap({
   tracks,
   selectedTrackIds,
@@ -217,6 +308,7 @@ export default function MTBMap({
   onTrackClick: (track: TrackMTB) => void;
 }) {
   const [mapStyle, setMapStyle] = useState(MAP_STYLES[0].url);
+  const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
   const hasSelection = selectedTrackIds.length > 0 || previewTrackIds.length > 0;
   const fitTrack = fitToTrackId ? tracks.find(t => t.id === fitToTrackId) || null : null;
 
@@ -231,10 +323,20 @@ export default function MTBMap({
     if (track) onTrackClick(track);
   }, [tracks, onTrackClick]);
 
+  if (!mapboxToken) {
+    return (
+      <BasicTrackMap
+        tracks={tracks}
+        selectedTrackIds={selectedTrackIds}
+        builtRoute={builtRoute}
+      />
+    );
+  }
+
   return (
     <Map
       mapStyle={mapStyle}
-      mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
+      mapboxAccessToken={mapboxToken}
       initialViewState={{ latitude: 40.6, longitude: -0.02, zoom: 13, pitch: 40 }}
       terrain={{ source: 'mapbox-dem', exaggeration: 1.0 }}
       interactiveLayerIds={lineLayerIds}

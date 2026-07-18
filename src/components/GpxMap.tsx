@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useLayoutEffect, useCallback } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
 import { MapContainer, TileLayer, Polyline, CircleMarker, useMap } from 'react-leaflet';
 import type { LatLngExpression } from 'leaflet';
 import { TrailPoint } from '@/data/trails';
@@ -122,21 +122,20 @@ function HoverMarker({ coords }: { coords: LatLngExpression[] }) {
 
 export default function GpxMap({ coordinates, gpxUrl, preparsedPoints, title, fallbackMessage, focusStartKm, focusEndKm, focusPointKm, segmentOverlays }: GpxMapProps) {
   const [maximized, setMaximized] = useState(false);
-  const [trackCoords, setTrackCoords] = useState<LatLngExpression[]>(
-    preparsedPoints
-      ? preparsedPoints.map(p => [p.lat, p.lng] as LatLngExpression)
-      : coordinates
-        ? coordinates.map(p => [p.lat, p.lng] as LatLngExpression)
-        : []
-  );
+  const [fetchedCoords, setFetchedCoords] = useState<LatLngExpression[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
+  const trackCoords = useMemo(() => {
+    if (preparsedPoints) {
+      return preparsedPoints.map(p => [p.lat, p.lng] as LatLngExpression);
+    }
+    if (coordinates) {
+      return coordinates.map(p => [p.lat, p.lng] as LatLngExpression);
+    }
+    return fetchedCoords;
+  }, [preparsedPoints, coordinates, fetchedCoords]);
 
   useEffect(() => {
-    if (preparsedPoints) {
-      setTrackCoords(preparsedPoints.map(p => [p.lat, p.lng] as LatLngExpression));
-      return;
-    }
     if (gpxUrl && !coordinates) {
       const fetchGpx = async () => {
         setLoading(true);
@@ -146,7 +145,7 @@ export default function GpxMap({ coordinates, gpxUrl, preparsedPoints, title, fa
           if (!res.ok) throw new Error('Failed to fetch GPX');
           const text = await res.text();
           const parsed = parseGPX(text);
-          setTrackCoords(parsed.map(p => [p.lat, p.lng] as LatLngExpression));
+          setFetchedCoords(parsed.map(p => [p.lat, p.lng] as LatLngExpression));
         } catch (e) {
           console.error(e);
           setError(true);
@@ -156,7 +155,7 @@ export default function GpxMap({ coordinates, gpxUrl, preparsedPoints, title, fa
       };
       fetchGpx();
     }
-  }, [gpxUrl, coordinates, preparsedPoints]);
+  }, [gpxUrl, coordinates]);
 
   if ((!trackCoords.length || error) && !loading) {
     return (

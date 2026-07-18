@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useRef, useEffect } from 'react';
 import { Menu, ChevronDown, X, LogOut } from 'lucide-react';
-import { createClient } from '@/lib/supabase/browser';
+import { createClient, isSupabaseConfigured } from '@/lib/supabase/browser';
 import { signOut } from '@/lib/supabase/auth';
 import type { User } from '@supabase/supabase-js';
 
@@ -57,6 +57,14 @@ function NavDropdown({ label, items }: { label: string; items: DropdownItem[] })
 }
 
 const navItems: ({ label: string; href: string } | { label: string; items: DropdownItem[] })[] = [
+  { label: 'Rider', items: [
+    { label: 'Comunidad', href: '/comunidad' },
+    { label: 'Grabar salida', href: '/grabar' },
+    { label: 'Mis actividades', href: '/actividades' },
+    { label: 'Mapa personal', href: '/mapa-personal' },
+    { label: 'Mi progreso', href: '/progreso' },
+    { label: 'Mi taller', href: '/taller' },
+  ]},
   { label: 'Rutas', items: [
     { label: 'Todas las rutas', href: '/rutas' },
     { label: 'Sectores', href: '/sectores' },
@@ -176,10 +184,11 @@ const Navbar = () => {
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(isSupabaseConfigured);
 
   useEffect(() => {
     const supabase = createClient();
+    if (!supabase) return;
     supabase.auth.getUser().then(({ data }) => {
       setUser(data.user);
       setAuthLoading(false);
@@ -212,7 +221,7 @@ const Navbar = () => {
           </span>
         </Link>
 
-        <div className="hidden md:flex items-center gap-6 text-xs font-bold uppercase tracking-widest">
+        <div className="hidden xl:flex items-center gap-6 text-xs font-bold uppercase tracking-widest">
           {navItems.map(item => {
             if ('items' in item) {
               return <NavDropdown key={item.label} label={item.label} items={item.items} />;
@@ -229,8 +238,14 @@ const Navbar = () => {
           <SocialIcons />
         </div>
 
-        <div className="md:hidden">
-          <button onClick={() => setMobileOpen(!mobileOpen)} className="text-white p-1">
+        <div className="xl:hidden">
+          <button
+            type="button"
+            onClick={() => setMobileOpen(!mobileOpen)}
+            className="-mr-2 flex min-h-11 min-w-11 items-center justify-center text-white"
+            aria-label={mobileOpen ? 'Cerrar menú' : 'Abrir menú'}
+            aria-expanded={mobileOpen}
+          >
             {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
         </div>
@@ -238,7 +253,7 @@ const Navbar = () => {
 
       {/* Mobile menu */}
       {mobileOpen && (
-        <div className="md:hidden border-t border-white/5 bg-slate-950/95 backdrop-blur-md">
+        <div className="xl:hidden border-t border-white/5 bg-slate-950/95 backdrop-blur-md">
           <div className="px-6 py-4 space-y-4">
             <div className="pb-4 border-b border-white/5">
               {user ? (
@@ -256,7 +271,7 @@ const Navbar = () => {
                 </div>
               ) : (
                 <Link
-              href="/account"
+                  href="/auth"
                   onClick={closeMobile}
                   className="block text-sm font-bold text-slate-400 hover:text-orange-500 transition-colors"
                 >

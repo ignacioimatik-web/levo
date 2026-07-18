@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { demoTrails } from '@/data/trails';
 import { filterTrails } from '@/lib/trail-utils';
 import type { TrailFilters as FiltersState } from '@/lib/trail-utils';
@@ -34,12 +34,9 @@ export default function ForfaitPageClient() {
   const [tableOpen, setTableOpen] = useState(false);
 
   const filteredTrails = useMemo(() => filterTrails(demoTrails, filters), [filters]);
-
-  useEffect(() => {
-    if (selectedTrailId && !filteredTrails.find(t => t.id === selectedTrailId)) {
-      setSelectedTrailId(null);
-    }
-  }, [filteredTrails, selectedTrailId]);
+  const visibleSelectedTrailId = filteredTrails.some(t => t.id === selectedTrailId)
+    ? selectedTrailId
+    : null;
 
   const handleTrailSelect = useCallback((id: string | null) => {
     setSelectedTrailId(id);
@@ -100,7 +97,7 @@ export default function ForfaitPageClient() {
                 />
                 <ForfaitInteractive
                   trails={filteredTrails}
-                  selectedTrailId={selectedTrailId}
+                  selectedTrailId={visibleSelectedTrailId}
                   onTrailSelect={handleTrailSelect}
                 />
               </div>
@@ -151,7 +148,7 @@ export default function ForfaitPageClient() {
                     <TrailCard
                       key={trail.id}
                       trail={trail}
-                      isSelected={selectedTrailId === trail.id}
+                      isSelected={visibleSelectedTrailId === trail.id}
                       onSelect={handleTrailSelect}
                       mapSectionId="forfait-map-section"
                     />
@@ -206,7 +203,7 @@ export default function ForfaitPageClient() {
                     <div className="mt-4">
                       <TrailComparisonTable
                         trails={filteredTrails}
-                        selectedTrailId={selectedTrailId}
+                        selectedTrailId={visibleSelectedTrailId}
                         onSelect={handleTrailSelect}
                       />
                     </div>

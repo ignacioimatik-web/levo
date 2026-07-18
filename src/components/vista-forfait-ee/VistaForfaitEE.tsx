@@ -4,6 +4,7 @@ import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Map as MapboxMap, Source, Layer, Popup } from 'react-map-gl/mapbox';
 import type { MapRef, MapMouseEvent } from 'react-map-gl/mapbox';
+import type { FillExtrusionPaint, LinePaint } from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import type { TrackMTB, DificultadMTB, TrackPoint } from '@/lib/forfait/types';
 import type { SendaSegment, CameraView } from '@/lib/forfait/senda-utils';
@@ -203,8 +204,7 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
   const [cameraView, setCameraView] = useState<CameraView | null>(null);
   const [showPanel, setShowPanel] = useState(true);
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
-  const [cursorPos, setCursorPos] = useState<{ x: number; y: number } | null>(null);
-  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const [cursorPos, setCursorPos] = useState<{ x: number; y: number; containerWidth: number } | null>(null);
 
   /* ── Fetch EE satellite layer on mount ── */
   useEffect(() => {
@@ -260,7 +260,7 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
   /* ── Weather fetch on sector change (AEMET → Open-Meteo fallback) ── */
   useEffect(() => {
     if (!mapReady || !sectorBounds) return;
-    setWeatherData(null);
+    const resetFrame = requestAnimationFrame(() => setWeatherData(null));
     const lat = sectorCenter.latitude.toFixed(4);
     const lng = sectorCenter.longitude.toFixed(4);
     fetch(`/api/forfait/weather?lat=${lat}&lng=${lng}`)
@@ -287,7 +287,8 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
         }
       })
       .catch(() => {});
-  }, [sectorCenter, mapReady]);
+    return () => cancelAnimationFrame(resetFrame);
+  }, [sectorBounds, sectorCenter, mapReady]);
 
   /* ── Sendas ── */
   const allSendas = useMemo(() => {
@@ -317,18 +318,23 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
 
   /* ── Auto-select first sector ── */
   useEffect(() => {
-    if (!activeSector && sectorsData.length > 0) setActiveSector(sectorsData[0].name);
+    if (activeSector || sectorsData.length === 0) return;
+    const timer = window.setTimeout(() => setActiveSector(sectorsData[0].name), 0);
+    return () => window.clearTimeout(timer);
   }, [sectorsData, activeSector]);
 
   /* ── Auto-expand first track + senda ── */
   useEffect(() => {
     if (sectorTracks.length > 0) {
-      setExpandedTrackId(sectorTracks[0].id);
-      setActiveTrackId(sectorTracks[0].id);
-      const sendas = allSendas.get(sectorTracks[0].id);
-      if (sendas && sendas.length > 0) setActiveSendaId(sendas[0].id);
+      const timer = window.setTimeout(() => {
+        setExpandedTrackId(sectorTracks[0].id);
+        setActiveTrackId(sectorTracks[0].id);
+        const sendas = allSendas.get(sectorTracks[0].id);
+        if (sendas && sendas.length > 0) setActiveSendaId(sendas[0].id);
+      }, 0);
+      return () => window.clearTimeout(timer);
     }
-  }, [activeSector]);
+  }, [activeSector, allSendas, sectorTracks]);
 
   /* ── Fly to sector bounds ── */
   useEffect(() => {
@@ -427,7 +433,7 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
   } : null, [activeSenda]);
 
   /* ── Layer paint/layout helpers ── */
-  const trackPaint = useCallback((track: TrackMTB) => {
+  const trackPaint = useCallback((track: TrackMTB): LinePaint => {
     const isClosed = track.estado === 'cerrado';
     const isHov = hoveredTrackId === track.id;
     const isAct = activeTrackId === track.id;
@@ -445,21 +451,21 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
     };
   }, [hoveredTrackId, activeTrackId, selectedTrackIds, activeSendaId, activeSenda]);
 
-  const sendaPaint = {
+  const sendaPaint: LinePaint = {
     'line-color': '#f97316',
     'line-width': 4,
     'line-opacity': 0.9,
     'line-dasharray': [6, 4] as [number, number],
   };
 
-  const selectedGlowPaint = {
+  const selectedGlowPaint: LinePaint = {
     'line-color': '#3b82f6',
     'line-width': 8,
     'line-opacity': 0.2,
     'line-blur': 4,
   };
 
-  const selectedLinePaint = {
+  const selectedLinePaint: LinePaint = {
     'line-color': '#ffffff',
     'line-width': 3,
     'line-opacity': 0.85,
@@ -507,7 +513,11 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
 
   /* ── Cursor tracking for hover tooltip ── */
   const handleMapMouseMove = useCallback((e: MapMouseEvent) => {
-    setCursorPos({ x: e.point.x, y: e.point.y });
+    setCursorPos({
+      x: e.point.x,
+      y: e.point.y,
+      containerWidth: e.target.getCanvas().clientWidth,
+    });
     if (!e.features || e.features.length === 0) { setHoveredTrackId(null); return; }
     const trackId = e.features[0].properties?.trackId as string;
     if (trackId) setHoveredTrackId(trackId);
@@ -560,7 +570,7 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
       </nav>
 
       {/* MAP */}
-      <section ref={mapContainerRef} className="relative mx-3 sm:mx-6 lg:mx-8 2xl:mx-16 overflow-hidden rounded-xl bg-slate-900 flex-1 min-h-[300px]">
+      <section className="relative mx-3 sm:mx-6 lg:mx-8 2xl:mx-16 overflow-hidden rounded-xl bg-slate-900 flex-1 min-h-[300px]">
         <MapboxMap
           ref={mapRef}
           mapStyle={MINIMAL_STYLE}
@@ -621,7 +631,7 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
                 'fill-extrusion-height': ['get', 'height'],
                 'fill-extrusion-base': ['get', 'min_height'],
                 'fill-extrusion-opacity': 0.5,
-              } as any}
+              } as FillExtrusionPaint}
             />
           </Source>
 
@@ -629,10 +639,10 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
           {trackGeoJsons.map(t => (
             <Source key={t.id} id={t.id} type="geojson" data={t.data}>
               <Layer id={`${t.id}-hit`} type="line" source={t.id}
-                paint={{ 'line-color': 'transparent', 'line-width': 22, 'line-opacity': 0 } as any}
+                paint={{ 'line-color': 'transparent', 'line-width': 22, 'line-opacity': 0 } as LinePaint}
               />
               <Layer id={`${t.id}-line`} type="line" source={t.id}
-                paint={trackPaint(trackMap.get(t.id)!) as any}
+                paint={trackPaint(trackMap.get(t.id)!)}
               />
             </Source>
           ))}
@@ -641,10 +651,10 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
           {selectedGeoJsons.map(t => (
             <Source key={`sel-glow-${t.id}`} id={`sel-glow-${t.id}`} type="geojson" data={t.data}>
               <Layer id={`sel-${t.id}-glow`} type="line" source={`sel-glow-${t.id}`}
-                paint={selectedGlowPaint as any}
+                paint={selectedGlowPaint}
               />
               <Layer id={`sel-${t.id}-line`} type="line" source={`sel-glow-${t.id}`}
-                paint={selectedLinePaint as any}
+                paint={selectedLinePaint}
               />
             </Source>
           ))}
@@ -653,7 +663,7 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
           {activeSendaGeoJson && (
             <Source id="active-senda" type="geojson" data={activeSendaGeoJson.data}>
               <Layer id="active-senda-line" type="line" source="active-senda"
-                paint={sendaPaint as any}
+                paint={sendaPaint}
               />
             </Source>
           )}
@@ -664,13 +674,13 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
               type: 'Feature' as const, geometry: { type: 'LineString' as const, coordinates: routeOverview }, properties: {},
             }}>
               <Layer id="route-blue-glow" type="line" source="route-overview"
-                paint={{ 'line-color': '#3b82f6', 'line-width': 10, 'line-opacity': 0.25, 'line-blur': 8 } as any}
+                paint={{ 'line-color': '#3b82f6', 'line-width': 10, 'line-opacity': 0.25, 'line-blur': 8 } as LinePaint}
               />
               <Layer id="route-white" type="line" source="route-overview"
-                paint={{ 'line-color': '#ffffff', 'line-width': 5, 'line-opacity': 0.85 } as any}
+                paint={{ 'line-color': '#ffffff', 'line-width': 5, 'line-opacity': 0.85 } as LinePaint}
               />
               <Layer id="route-black-dash" type="line" source="route-overview"
-                paint={{ 'line-color': '#1e293b', 'line-width': 5, 'line-opacity': 0.9, 'line-dasharray': [6, 6] } as any}
+                paint={{ 'line-color': '#1e293b', 'line-width': 5, 'line-opacity': 0.9, 'line-dasharray': [6, 6] } as LinePaint}
               />
             </Source>
           )}
@@ -681,7 +691,7 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
           <div
             className="absolute z-[2000] pointer-events-none bg-slate-950/85 backdrop-blur-md border border-white/10 rounded-lg px-2.5 py-1.5 text-[10px] leading-tight shadow-xl"
             style={{
-              left: Math.min(cursorPos.x + 14, (mapContainerRef.current?.clientWidth ?? 800) - 180),
+              left: Math.min(cursorPos.x + 14, cursorPos.containerWidth - 180),
               top: Math.max(cursorPos.y - 10, 4),
             }}
           >

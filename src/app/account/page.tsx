@@ -2,6 +2,7 @@ import { requireAuth } from '@/lib/auth/guards';
 import { createClient } from '@/lib/supabase/server';
 import { Mail, Globe, Calendar, Shield } from 'lucide-react';
 import SignOutButton from './SignOutButton';
+import ProfileSettings from './ProfileSettings';
 
 const PROVIDER_LABELS: Record<string, { label: string; color: string }> = {
   google: { label: 'Google', color: 'text-orange-400' },
@@ -56,12 +57,12 @@ export default async function AccountPage() {
   const { data: profile } = await supabase
     .from('profiles')
     .select('*')
-    .eq('id', user.id)
+    .eq('user_id', user.id)
     .single();
 
   const provider = user.app_metadata?.provider || user.identities?.[0]?.provider || 'email';
   const avatarUrl = profile?.avatar_url || user.user_metadata?.avatar_url;
-  const displayName = profile?.full_name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuario';
+  const displayName = profile?.display_name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuario';
 
   return (
     <div className="py-12 px-6 max-w-2xl mx-auto min-h-screen">
@@ -96,19 +97,20 @@ export default async function AccountPage() {
             </div>
           )}
 
-          {profile?.last_login_at && (
-            <div className="flex items-center gap-3 text-sm">
-              <Calendar className="w-4 h-4 text-orange-500 shrink-0" />
-              <span className="text-slate-400">Último acceso:</span>
-              <span className="text-slate-200 font-medium">{formatDate(profile.last_login_at)}</span>
-            </div>
-          )}
-
           <div className="flex items-center gap-3 text-sm">
             <Shield className="w-4 h-4 text-orange-500 shrink-0" />
             <span className="text-slate-400">Rol:</span>
-            <span className="text-slate-200 font-medium capitalize">{profile?.role || 'user'}</span>
+            <span className="text-slate-200 font-medium capitalize">rider</span>
           </div>
+        </div>
+
+        <div className="pt-4 border-t border-white/10">
+          <ProfileSettings
+            userId={user.id}
+            initialDisplayName={displayName}
+            initialBikeName={profile?.bike_name ?? ''}
+            initialBatteryCapacityWh={profile?.battery_capacity_wh ?? 700}
+          />
         </div>
 
         <div className="pt-4 border-t border-white/10">

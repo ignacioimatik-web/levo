@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import type { KeyboardEventHandler, MouseEventHandler, ReactNode } from 'react';
 import { CloudRain, Mountain, Wind, AlertTriangle, Gauge } from 'lucide-react';
 import type { RouteStatusPayload } from '@/lib/route-status';
@@ -8,6 +8,9 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useTrailHover } from '@/lib/trail-hover-context';
 import SegmentMiniMap from '@/components/SegmentMiniMap';
+import RouteRideBriefing, {
+  type RideBriefingView,
+} from '@/components/RouteRideBriefing';
 
 function hasEtaMinutes(segment: unknown): segment is { etaMinutes: { trail: number; enduro: number; ebike: number } } {
   if (!segment || typeof segment !== 'object') return false;
@@ -43,20 +46,26 @@ export default function TrailNowInsights({
   const [loading, setLoading] = useState(true);
   const [bikeMode, setBikeMode] = useState<BikeMode>('trail');
   const [tempSource, setTempSource] = useState<TempSourceMode>('estimated');
+  const [briefingView, setBriefingView] = useState<RideBriefingView>('basic');
   const [focusedSegmentKey, setFocusedSegmentKey] = useState<string | null>(null);
-  const [mounted, setMounted] = useState(false);
-  const [now, setNow] = useState(new Date());
+  const mounted = useSyncExternalStore(
+    () => () => undefined,
+    () => true,
+    () => false,
+  );
+  const [now, setNow] = useState(() => new Date(0));
   useEffect(() => {
-    setMounted(true);
-    setNow(new Date());
+    const frame = requestAnimationFrame(() => setNow(new Date()));
     const id = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(id);
+    return () => {
+      cancelAnimationFrame(frame);
+      clearInterval(id);
+    };
   }, []);
   const sp = useSearchParams();
 
   useEffect(() => {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Madrid';
-    setLoading(true);
     fetch(`/api/forfait/route-status/${slug}?tz=${encodeURIComponent(tz)}`)
       .then((r) => r.json())
       .then((json) => setData(json))
@@ -103,6 +112,16 @@ export default function TrailNowInsights({
 
   return (
     <div className="space-y-6">
+      <RouteRideBriefing
+        data={data}
+        now={now}
+        etaFactor={etaFactor}
+        bikeMode={bikeMode}
+        onBikeModeChange={setBikeMode}
+        view={briefingView}
+        onViewChange={setBriefingView}
+      />
+      <div className={briefingView === 'pro' ? 'space-y-6' : 'hidden'}>
       <ContinuousProfile series={data.profile.profileSeries ?? []} slug={slug} basePath={basePath} />
 
       <div className={`rounded-xl border px-4 py-3 ${riskClass}`}>
@@ -484,6 +503,7 @@ export default function TrailNowInsights({
         </table>
         <p className="text-[10px] mt-3 opacity-80">Nota: ETA ajustada con telemetria meteo en tiempo real (AEMET) para apoyo a la decision, no sustituye juicio en campo.</p>
       </div>
+      </div>
     </div>
   );
 }
@@ -515,6 +535,11 @@ function MiniProfile({ segments }: { segments: NonNullable<RouteStatusPayload['p
 
 function ContinuousProfile({ series, slug, basePath }: { series: Array<{ km: number; elevationM: number }>; slug: string; basePath: string }) {
   if (!series.length) return null;
+
+  return <ContinuousProfileChart series={series} slug={slug} basePath={basePath} />;
+}
+
+function ContinuousProfileChart({ series, slug, basePath }: { series: Array<{ km: number; elevationM: number }>; slug: string; basePath: string }) {
   const { setHoveredKm } = useTrailHover();
   const width = 760;
   const height = 220;

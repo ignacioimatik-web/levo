@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import {
   List, AlertTriangle, Download, Plus, Trash2, ArrowUp, ArrowDown,
-  Search, X, MapIcon, Bike, Route, Save, Copy, ChevronUp, ChevronDown,
+  Search, X, MapIcon, Bike, Route, Save, Copy, ChevronUp, ChevronDown, Navigation,
 } from 'lucide-react';
 import type { TrackMTB, FiltrosForfait, NivelUsuario, DificultadMTB } from '@/lib/forfait/types';
 import type { RouteHoverData } from '@/components/forfait/ContinuousProfile';
@@ -14,10 +14,12 @@ import {
   defaultFilters,
 } from '@/lib/forfait/geo-utils';
 import { exportarRutaGPX, descargarGPX } from '@/lib/forfait/gpx-export';
-import { createClient } from '@/lib/supabase/browser';
+import { createClient, isSupabaseConfigured } from '@/lib/supabase/browser';
 import { fetchSavedRoutes, saveRouteToCloud, deleteSavedRoute } from '@/lib/forfait/save-route';
 import type { SavedRouteData } from '@/lib/forfait/save-route';
 import type { User } from '@supabase/supabase-js';
+import { savePlannedRoute } from '@/lib/navigation/storage';
+import type { PlannedRoute } from '@/lib/navigation/types';
 
 const MTBMap = dynamic(() => import('@/components/forfait/MTBMap'), { ssr: false });
 const ElevationProfile = dynamic(() => import('@/components/forfait/ContinuousProfile'), { ssr: false });
@@ -72,14 +74,13 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
   const [routeName, setRouteName] = useState('Mi ruta Forfait');
   const [nivelUsuario, setNivelUsuario] = useState<NivelUsuario>('avanzado');
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [saved, setSaved] = useState(false);
   const [expandedSectors, setExpandedSectors] = useState<Set<string>>(new Set());
   const [previewTrackIds, setPreviewTrackIds] = useState<string[]>([]);
   const [hoveredTrackId, setHoveredTrackId] = useState<string | null>(null);
   const [fitToTrackId, setFitToTrackId] = useState<string | null>(null);
   const [hoveredRouteKm, setHoveredRouteKm] = useState<RouteHoverData | null>(null);
   const [user, setUser] = useState<User | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(isSupabaseConfigured);
   const [savedRoutes, setSavedRoutes] = useState<SavedRouteData[]>([]);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [loadingSaved, setLoadingSaved] = useState(false);
@@ -96,30 +97,32 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
   // Restore saved route from localStorage
   useEffect(() => {
     const savedData = loadSavedRoute();
-    if (savedData && savedData.trackIds.length > 0) {
-      const valid = savedData.trackIds.filter(id => tracks.some(t => t.id === id));
-      if (valid.length > 0) {
-        setSelectedTrackIds(valid);
-        setRouteName(savedData.routeName || 'Mi ruta Forfait');
-        setActiveTab('ruta');
-      }
-    }
+    if (!savedData || savedData.trackIds.length === 0) return;
+    const valid = savedData.trackIds.filter(id => tracks.some(t => t.id === id));
+    if (valid.length === 0) return;
+
+    const restoreTimer = window.setTimeout(() => {
+      setSelectedTrackIds(valid);
+      setRouteName(savedData.routeName || 'Mi ruta Forfait');
+      setActiveTab('ruta');
+    }, 0);
+
+    return () => window.clearTimeout(restoreTimer);
   }, [tracks]);
 
   // Auto-save route
   useEffect(() => {
     if (selectedTrackIds.length > 0) {
       saveRoute(selectedTrackIds, routeName);
-      setSaved(true);
     } else {
       clearSavedRoute();
-      setSaved(false);
     }
   }, [selectedTrackIds, routeName]);
 
   // Auth state
   useEffect(() => {
     const supabase = createClient();
+    if (!supabase) return;
     supabase.auth.getUser().then(({ data }) => {
       setUser(data.user);
       setAuthLoading(false);
@@ -137,6 +140,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
   }, []);
 
   const conexiones = useMemo(() => detectAllConnections(tracks), [tracks]);
+  const saved = selectedTrackIds.length > 0;
 
   const filteredTracks = useMemo(() => {
     return tracks.filter(t => {
@@ -211,6 +215,31 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
     descargarGPX(gpx, `morella-ebiketracks-${builtRoute.nombre.toLowerCase().replace(/\s+/g, '-')}.gpx`);
   }, [builtRoute]);
 
+  const startNavigation = useCallback((route: PlannedRoute) => {
+    savePlannedRoute(route);
+    window.location.assign(`/grabar?ruta=${encodeURIComponent(route.id)}`);
+  }, []);
+
+  const handleStartNavigation = useCallback(() => {
+    if (!builtRoute) return;
+    startNavigation({
+      id: builtRoute.id || crypto.randomUUID(),
+      name: builtRoute.nombre,
+      trackIds: selectedTrackIds,
+      distanceKm: builtRoute.distanciaTotalKm,
+      elevationGainM: builtRoute.desnivelPositivoTotal,
+      estimatedTimeMin: builtRoute.tiempoEstimadoTotalMin,
+      difficulty: builtRoute.dificultadGlobal,
+      warnings: builtRoute.advertencias,
+      points: builtRoute.pointsCombinados.map((point) => ({
+        latitude: point.lat,
+        longitude: point.lng,
+        elevation: point.elevation ?? null,
+      })),
+      createdAt: new Date().toISOString(),
+    });
+  }, [builtRoute, selectedTrackIds, startNavigation]);
+
   const handleCopySummary = useCallback(() => {
     if (!builtRoute) return;
     const summary = [
@@ -236,6 +265,12 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
       elevation_loss_m: builtRoute.desnivelNegativoTotal,
       estimated_time_min: builtRoute.tiempoEstimadoTotalMin,
       difficulty: builtRoute.dificultadGlobal,
+      route_points: builtRoute.pointsCombinados.map((point) => ({
+        latitude: point.lat,
+        longitude: point.lng,
+        elevation: point.elevation ?? null,
+      })),
+      warnings: builtRoute.advertencias,
     });
     setSaveStatus(error ? 'error' : 'saved');
     if (error) {
@@ -271,6 +306,21 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
       setActiveTab('ruta');
     }
   }, [tracks]);
+
+  const handleNavigateSavedRoute = useCallback((saved: SavedRouteData) => {
+    startNavigation({
+      id: saved.id,
+      name: saved.name,
+      trackIds: saved.track_ids,
+      distanceKm: saved.distance_km,
+      elevationGainM: saved.elevation_gain_m,
+      estimatedTimeMin: saved.estimated_time_min,
+      difficulty: saved.difficulty,
+      warnings: saved.warnings ?? [],
+      points: saved.route_points ?? [],
+      createdAt: saved.created_at,
+    });
+  }, [startNavigation]);
 
   const selectedTrack = selectedTrackId ? tracks.find(t => t.id === selectedTrackId) : null;
   const selectedTracks = useMemo(() => tracks.filter(t => selectedTrackIds.includes(t.id)), [tracks, selectedTrackIds]);
@@ -317,6 +367,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
         <button
           onClick={() => { addToRoute(track.id); }}
           className="flex-shrink-0 p-1.5 bg-orange-500/20 text-orange-400 rounded-lg hover:bg-orange-500/30 transition-colors"
+          aria-label={`Añadir ${track.nombre} a la ruta`}
         >
           <Plus className="w-4 h-4" />
         </button>
@@ -375,6 +426,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
             <span className={`text-[11px] font-bold truncate leading-tight ${isClosed ? 'text-slate-500' : 'text-white'}`}>{track.nombre}</span>
             <button
               onClick={e => { e.stopPropagation(); isInRoute ? removeFromRoute(track.id) : addToRoute(track.id); }}
+              aria-label={isInRoute ? `Quitar ${track.nombre} de la ruta` : `Añadir ${track.nombre} a la ruta`}
               className={`flex-shrink-0 p-0.5 rounded-lg transition-colors ${
                 isInRoute
                   ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30'
@@ -533,6 +585,10 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
             {selectedTrackIds.length > 0 && (
               <>
                 <div className="flex gap-2">
+                  <button onClick={handleStartNavigation} className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-lg text-xs font-black transition-colors">
+                    <Navigation className="w-4 h-4 fill-current" />
+                    Navegar
+                  </button>
                   <button onClick={handleExportGPX} className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-xs font-bold transition-colors">
                     <Download className="w-4 h-4" />
                     GPX
@@ -645,6 +701,15 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
                   >
                     <Trash2 className="w-3 h-3" />
                   </button>
+                  {r.route_points?.length > 1 && (
+                    <button
+                      onClick={() => handleNavigateSavedRoute(r)}
+                      className="p-1 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 rounded transition-colors"
+                      title="Navegar esta ruta"
+                    >
+                      <Navigation className="w-3 h-3" />
+                    </button>
+                  )}
                 </div>
               ))
             )}
@@ -664,7 +729,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
   );
 
   return (
-    <section className="relative h-[calc(100vh-64px)]">
+    <section className="relative h-[calc(100dvh-128px)] md:h-[calc(100vh-64px)]">
       {/* TOP TOOLBAR */}
       <div className="h-12 flex items-center justify-between px-4 bg-slate-950 border-b border-white/[0.04]">
         <div className="flex items-center gap-3">
@@ -833,6 +898,15 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 flex-shrink-0 pointer-events-auto">
+                  <button
+                    onClick={handleStartNavigation}
+                    aria-label="Navegar esta ruta"
+                    className="flex px-2.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-lg text-[9px] font-black transition-colors items-center gap-1 shadow-lg shadow-emerald-950/30"
+                    title="Navegar esta ruta"
+                  >
+                    <Navigation className="w-3 h-3 fill-current" />
+                    <span className="hidden sm:inline">Navegar</span>
+                  </button>
                   <button
                     onClick={() => setActiveTab('ruta')}
                     className="hidden sm:flex px-2.5 py-1.5 bg-slate-900/80 hover:bg-slate-800 text-slate-300 rounded-lg text-[9px] font-bold transition-colors items-center gap-1 backdrop-blur-sm"

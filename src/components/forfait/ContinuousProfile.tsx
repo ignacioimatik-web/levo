@@ -19,6 +19,21 @@ export default function ContinuousProfile({ points, onHoverKm }: {
 }) {
   const series = useMemo(() => buildProfileSeries(points), [points]);
 
+  if (!series.length) {
+    return (
+      <div className="bg-slate-900/60 border border-white/5 rounded-xl p-4 h-full flex items-center justify-center">
+        <p className="text-xs text-slate-500">Perfil de elevación disponible cuando los tracks incluyan datos de altitud.</p>
+      </div>
+    );
+  }
+
+  return <ProfileChart series={series} onHoverKm={onHoverKm} />;
+}
+
+function ProfileChart({ series, onHoverKm }: {
+  series: ReturnType<typeof buildProfileSeries>;
+  onHoverKm?: (data: RouteHoverData | null) => void;
+}) {
   const [hover, setHover] = useState<{ idx: number; x: number; y: number } | null>(null);
   const [lockedIdx, setLockedIdx] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -33,14 +48,6 @@ export default function ContinuousProfile({ points, onHoverKm }: {
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-
-  if (!series.length) {
-    return (
-      <div className="bg-slate-900/60 border border-white/5 rounded-xl p-4 h-full flex items-center justify-center">
-        <p className="text-xs text-slate-500">Perfil de elevación disponible cuando los tracks incluyan datos de altitud.</p>
-      </div>
-    );
-  }
 
   const height = 180;
   const padX = 50;

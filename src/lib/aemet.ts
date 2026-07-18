@@ -14,7 +14,7 @@ interface AemetStationInventory {
   latitud: string;
   longitud: string;
   provincia?: string;
-  altitud?: number;
+  altitud?: number | string;
 }
 
 interface AemetObservation {
@@ -54,7 +54,15 @@ export interface AemetNow {
     stationName: string;
     distanceKm: number;
     altitudeM?: number;
+    latitude: number;
+    longitude: number;
     temperatureC?: number;
+    humidityPct?: number;
+    windKmh?: number;
+    maxWindKmh?: number;
+    windDirectionDeg?: number;
+    precipitationMm?: number;
+    dataAgeMin?: number;
     updatedAt?: string;
   }>;
   temperatureRangeC?: { min: number; max: number };
@@ -97,7 +105,12 @@ async function fetchAemetData<T>(path: string, apiKey: string): Promise<T> {
   if (!dataRes.ok) {
     throw new Error(`AEMET data request failed (${dataRes.status})`);
   }
-  return (await dataRes.json()) as T;
+  const bytes = await dataRes.arrayBuffer();
+  let text = new TextDecoder('utf-8').decode(bytes);
+  if (text.includes('\uFFFD')) {
+    text = new TextDecoder('windows-1252').decode(bytes);
+  }
+  return JSON.parse(text) as T;
 }
 
 function toNumber(value: unknown): number | undefined {
@@ -140,9 +153,11 @@ function scoreRouteNow(obs: AemetObservation): Pick<AemetNow, 'riskLevel' | 'rou
   };
 }
 
-export async function getAemetNowForLocation(lat: number, lng: number): Promise<AemetNow | null> {
+async function getAemetNowForTargets(
+  targets: Array<{ lat: number; lng: number }>,
+): Promise<AemetNow | null> {
   const apiKey = process.env.AEMET_API_KEY;
-  if (!apiKey) return null;
+  if (!apiKey || targets.length === 0) return null;
 
   const stations = await fetchAemetData<AemetStationInventory[]>('/valores/climatologicos/inventarioestaciones/todasestaciones', apiKey);
 
@@ -155,16 +170,36 @@ export async function getAemetNowForLocation(lat: number, lng: number): Promise<
         ...s,
         stationLat,
         stationLng,
-        distanceKm: haversineKm(lat, lng, stationLat, stationLng),
+        distanceKm: Math.min(...targets.map((target) => (
+          haversineKm(target.lat, target.lng, stationLat, stationLng)
+        ))),
       };
     })
     .filter((s): s is NonNullable<typeof s> => s !== null)
     .sort((a, b) => a.distanceKm - b.distanceKm);
 
   if (!parsed.length) return null;
-  const nearest = parsed[0];
-
-  const candidates = parsed.slice(0, 3);
+  if (parsed[0].distanceKm > 100) return null;
+  const selectedCodes = new Set<string>();
+  const candidates: typeof parsed = [];
+  for (const target of targets) {
+    const nearestTargetStation = parsed
+      .filter((station) => !selectedCodes.has(station.indicativo))
+      .sort((a, b) => (
+        haversineKm(target.lat, target.lng, a.stationLat, a.stationLng)
+        - haversineKm(target.lat, target.lng, b.stationLat, b.stationLng)
+      ))[0];
+    if (!nearestTargetStation) continue;
+    selectedCodes.add(nearestTargetStation.indicativo);
+    candidates.push(nearestTargetStation);
+    if (candidates.length >= 8) break;
+  }
+  for (const station of parsed) {
+    if (candidates.length >= 8) break;
+    if (selectedCodes.has(station.indicativo)) continue;
+    selectedCodes.add(station.indicativo);
+    candidates.push(station);
+  }
   const stationObs = await Promise.all(
     candidates.map(async (st) => {
       try {
@@ -181,8 +216,10 @@ export async function getAemetNowForLocation(lat: number, lng: number): Promise<
     })
   );
 
-  const obs = stationObs.find((x) => x.station.indicativo === nearest.indicativo)?.obs;
-  if (!obs) return null;
+  const nearestAvailable = stationObs.find((item) => item.obs);
+  if (!nearestAvailable?.obs) return null;
+  const nearest = nearestAvailable.station;
+  const obs = nearestAvailable.obs;
 
   const obsTs = parseAemetTimestamp(obs.fint);
   const dataAgeMin = obsTs ? Math.max(0, Math.round((Date.now() - obsTs) / 60000)) : undefined;
@@ -208,7 +245,7 @@ export async function getAemetNowForLocation(lat: number, lng: number): Promise<
     let wSum = 0;
     for (const s of tempSamples) {
       const distW = 1 / Math.max(0.5, s.station.distanceKm);
-      const altDiff = Math.abs((s.station.altitud ?? 0) - (nearest.altitud ?? 0));
+      const altDiff = Math.abs((toNumber(s.station.altitud) ?? 0) - (toNumber(nearest.altitud) ?? 0));
       const altW = 1 / (1 + altDiff / 300);
       const w = distW * altW;
       tempW += s.temp * w;
@@ -238,15 +275,45 @@ export async function getAemetNowForLocation(lat: number, lng: number): Promise<
     uvMax: toNumber(obs.uvMax),
     ...score,
     routeNowMessage: staleMessage ? `${score.routeNowMessage} ${staleMessage}` : score.routeNowMessage,
-    nearbyStations: stationObs.map(({ station, obs: o }) => ({
-      stationCode: station.indicativo,
-      stationName: station.nombre,
-      distanceKm: Math.round(station.distanceKm * 10) / 10,
-      altitudeM: station.altitud,
-      temperatureC: toNumber(o?.ta),
-      updatedAt: o?.fint,
-    })),
+    nearbyStations: stationObs
+      .filter(({ obs: stationObservation }) => stationObservation != null)
+      .map(({ station, obs: o }) => {
+        const stationTimestamp = parseAemetTimestamp(o?.fint);
+        return {
+          stationCode: station.indicativo,
+          stationName: station.nombre,
+          distanceKm: Math.round(station.distanceKm * 10) / 10,
+          altitudeM: toNumber(station.altitud),
+          latitude: station.stationLat,
+          longitude: station.stationLng,
+          temperatureC: toNumber(o?.ta),
+          humidityPct: toNumber(o?.hr),
+          windKmh: toNumber(o?.vv),
+          maxWindKmh: toNumber(o?.vmax),
+          windDirectionDeg: toNumber(o?.dv),
+          precipitationMm: toNumber(o?.prec),
+          dataAgeMin: stationTimestamp
+            ? Math.max(0, Math.round((Date.now() - stationTimestamp) / 60_000))
+            : undefined,
+          updatedAt: o?.fint,
+        };
+      }),
     temperatureRangeC,
     weightedRouteTempC,
   };
+}
+
+export async function getAemetNowForLocation(lat: number, lng: number): Promise<AemetNow | null> {
+  return getAemetNowForTargets([{ lat, lng }]);
+}
+
+export async function getAemetNowForRoute(
+  points: Array<{ lat: number; lng: number }>,
+): Promise<AemetNow | null> {
+  if (points.length === 0) return null;
+  const sampleCount = Math.min(8, points.length);
+  const targets = Array.from({ length: sampleCount }, (_, index) => (
+    points[Math.round(index * (points.length - 1) / Math.max(1, sampleCount - 1))]
+  ));
+  return getAemetNowForTargets(targets);
 }

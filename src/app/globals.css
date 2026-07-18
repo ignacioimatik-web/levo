@@ -116,3 +116,18 @@
 ::-webkit-scrollbar-thumb {
   @apply bg-slate-800 rounded-full hover:bg-slate-700 transition-colors;
 }
+
+/* Map controls must remain usable with a finger or gloves on compact devices. */
+@media (pointer: coarse), (max-width: 1279px) {
+  .mapboxgl-ctrl-group button {
+    width: 44px !important;
+    height: 44px !important;
+  }
+
+  .leaflet-control a,
+  .leaflet-control-zoom a {
+    width: 44px !important;
+    height: 44px !important;
+    line-height: 44px !important;
+  }
+}

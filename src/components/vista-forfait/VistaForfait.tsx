@@ -154,16 +154,19 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
 
   /* ── Auto-expand first track + show first senda ── */
   useEffect(() => {
-    if (sectorTracks.length > 0) {
-      const firstTrack = sectorTracks[0];
+    const firstTrack = sectorTracks[0];
+    if (firstTrack) {
+      const timer = window.setTimeout(() => {
       setExpandedTrackId(firstTrack.id);
       setActiveTrackId(firstTrack.id);
       const sendas = allSendas.get(firstTrack.id);
       if (sendas && sendas.length > 0) {
         setActiveSendaId(sendas[0].id);
       }
+      }, 0);
+      return () => window.clearTimeout(timer);
     }
-  }, [activeSector]);
+  }, [activeSector, allSendas, sectorTracks]);
 
   const activeSenda = useMemo(
     () => allSendaList.find(s => s.id === activeSendaId) || null,
@@ -195,8 +198,10 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const saved = JSON.parse(raw);
-        if (Array.isArray(saved.trackIds) && saved.trackIds.length > 0)
-          setSelectedTrackIds(saved.trackIds);
+        if (Array.isArray(saved.trackIds) && saved.trackIds.length > 0) {
+          const timer = window.setTimeout(() => setSelectedTrackIds(saved.trackIds), 0);
+          return () => window.clearTimeout(timer);
+        }
       }
     } catch {}
   }, []);
@@ -445,8 +450,8 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
                 const isDimmed = activeSendaId !== null && !hasActiveSenda;
 
                 const color = getVisualColor(track);
-                let weight = isAct ? 5 : isHov ? 4.5 : isSel ? 3.5 : 2.5;
-                let opacity = isClosed ? 0.2 : isAct ? 1 : isHov ? 0.9 : isSel ? 0.75 : isDimmed ? 0.12 : 0.45;
+                const weight = isAct ? 5 : isHov ? 4.5 : isSel ? 3.5 : 2.5;
+                const opacity = isClosed ? 0.2 : isAct ? 1 : isHov ? 0.9 : isSel ? 0.75 : isDimmed ? 0.12 : 0.45;
                 const dash = isClosed ? [5, 5] as number[] : isSel ? [8, 5] as number[] : null;
 
                 const coords: [number, number][] = track.points.map(p => [p.lng, p.lat]);

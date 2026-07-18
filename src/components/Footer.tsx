@@ -1,9 +1,8 @@
 import Link from 'next/link';
-import { Share2 } from 'lucide-react';
 
 const Footer = () => {
   return (
-    <footer className="bg-slate-950 border-t border-white/5 pt-16 pb-8 px-6 text-slate-400">
+    <footer className="bg-slate-950 border-t border-white/5 pt-16 pb-24 md:pb-8 px-6 text-slate-400">
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
         <div className="col-span-1 md:col-span-1">
           <div className="flex items-center gap-2 mb-6">

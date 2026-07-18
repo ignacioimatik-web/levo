@@ -2,8 +2,8 @@
 
 import { Suspense, useEffect, useState, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { signInWithGoogle, signInWithApple, getCurrentSession } from '@/lib/supabase/auth';
-import { Loader2, AlertCircle, XCircle, WifiOff, Ban } from 'lucide-react';
+import { signInWithGoogle, signInWithApple, signInWithEmail, getCurrentSession } from '@/lib/supabase/auth';
+import { Loader2, AlertCircle, XCircle, WifiOff, Ban, Mail, CheckCircle2 } from 'lucide-react';
 
 const ERROR_MESSAGES: Record<string, string> = {
   'Provider not enabled': 'El inicio de sesión con este proveedor no está activado. Contacta con el administrador.',
@@ -33,14 +33,17 @@ function AuthForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(() => {
+    const urlError = searchParams.get('error');
+    return urlError ? getErrorMessage(urlError) : null;
+  });
   const [checking, setChecking] = useState(true);
+  const [email, setEmail] = useState('');
+  const [emailSent, setEmailSent] = useState(false);
 
   const next = searchParams.get('next') ?? undefined;
 
   useEffect(() => {
-    const urlError = searchParams.get('error');
-    if (urlError) setError(getErrorMessage(urlError));
     getCurrentSession().then(({ session }) => {
       if (session) router.replace('/account');
       else setChecking(false);
@@ -67,6 +70,17 @@ function AuthForm() {
     }
   }, [next]);
 
+  const handleEmail = useCallback(async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!email.trim()) return;
+    setLoading('email');
+    setError(null);
+    const { error: err } = await signInWithEmail(email.trim(), next);
+    if (err) setError(getErrorMessage(err.message));
+    else setEmailSent(true);
+    setLoading(null);
+  }, [email, next]);
+
   if (checking) {
     return (
       <div className="flex items-center justify-center min-h-[calc(100vh-80px)]">
@@ -82,11 +96,49 @@ function AuthForm() {
           <div className="text-center mb-8">
             <h1 className="text-2xl font-bold text-white">Accede a tu cuenta</h1>
             <p className="text-sm text-slate-400 mt-2 leading-relaxed">
-              Inicia sesión o crea tu cuenta usando Google o Apple.
+              Entra por email para sincronizar tus salidas en todos tus dispositivos.
             </p>
           </div>
 
           <div className="space-y-3">
+            {emailSent ? (
+              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-center">
+                <CheckCircle2 className="mx-auto h-6 w-6 text-emerald-400" />
+                <p className="mt-2 text-sm font-bold text-emerald-300">Revisa tu correo</p>
+                <p className="mt-1 text-xs text-slate-400">Te hemos enviado un enlace seguro para entrar. No necesitas contraseña.</p>
+              </div>
+            ) : (
+              <form onSubmit={handleEmail} className="space-y-2">
+                <label htmlFor="email" className="sr-only">Correo electrónico</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                  <input
+                    id="email"
+                    type="email"
+                    required
+                    autoComplete="email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder="tu@email.com"
+                    className="w-full rounded-xl border border-white/10 bg-slate-950 py-3 pl-10 pr-3 text-sm text-white outline-none focus:border-orange-500"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={loading !== null}
+                  className="flex w-full items-center justify-center rounded-xl bg-orange-500 px-4 py-3 text-sm font-bold text-white hover:bg-orange-400 disabled:opacity-50"
+                >
+                  {loading === 'email' ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Continuar con email'}
+                </button>
+              </form>
+            )}
+
+            <div className="flex items-center gap-3 py-1">
+              <span className="h-px flex-1 bg-white/10" />
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-600">o</span>
+              <span className="h-px flex-1 bg-white/10" />
+            </div>
+
             <button
               onClick={handleGoogle}
               disabled={loading !== null}

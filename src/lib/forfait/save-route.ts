@@ -7,6 +7,8 @@ export interface SavedRouteData {
   elevation_loss_m: number;
   estimated_time_min: number;
   difficulty: string;
+  route_points: Array<{ latitude: number; longitude: number; elevation: number | null }>;
+  warnings: string[];
   created_at: string;
   updated_at: string;
 }
@@ -23,6 +25,7 @@ export async function fetchSavedRoutes(): Promise<SavedRouteData[]> {
 }
 
 export async function saveRouteToCloud(params: {
+  id?: string;
   name: string;
   track_ids: string[];
   distance_km: number;
@@ -30,6 +33,8 @@ export async function saveRouteToCloud(params: {
   elevation_loss_m: number;
   estimated_time_min: number;
   difficulty: string;
+  route_points: Array<{ latitude: number; longitude: number; elevation: number | null }>;
+  warnings: string[];
 }): Promise<{ route?: SavedRouteData; error?: string }> {
   const res = await fetch('/api/forfait/save-route', {
     method: 'POST',
