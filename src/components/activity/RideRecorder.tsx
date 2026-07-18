@@ -17,6 +17,7 @@ import useRejoinRoute from '@/components/activity/useRejoinRoute';
 import {
   assessRidePoint, calculateRideMetrics, estimateBattery, pointFromPosition,
 } from '@/lib/activities/geo';
+import type { RidePointRejection } from '@/lib/activities/geo';
 import { buildBatteryModel, predictBatteryForRoute } from '@/lib/activities/battery';
 import {
   clearRideDraft, getActivitiesDurable, getRideDraftDurable, saveActivity, saveRideDraft,
@@ -33,7 +34,7 @@ import {
 } from '@/lib/activities/display-mode';
 import type { RideDisplayMode } from '@/lib/activities/display-mode';
 import {
-  displayedRideSpeedKmh,
+  displayedRideSpeedKmh, gpsAssessmentKeepsSignalAlive,
   GPS_RESUME_RESTART_MS,
   GPS_STALE_RESTART_MS,
   shouldRestartGpsWatch,
@@ -169,8 +170,9 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
   const [offlineMap, setOfflineMap] = useState<OfflineMapPackage | null>(null);
   const [navigationFloorM, setNavigationFloorM] = useState(0);
   const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
-  const [lastGpsReceivedAt, setLastGpsReceivedAt] = useState(0);
+  const [lastGpsFixAt, setLastGpsFixAt] = useState(0);
   const [gpsSignalAgeSeconds, setGpsSignalAgeSeconds] = useState(0);
+  const [gpsRejection, setGpsRejection] = useState<RidePointRejection | null>(null);
   const [finishArmed, setFinishArmed] = useState(false);
   const [voiceGuidance, setVoiceGuidance] = useState(false);
   const displayMode = useSyncExternalStore(
@@ -205,6 +207,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
   const announcedRecoveryTurnRef = useRef<{ turnIndex: number; stage: TurnAlertStage } | null>(null);
   const lastOffRouteAlertRef = useRef(0);
   const lastGpsRestartAtRef = useRef(0);
+  const gpsWatchStartedAtRef = useRef(0);
   const lastAnnouncedSplitRef = useRef(0);
 
   const requestWakeLock = useCallback(async () => {
@@ -229,6 +232,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
   const clearGpsWatch = useCallback(() => {
     if (watchIdRef.current != null) navigator.geolocation.clearWatch(watchIdRef.current);
     watchIdRef.current = null;
+    gpsWatchStartedAtRef.current = 0;
   }, []);
 
   const stopWatch = useCallback(() => {
@@ -335,11 +339,13 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
   }, []);
 
   useEffect(() => {
-    if (status !== 'recording') return;
+    if (status !== 'recording' && status !== 'requesting') return;
     const timer = setInterval(() => {
-      if (lastGpsReceivedAt > 0) {
-        setGpsSignalAgeSeconds(Math.max(0, Math.floor((Date.now() - lastGpsReceivedAt) / 1_000)));
+      const freshnessAnchor = lastGpsFixAt || gpsWatchStartedAtRef.current;
+      if (freshnessAnchor > 0) {
+        setGpsSignalAgeSeconds(Math.max(0, Math.floor((Date.now() - freshnessAnchor) / 1_000)));
       }
+      if (status !== 'recording') return;
       if (isDemoRef.current) {
         setDurationSeconds((value) => value + 14);
       } else if (recordingStartedAtRef.current != null) {
@@ -349,7 +355,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
       }
     }, 1000);
     return () => clearInterval(timer);
-  }, [lastGpsReceivedAt, status]);
+  }, [lastGpsFixAt, status]);
 
   const persistCurrentDraft = useCallback((forceDurable = false) => {
     if (status !== 'recording' && status !== 'paused' && status !== 'finished') return;
@@ -520,11 +526,19 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
         color: 'text-red-300 bg-red-500/10',
       };
     }
+    if (gpsRejection && gpsRejection !== 'drift') {
+      return {
+        label: gpsRejection === 'accuracy' || gpsRejection === 'invalid'
+          ? 'Sin señal fiable'
+          : 'GPS inestable',
+        color: 'text-amber-300 bg-amber-500/10',
+      };
+    }
     if (gpsAccuracy <= 8) return { label: 'GPS excelente', color: 'text-emerald-400 bg-emerald-500/10' };
     if (gpsAccuracy <= 20) return { label: 'GPS correcto', color: 'text-blue-300 bg-blue-500/10' };
     if (gpsAccuracy <= 100) return { label: 'GPS débil', color: 'text-amber-300 bg-amber-500/10' };
     return { label: 'Sin señal fiable', color: 'text-red-300 bg-red-500/10' };
-  }, [gpsAccuracy, gpsSignalAgeSeconds, status]);
+  }, [gpsAccuracy, gpsRejection, gpsSignalAgeSeconds, status]);
 
   const completedSplitIndex = liveSplit.lastCompleted?.index ?? 0;
   useEffect(() => {
@@ -649,7 +663,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
         updated_at: new Date().toISOString(),
       })
       .eq('id', liveSession.id);
-  }, [battery.batteryPercent, lastGpsReceivedAt, liveSession, metrics.distanceM, points, settings.sportType, status]);
+  }, [battery.batteryPercent, lastGpsFixAt, liveSession, metrics.distanceM, points, settings.sportType, status]);
 
   const beginGpsWatch = useCallback((recovering = false) => {
     if (!('geolocation' in navigator)) {
@@ -660,20 +674,27 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
       return;
     }
     clearGpsWatch();
+    gpsWatchStartedAtRef.current = Date.now();
     if (!recovering || !lastAcceptedPointRef.current) setStatus('requesting');
     watchIdRef.current = navigator.geolocation.watchPosition(
       (position) => {
         const candidate = pointFromPosition(position);
         setGpsAccuracy(candidate.accuracy);
-        setLastGpsReceivedAt(Date.now());
-        setGpsSignalAgeSeconds(0);
-        setGpsRecoveryActive(false);
         const assessment = assessRidePoint(lastAcceptedPointRef.current, candidate);
+        const usableFix = gpsAssessmentKeepsSignalAlive(assessment.reason);
+        if (!usableFix) {
+          setGpsRejection(assessment.reason);
+          return;
+        }
+        setLastGpsFixAt(Date.now());
+        setGpsSignalAgeSeconds(0);
+        setGpsRejection(null);
+        setGpsRecoveryActive(false);
+        setError('');
+        setStatus('recording');
         if (!assessment.accepted) return;
         lastAcceptedPointRef.current = candidate;
         setPoints((current) => [...current, candidate]);
-        setError('');
-        setStatus('recording');
       },
       (gpsError) => {
         const message = gpsError.code === 1
@@ -712,9 +733,10 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
   const restartGpsWatch = useCallback((staleAfterMs: number) => {
     const now = Date.now();
     if (!shouldRestartGpsWatch({
-      recording: status === 'recording',
+      recording: status === 'recording' || status === 'requesting',
       demo: isDemoRef.current,
-      lastFixAt: lastGpsReceivedAt,
+      lastFixAt: lastGpsFixAt,
+      watchStartedAt: gpsWatchStartedAtRef.current,
       lastRestartAt: lastGpsRestartAtRef.current,
       now,
       staleAfterMs,
@@ -722,7 +744,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
     lastGpsRestartAtRef.current = now;
     setGpsRecoveryActive(true);
     beginGpsWatch(true);
-  }, [beginGpsWatch, lastGpsReceivedAt, status]);
+  }, [beginGpsWatch, lastGpsFixAt, status]);
 
   useEffect(() => {
     restartGpsWatch(GPS_STALE_RESTART_MS);
@@ -749,10 +771,12 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
     setLiveStatus('idle');
     setLiveError('');
     setGpsAccuracy(null);
-    setLastGpsReceivedAt(0);
+    setLastGpsFixAt(0);
     setGpsSignalAgeSeconds(0);
+    setGpsRejection(null);
     setGpsRecoveryActive(false);
     lastGpsRestartAtRef.current = 0;
+    gpsWatchStartedAtRef.current = 0;
     setNavigationFloorM(0);
     setFinishArmed(false);
     setWeatherSamples([]);
@@ -784,6 +808,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
   };
 
   const pause = () => {
+    persistCurrentDraft(true);
     if (!isDemoRef.current && recordingStartedAtRef.current != null) {
       const nextDuration = durationBaseRef.current
         + Math.floor((Date.now() - recordingStartedAtRef.current) / 1000);
@@ -895,6 +920,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
   };
 
   const finish = () => {
+    persistCurrentDraft(true);
     setRideFocused(false);
     setFinishArmed(false);
     if (!isDemoRef.current && recordingStartedAtRef.current != null) {

@@ -24,6 +24,38 @@ export function compactActivityForLocalStorage(
   };
 }
 
+export function compactRideDraftForLocalStorage(
+  draft: RideDraft,
+  maxPoints = 2_000,
+): RideDraft {
+  const pointLimit = Math.max(2, maxPoints);
+  if (draft.points.length <= pointLimit) return draft;
+
+  // Keep a detailed recent tail for recovery/navigation, while sampling the
+  // older part of a very long ride so the synchronous emergency copy remains
+  // small enough for localStorage and cheap enough to write on a phone.
+  const recentCount = Math.min(
+    Math.max(1, Math.floor(pointLimit / 4)),
+    draft.points.length - 1,
+  );
+  const historicalLimit = pointLimit - recentCount;
+  const historical = draft.points.slice(0, -recentCount);
+  const recent = draft.points.slice(-recentCount);
+  const sampledHistorical = historicalLimit === 1
+    ? [historical[0]]
+    : Array.from(
+        { length: historicalLimit },
+        (_, index) => historical[
+          Math.round(index * (historical.length - 1) / (historicalLimit - 1))
+        ],
+      );
+
+  return {
+    ...draft,
+    points: [...sampledHistorical, ...recent],
+  };
+}
+
 function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
@@ -71,6 +103,26 @@ export function mergeActivityVersions(
     segmentEfforts: (stored.segmentEfforts?.length ?? 0) > (incoming.segmentEfforts?.length ?? 0)
       ? stored.segmentEfforts
       : incoming.segmentEfforts,
+  };
+}
+
+export function mergeRideDraftVersions(
+  durable: RideDraft | null | undefined,
+  local: RideDraft | null | undefined,
+): RideDraft | null {
+  if (!durable) return local ?? null;
+  if (!local) return durable;
+  if (durable.id !== local.id) {
+    return durable.updatedAt >= local.updatedAt ? durable : local;
+  }
+  if (durable.updatedAt >= local.updatedAt) return durable;
+
+  const durableLastTimestamp = durable.points.at(-1)?.timestamp ?? Number.NEGATIVE_INFINITY;
+  const localTail = local.points.filter((point) => point.timestamp > durableLastTimestamp);
+  return {
+    ...durable,
+    ...local,
+    points: localTail.length > 0 ? [...durable.points, ...localTail] : durable.points,
   };
 }
 

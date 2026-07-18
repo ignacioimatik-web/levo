@@ -61,6 +61,7 @@ import {
 import { normalizeRideDisplayMode } from '../src/lib/activities/display-mode.ts';
 import {
   displayedRideSpeedKmh,
+  gpsAssessmentKeepsSignalAlive,
   GPS_RESUME_RESTART_MS,
   GPS_STALE_RESTART_MS,
   shouldRestartGpsWatch,
@@ -115,7 +116,9 @@ import {
 import { aemetWindMpsToKmh } from '../src/lib/weather-units.ts';
 import {
   compactActivityForLocalStorage,
+  compactRideDraftForLocalStorage,
   mergeActivityVersions,
+  mergeRideDraftVersions,
 } from '../src/lib/activities/durable-storage.ts';
 
 function point({
@@ -234,6 +237,66 @@ test('el índice local reduce un track largo sin perder inicio ni final', () => 
   assert.deepEqual(compact.points[0], points[0]);
   assert.deepEqual(compact.points.at(-1), points.at(-1));
   assert.equal(compact.distanceM, original.distanceM);
+});
+
+test('el diario de emergencia limita una salida larga y conserva el tramo reciente', () => {
+  const points = Array.from({ length: 10_000 }, (_, index) => point({
+    longitude: -0.1 + index * 0.000001,
+    timestamp: index * 1_000,
+  }));
+  const draft = {
+    id: 'long-draft',
+    startedAt: 0,
+    updatedAt: 10_000_000,
+    durationSeconds: 10_000,
+    points,
+    settings: {
+      sportType: 'ebike',
+      batteryStart: 100,
+      batteryCapacityWh: 700,
+      assistMode: 'trail',
+    },
+    isDemo: false,
+  };
+  const compact = compactRideDraftForLocalStorage(draft, 2_000);
+
+  assert.equal(compact.points.length, 2_000);
+  assert.deepEqual(compact.points[0], points[0]);
+  assert.deepEqual(compact.points.at(-1), points.at(-1));
+  assert.deepEqual(compact.points.slice(-500), points.slice(-500));
+  assert.equal(compact.durationSeconds, draft.durationSeconds);
+});
+
+test('la recuperación une el track duradero completo con la cola local más reciente', () => {
+  const fullPoints = Array.from({ length: 10_200 }, (_, index) => point({
+    longitude: -0.1 + index * 0.000001,
+    timestamp: index * 1_000,
+  }));
+  const baseDraft = {
+    id: 'recover-long-draft',
+    startedAt: 0,
+    updatedAt: 10_000_000,
+    durationSeconds: 10_000,
+    points: fullPoints.slice(0, 10_000),
+    settings: {
+      sportType: 'ebike',
+      batteryStart: 100,
+      batteryCapacityWh: 700,
+      assistMode: 'trail',
+    },
+    isDemo: false,
+  };
+  const localDraft = compactRideDraftForLocalStorage({
+    ...baseDraft,
+    updatedAt: 10_200_000,
+    durationSeconds: 10_200,
+    points: fullPoints,
+  });
+  const recovered = mergeRideDraftVersions(baseDraft, localDraft);
+
+  assert.equal(recovered?.points.length, 10_200);
+  assert.deepEqual(recovered?.points, fullPoints);
+  assert.equal(recovered?.durationSeconds, 10_200);
 });
 
 test('una actualización de estado nunca sustituye el track completo por el índice reducido', () => {
@@ -1625,6 +1688,23 @@ test('el watchdog recupera el GPS suspendido sin duplicar reinicios', () => {
     lastRestartAt: 0,
     now,
   }), false);
+  assert.equal(shouldRestartGpsWatch({
+    recording: true,
+    demo: false,
+    lastFixAt: 0,
+    watchStartedAt: now - GPS_STALE_RESTART_MS,
+    lastRestartAt: 0,
+    now,
+  }), true);
+});
+
+test('solo una posición GPS utilizable mantiene viva la señal', () => {
+  assert.equal(gpsAssessmentKeepsSignalAlive(null), true);
+  assert.equal(gpsAssessmentKeepsSignalAlive('drift'), true);
+  assert.equal(gpsAssessmentKeepsSignalAlive('accuracy'), false);
+  assert.equal(gpsAssessmentKeepsSignalAlive('jump'), false);
+  assert.equal(gpsAssessmentKeepsSignalAlive('timestamp'), false);
+  assert.equal(gpsAssessmentKeepsSignalAlive('invalid'), false);
 });
 
 test('la velocidad instantánea cae a cero al pausar o perder señal', () => {

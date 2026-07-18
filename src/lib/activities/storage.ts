@@ -3,9 +3,10 @@
 import type { RideActivity, RideDraft } from './types';
 import { matchCompetitiveSegments } from '@/lib/segments/matcher';
 import {
-  compactActivityForLocalStorage,
+  compactActivityForLocalStorage, compactRideDraftForLocalStorage,
   clearDurableRideDraft, deleteDurableActivity, getDurableActivity, getDurableRideDraft,
-  listDurableActivities, mergeActivityVersions, saveDurableActivity, saveDurableRideDraft,
+  listDurableActivities, mergeActivityVersions, mergeRideDraftVersions,
+  saveDurableActivity, saveDurableRideDraft,
 } from './durable-storage';
 
 const STORAGE_KEY = 'e-nduro.activities.v1';
@@ -14,7 +15,13 @@ const DRAFT_KEY = 'e-nduro.active-ride.v1';
 const PENDING_DELETES_KEY = 'e-nduro.activity-deletes.v1';
 export const ACTIVITIES_CHANGED_EVENT = 'e-nduro:activities-changed';
 let lastDurableDraftSaveAt = 0;
+let lastLocalDraftSaveAt = 0;
+let lastSavedDraftId: string | null = null;
+let durableDraftRevision = 0;
+let durableDraftQueue: Promise<void> = Promise.resolve();
 const pendingDurableDeletes = new Set<string>();
+const LOCAL_DRAFT_SAVE_INTERVAL_MS = 5_000;
+const DURABLE_DRAFT_SAVE_INTERVAL_MS = 15_000;
 
 export interface PendingActivityDelete {
   clientId: string;
@@ -173,20 +180,41 @@ export async function getActivityDurable(id: string): Promise<RideActivity | nul
 
 export function saveRideDraft(draft: RideDraft, forceDurable = false): void {
   if (typeof window === 'undefined') return;
-  if (forceDurable || draft.updatedAt - lastDurableDraftSaveAt >= 10_000) {
+  const isNewDraft = draft.id !== lastSavedDraftId;
+  const revision = durableDraftRevision;
+  if (
+    forceDurable
+    || isNewDraft
+    || draft.updatedAt - lastDurableDraftSaveAt >= DURABLE_DRAFT_SAVE_INTERVAL_MS
+  ) {
     lastDurableDraftSaveAt = draft.updatedAt;
-    void saveDurableRideDraft(draft).catch(() => undefined);
+    durableDraftQueue = durableDraftQueue
+      .catch(() => undefined)
+      .then(async () => {
+        if (revision !== durableDraftRevision) return;
+        await saveDurableRideDraft(draft);
+      })
+      .catch(() => undefined);
   }
+  if (
+    !forceDurable
+    && !isNewDraft
+    && draft.updatedAt - lastLocalDraftSaveAt < LOCAL_DRAFT_SAVE_INTERVAL_MS
+  ) return;
+
+  lastSavedDraftId = draft.id;
+  lastLocalDraftSaveAt = draft.updatedAt;
+  const emergencyDraft = compactRideDraftForLocalStorage(draft);
   try {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(emergencyDraft));
   } catch {
     // On very long rides, retain a progressively downsampled recovery trace
     // instead of losing the whole draft when the browser quota is exhausted.
-    let recoveryPoints = draft.points;
-    while (recoveryPoints.length > 2_000) {
+    let recoveryPoints = emergencyDraft.points;
+    while (recoveryPoints.length > 2) {
       recoveryPoints = recoveryPoints.filter((_, index) => index % 2 === 0 || index === recoveryPoints.length - 1);
       try {
-        localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...draft, points: recoveryPoints }));
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...emergencyDraft, points: recoveryPoints }));
         return;
       } catch {
         // Keep reducing until it fits or reaches the safety floor.
@@ -209,10 +237,9 @@ export function getRideDraft(): RideDraft | null {
 export async function getRideDraftDurable(): Promise<RideDraft | null> {
   const local = getRideDraft();
   try {
+    await durableDraftQueue.catch(() => undefined);
     const durable = await getDurableRideDraft();
-    if (!durable) return local;
-    if (!local || durable.updatedAt > local.updatedAt) return durable;
-    return local;
+    return mergeRideDraftVersions(durable, local);
   } catch {
     return local;
   }
@@ -221,6 +248,12 @@ export async function getRideDraftDurable(): Promise<RideDraft | null> {
 export function clearRideDraft(): void {
   if (typeof window === 'undefined') return;
   localStorage.removeItem(DRAFT_KEY);
+  durableDraftRevision += 1;
   lastDurableDraftSaveAt = 0;
-  void clearDurableRideDraft().catch(() => undefined);
+  lastLocalDraftSaveAt = 0;
+  lastSavedDraftId = null;
+  durableDraftQueue = durableDraftQueue
+    .catch(() => undefined)
+    .then(() => clearDurableRideDraft())
+    .catch(() => undefined);
 }

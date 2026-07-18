@@ -1,11 +1,22 @@
+import type { RidePointRejection } from './geo';
+
 export const GPS_STALE_RESTART_MS = 30_000;
 export const GPS_RESUME_RESTART_MS = 15_000;
 export const GPS_RESTART_COOLDOWN_MS = 20_000;
+
+export function gpsAssessmentKeepsSignalAlive(
+  reason: RidePointRejection | null,
+): boolean {
+  // Stationary drift is intentionally omitted from the track, but it still
+  // proves that the receiver is delivering a current, usable GPS fix.
+  return reason == null || reason === 'drift';
+}
 
 export function shouldRestartGpsWatch({
   recording,
   demo,
   lastFixAt,
+  watchStartedAt = 0,
   lastRestartAt,
   now,
   staleAfterMs = GPS_STALE_RESTART_MS,
@@ -13,12 +24,14 @@ export function shouldRestartGpsWatch({
   recording: boolean;
   demo: boolean;
   lastFixAt: number;
+  watchStartedAt?: number;
   lastRestartAt: number;
   now: number;
   staleAfterMs?: number;
 }): boolean {
-  if (!recording || demo || lastFixAt <= 0) return false;
-  if (now - lastFixAt < staleAfterMs) return false;
+  if (!recording || demo) return false;
+  const freshnessAnchor = lastFixAt > 0 ? lastFixAt : watchStartedAt;
+  if (freshnessAnchor <= 0 || now - freshnessAnchor < staleAfterMs) return false;
   return lastRestartAt <= 0 || now - lastRestartAt >= GPS_RESTART_COOLDOWN_MS;
 }
 
