@@ -8,6 +8,7 @@ import type { MaintenanceCategory, MaintenanceItem } from './types';
 
 interface MaintenanceRow {
   id: string;
+  user_id: string;
   client_id: string;
   name: string;
   category: MaintenanceCategory;
@@ -56,7 +57,8 @@ export async function reconcileMaintenance(odometerKm: number): Promise<'synced'
 
   const { data, error } = await supabase
     .from('maintenance_items')
-    .select('id,client_id,name,category,interval_km,last_service_odometer_km,last_service_at,service_count,updated_at');
+    .select('id,user_id,client_id,name,category,interval_km,last_service_odometer_km,last_service_at,service_count,updated_at')
+    .eq('user_id', user.id);
   if (error) return 'error';
 
   const remoteRows = (data ?? []) as MaintenanceRow[];
@@ -82,7 +84,7 @@ export async function reconcileMaintenance(odometerKm: number): Promise<'synced'
   const { data: savedRows, error: syncError } = await supabase
     .from('maintenance_items')
     .upsert(pending.map((item) => toRow(item, user.id)), { onConflict: 'user_id,client_id' })
-    .select('id,client_id,name,category,interval_km,last_service_odometer_km,last_service_at,service_count,updated_at');
+    .select('id,user_id,client_id,name,category,interval_km,last_service_odometer_km,last_service_at,service_count,updated_at');
   if (syncError || !savedRows) {
     for (const item of pending) saveMaintenanceItem({ ...item, syncStatus: 'error' });
     return 'error';
@@ -98,5 +100,12 @@ export async function reconcileMaintenance(odometerKm: number): Promise<'synced'
 export async function deleteRemoteMaintenanceItem(item: MaintenanceItem): Promise<void> {
   if (!item.remoteId || !navigator.onLine) return;
   const supabase = createClient();
-  await supabase?.from('maintenance_items').delete().eq('id', item.remoteId);
+  if (!supabase) return;
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+  await supabase
+    .from('maintenance_items')
+    .delete()
+    .eq('id', item.remoteId)
+    .eq('user_id', user.id);
 }

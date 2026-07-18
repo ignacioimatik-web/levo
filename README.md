@@ -168,7 +168,9 @@ public/
 
 ```
 supabase/                       # Configuración CLI de Supabase
-└── .temp/                      # Metadatos del proyecto vinculado
+├── config.toml                 # Stack local reproducible (sin secretos)
+├── migrations/                 # Historial completo aplicado en producción
+└── .temp/                      # Metadatos locales ignorados por Git
 ```
 
 ---
@@ -206,7 +208,9 @@ Conexión detectada entre dos tracks:
 - `estimated_time_min`, `difficulty`, `created_at`, `updated_at`
 
 ### profiles (Supabase)
-- `id` (UUID, PK = auth.users.id), `avatar_url`, `full_name`, `last_login_at`, `role`
+- `user_id` (UUID, PK = auth.users.id), `display_name`, `avatar_url`
+- `bike_name`, `battery_capacity_wh`, `bio`, `home_region`, `rider_type`
+- `onboarding_completed_at`, `created_at`, `updated_at`
 
 ---
 
@@ -240,9 +244,19 @@ npm start
 
 # Lint
 npm run lint
+
+# Levantar Supabase local (requiere Docker)
+npx supabase start
+
+# Reconstruir la base desde las migraciones versionadas
+npx supabase db reset
 ```
 
 Abre [http://localhost:3000](http://localhost:3000) en tu navegador.
+
+Las migraciones usan permisos explícitos para `anon` y `authenticated`, con RLS
+en todas las tablas expuestas. `npm test` también comprueba que el historial
+local coincide con el aplicado en producción para evitar deriva de esquema.
 
 ---
 
