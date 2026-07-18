@@ -4,8 +4,9 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Award, BatteryCharging, Bike, CalendarRange, Check, ChevronRight, Clock3,
-  Flame, Gauge, Mountain, Pencil, Route, Sparkles, Target, TrendingUp, Zap,
+  Flag, Flame, Gauge, Mountain, Pencil, Route, Sparkles, Target, TrendingUp, Zap,
 } from 'lucide-react';
+import { getCompetitiveSegment } from '@/data/competitive-segments';
 import { getActivities } from '@/lib/activities/storage';
 import { buildBatteryModel, predictBatteryForRoute } from '@/lib/activities/battery';
 import { pullActivities } from '@/lib/activities/sync';
@@ -15,6 +16,7 @@ import {
   DEFAULT_GOALS, getProgressGoals, saveProgressGoals,
 } from '@/lib/progress/storage';
 import type { ProgressGoals } from '@/lib/progress/types';
+import { formatSegmentTime, personalSegmentBests } from '@/lib/segments/matcher';
 
 function formatHours(seconds: number): string {
   return (seconds / 3600).toLocaleString('es-ES', { maximumFractionDigits: 1 });
@@ -125,6 +127,7 @@ export default function ProgressDashboard() {
   }, [refresh]);
 
   const progress = useMemo(() => calculateProgress(activities), [activities]);
+  const segmentBests = useMemo(() => personalSegmentBests(activities), [activities]);
   const batteryModel = useMemo(() => buildBatteryModel(activities, null), [activities]);
   const batteryCapacityWh = batteryModel.typicalCapacityWh ?? 700;
   const fullBatteryPrediction = useMemo(() => predictBatteryForRoute({
@@ -295,6 +298,39 @@ export default function ProgressDashboard() {
               </section>
             </aside>
           </div>
+        )}
+
+        {segmentBests.length > 0 && (
+          <section className="mt-6">
+            <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h2 className="flex items-center gap-2 font-black"><Flag className="h-5 w-5 text-amber-300" /> Récords por segmento</h2>
+                <p className="mt-1 text-[10px] text-slate-500">Tu mejor paso por cada tramo reconocido</p>
+              </div>
+              <Link href="/segmentos" className="flex min-h-11 items-center rounded-xl border border-white/10 px-4 text-xs font-black text-slate-300">
+                Ver todos
+              </Link>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {segmentBests.slice(0, 4).map((best) => {
+                const segment = getCompetitiveSegment(best.segmentId);
+                if (!segment) return null;
+                return (
+                  <Link
+                    key={`${best.segmentId}:${best.sportType}`}
+                    href={`/segmentos/${best.segmentId}`}
+                    className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 transition hover:border-amber-400/40"
+                  >
+                    <p className="truncate text-[10px] font-black uppercase tracking-widest text-amber-300">
+                      {segment.name} · {best.sportType === 'ebike' ? 'E-bike' : 'MTB'}
+                    </p>
+                    <p className="mt-3 text-2xl font-black tabular-nums">{formatSegmentTime(best.effort.elapsedSeconds)}</p>
+                    <p className="mt-1 text-[10px] text-slate-500">{best.attempts} {best.attempts === 1 ? 'intento' : 'intentos'} · {best.effort.averageSpeedKmh.toFixed(1)} km/h</p>
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
         )}
 
         <section className="mt-6">

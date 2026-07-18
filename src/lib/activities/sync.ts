@@ -49,7 +49,34 @@ export async function syncActivity(activity: RideActivity): Promise<'synced' | '
     .select('id')
     .single();
 
-  const syncStatus = error ? 'error' : 'synced';
+  let segmentSyncFailed = false;
+  if (!error && data?.id) {
+    const { error: deleteEffortsError } = await supabase
+      .from('segment_efforts')
+      .delete()
+      .eq('activity_id', data.id)
+      .eq('user_id', user.id);
+    segmentSyncFailed = Boolean(deleteEffortsError);
+    if (!deleteEffortsError && (activity.segmentEfforts?.length ?? 0) > 0) {
+      const { error: insertEffortsError } = await supabase
+        .from('segment_efforts')
+        .insert(activity.segmentEfforts!.map((effort) => ({
+          activity_id: data.id,
+          user_id: user.id,
+          segment_id: effort.segmentId,
+          sport_type: activity.sportType,
+          elapsed_seconds: effort.elapsedSeconds,
+          started_at: effort.startedAt,
+          ended_at: effort.endedAt,
+          distance_m: effort.distanceM,
+          average_speed_kmh: effort.averageSpeedKmh,
+          match_quality: effort.matchQuality,
+        })));
+      segmentSyncFailed = Boolean(insertEffortsError);
+    }
+  }
+
+  const syncStatus = error || segmentSyncFailed ? 'error' : 'synced';
   updateActivity(activity.id, {
     syncStatus,
     remoteId: data?.id ?? activity.remoteId,
@@ -103,6 +130,27 @@ export async function pullActivities(): Promise<number> {
 
   const localIds = new Set(getActivities().map((activity) => activity.id));
   const pendingIds = new Set(getPendingActivityDeletes().map((item) => item.clientId));
+  const remoteActivityIds = data.map((row) => row.id);
+  const { data: effortRows } = remoteActivityIds.length > 0
+    ? await supabase
+      .from('segment_efforts')
+      .select('activity_id,segment_id,elapsed_seconds,started_at,ended_at,distance_m,average_speed_kmh,match_quality')
+      .in('activity_id', remoteActivityIds)
+    : { data: [] };
+  const effortsByActivity = new Map<string, NonNullable<RideActivity['segmentEfforts']>>();
+  for (const effort of effortRows ?? []) {
+    const activityEfforts = effortsByActivity.get(effort.activity_id) ?? [];
+    activityEfforts.push({
+      segmentId: effort.segment_id,
+      elapsedSeconds: effort.elapsed_seconds,
+      startedAt: effort.started_at,
+      endedAt: effort.ended_at,
+      distanceM: effort.distance_m,
+      averageSpeedKmh: effort.average_speed_kmh,
+      matchQuality: effort.match_quality,
+    });
+    effortsByActivity.set(effort.activity_id, activityEfforts);
+  }
   let imported = 0;
   for (const row of data) {
     if (localIds.has(row.client_id) || pendingIds.has(row.client_id)) continue;
@@ -127,6 +175,7 @@ export async function pullActivities(): Promise<number> {
       energyUsedWh: row.energy_used_wh,
       points: row.route as RidePoint[],
       weatherSamples: Array.isArray(row.weather_samples) ? row.weather_samples : [],
+      segmentEfforts: effortsByActivity.get(row.id) ?? [],
       privacy: row.privacy === 'public' ? 'public' : 'private',
       syncStatus: 'synced',
     });

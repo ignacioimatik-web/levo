@@ -32,6 +32,7 @@ import { getOfflineMapPackage } from '@/lib/navigation/offline-map-storage';
 import type { OfflineMapPackage } from '@/lib/navigation/offline-map-storage';
 import { parseNavigationGpx } from '@/lib/navigation/gpx';
 import { calculateUpcomingTurn } from '@/lib/navigation/turns';
+import { matchCompetitiveSegments } from '@/lib/segments/matcher';
 import { createClient } from '@/lib/supabase/browser';
 
 type RecorderStatus = 'idle' | 'requesting' | 'recording' | 'paused' | 'finished' | 'error';
@@ -635,6 +636,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
       energyUsedWh: actualEnergyUsedWh,
       points,
       weatherSamples,
+      segmentEfforts: matchCompetitiveSegments(points),
       privacy,
       syncStatus: 'local',
     };

@@ -1,6 +1,7 @@
 'use client';
 
 import type { RideActivity, RideDraft } from './types';
+import { matchCompetitiveSegments } from '@/lib/segments/matcher';
 
 const STORAGE_KEY = 'e-nduro.activities.v1';
 const DRAFT_KEY = 'e-nduro.active-ride.v1';
@@ -19,7 +20,17 @@ export function getActivities(): RideActivity[] {
   if (typeof window === 'undefined') return [];
   try {
     const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]') as RideActivity[];
-    return parsed.sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt));
+    let migrated = false;
+    const activities = parsed.map((activity) => {
+      if (Array.isArray(activity.segmentEfforts)) return activity;
+      migrated = true;
+      return {
+        ...activity,
+        segmentEfforts: matchCompetitiveSegments(activity.points ?? []),
+      };
+    });
+    if (migrated) localStorage.setItem(STORAGE_KEY, JSON.stringify(activities));
+    return activities.sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt));
   } catch {
     return [];
   }

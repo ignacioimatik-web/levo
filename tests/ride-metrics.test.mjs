@@ -47,6 +47,10 @@ import {
   minutesUntilClockTime,
   selectCurrentWeatherPhase,
 } from '../src/lib/navigation/live-ride-conditions.ts';
+import {
+  matchCompetitiveSegments,
+  personalSegmentBests,
+} from '../src/lib/segments/matcher.ts';
 
 function point({
   latitude = 40,
@@ -442,6 +446,88 @@ test('rechaza como actividad un GPX de ruta sin marcas de tiempo', () => {
     () => parseActivityGpx(xml, 'ruta.gpx'),
     /fecha y hora/,
   );
+});
+
+const testSegment = {
+  id: 'test-segment',
+  name: 'Tramo verificado',
+  routeName: 'Ruta de prueba',
+  routeSlug: 'ruta-prueba',
+  region: 'Morella',
+  type: 'climb',
+  distanceM: 170,
+  elevationDeltaM: 20,
+  averageGradePct: 11.8,
+  checkpoints: [
+    { latitude: 40, longitude: -0.1 },
+    { latitude: 40, longitude: -0.099 },
+    { latitude: 40, longitude: -0.098 },
+  ],
+};
+
+test('reconoce un segmento solo al cruzar sus controles en orden y con velocidad plausible', () => {
+  const forward = [
+    point({ longitude: -0.1, timestamp: 1_000 }),
+    point({ longitude: -0.099, timestamp: 31_000 }),
+    point({ longitude: -0.098, timestamp: 61_000 }),
+  ];
+  const reverse = [...forward].reverse().map((item, index) => ({
+    ...item,
+    timestamp: 1_000 + index * 30_000,
+  }));
+
+  const efforts = matchCompetitiveSegments(forward, [testSegment]);
+  assert.equal(efforts.length, 1);
+  assert.equal(efforts[0].segmentId, 'test-segment');
+  assert.equal(efforts[0].elapsedSeconds, 60);
+  assert.ok(efforts[0].matchQuality > 0.9);
+  assert.equal(matchCompetitiveSegments(reverse, [testSegment]).length, 0);
+});
+
+test('descarta un falso esfuerzo con tiempo y velocidad imposibles', () => {
+  const points = [
+    point({ longitude: -0.1, timestamp: 1_000 }),
+    point({ longitude: -0.099, timestamp: 2_000 }),
+    point({ longitude: -0.098, timestamp: 3_000 }),
+  ];
+
+  assert.equal(matchCompetitiveSegments(points, [testSegment]).length, 0);
+});
+
+test('conserva el mejor tiempo personal y cuenta todos los intentos', () => {
+  const first = activity('first', '2026-07-10T10:00:00Z', 'ebike', []);
+  first.segmentEfforts = [{
+    segmentId: 'test-segment',
+    elapsedSeconds: 80,
+    startedAt: '2026-07-10T10:00:00Z',
+    endedAt: '2026-07-10T10:01:20Z',
+    distanceM: 170,
+    averageSpeedKmh: 7.7,
+    matchQuality: 1,
+  }];
+  const second = activity('second', '2026-07-11T10:00:00Z', 'ebike', []);
+  second.segmentEfforts = [{
+    ...first.segmentEfforts[0],
+    elapsedSeconds: 60,
+    startedAt: '2026-07-11T10:00:00Z',
+    endedAt: '2026-07-11T10:01:00Z',
+    averageSpeedKmh: 10.2,
+  }];
+  const muscular = activity('muscular', '2026-07-12T10:00:00Z', 'mtb', []);
+  muscular.segmentEfforts = [{
+    ...first.segmentEfforts[0],
+    elapsedSeconds: 70,
+    startedAt: '2026-07-12T10:00:00Z',
+    endedAt: '2026-07-12T10:01:10Z',
+  }];
+
+  const bests = personalSegmentBests([first, second, muscular]);
+  const ebikeBest = bests.find((best) => best.sportType === 'ebike');
+  const mtbBest = bests.find((best) => best.sportType === 'mtb');
+  assert.equal(ebikeBest.activity.id, 'second');
+  assert.equal(ebikeBest.effort.elapsedSeconds, 60);
+  assert.equal(ebikeBest.attempts, 2);
+  assert.equal(mtbBest.activity.id, 'muscular');
 });
 
 test('no une como distancia una pausa larga de un GPX importado', () => {

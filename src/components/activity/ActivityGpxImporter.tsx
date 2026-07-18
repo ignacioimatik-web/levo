@@ -11,6 +11,7 @@ import { syncActivity } from '@/lib/activities/sync';
 import type {
   ActivityPrivacy, AssistMode, RideActivity, SportType,
 } from '@/lib/activities/types';
+import { matchCompetitiveSegments } from '@/lib/segments/matcher';
 
 function formatDuration(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
@@ -83,6 +84,7 @@ export default function ActivityGpxImporter({
       energyUsedWh,
       points: preview.points,
       weatherSamples: [],
+      segmentEfforts: matchCompetitiveSegments(preview.points),
       privacy,
       syncStatus: 'local',
     };

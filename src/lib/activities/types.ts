@@ -40,6 +40,16 @@ export interface RideWeatherSample {
   lightMarginMinutes: number | null;
 }
 
+export interface SegmentEffort {
+  segmentId: string;
+  elapsedSeconds: number;
+  startedAt: string;
+  endedAt: string;
+  distanceM: number;
+  averageSpeedKmh: number;
+  matchQuality: number;
+}
+
 export interface RideActivity extends RideMetrics {
   id: string;
   title: string;
@@ -54,6 +64,7 @@ export interface RideActivity extends RideMetrics {
   energyUsedWh: number | null;
   points: RidePoint[];
   weatherSamples?: RideWeatherSample[];
+  segmentEfforts?: SegmentEffort[];
   privacy: ActivityPrivacy;
   syncStatus: SyncStatus;
   remoteId?: string;

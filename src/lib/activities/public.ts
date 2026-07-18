@@ -1,6 +1,6 @@
 import 'server-only';
 
-import type { RidePoint, RideWeatherSample } from './types';
+import type { RidePoint, RideWeatherSample, SegmentEffort } from './types';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -23,6 +23,7 @@ export interface PublicActivity {
   energyUsedWh: number | null;
   points: RidePoint[];
   weatherSamples: RideWeatherSample[];
+  segmentEfforts: SegmentEffort[];
   riderName: string;
   bikeName: string | null;
 }
@@ -104,6 +105,20 @@ export async function getPublicActivity(id: string): Promise<PublicActivity | nu
   });
   const profiles = await restRequest<ProfileRow[]>(`profiles?${profileQuery}`);
   const profile = profiles?.[0];
+  const effortQuery = new URLSearchParams({
+    select: 'segment_id,elapsed_seconds,started_at,ended_at,distance_m,average_speed_kmh,match_quality',
+    activity_id: `eq.${row.id}`,
+    order: 'started_at.asc',
+  });
+  const effortRows = await restRequest<Array<{
+    segment_id: string;
+    elapsed_seconds: number;
+    started_at: string;
+    ended_at: string;
+    distance_m: number;
+    average_speed_kmh: number;
+    match_quality: number;
+  }>>(`segment_efforts?${effortQuery}`);
 
   return {
     id: row.id,
@@ -124,6 +139,15 @@ export async function getPublicActivity(id: string): Promise<PublicActivity | nu
     energyUsedWh: row.energy_used_wh,
     points: Array.isArray(row.route) ? row.route.filter(validPoint) : [],
     weatherSamples: Array.isArray(row.weather_samples) ? row.weather_samples as RideWeatherSample[] : [],
+    segmentEfforts: (effortRows ?? []).map((effort) => ({
+      segmentId: effort.segment_id,
+      elapsedSeconds: effort.elapsed_seconds,
+      startedAt: effort.started_at,
+      endedAt: effort.ended_at,
+      distanceM: effort.distance_m,
+      averageSpeedKmh: effort.average_speed_kmh,
+      matchQuality: effort.match_quality,
+    })),
     riderName: profile?.display_name?.trim() || 'Rider E-nduro',
     bikeName: profile?.bike_name?.trim() || null,
   };

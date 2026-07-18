@@ -62,6 +62,7 @@ const navItems: ({ label: string; href: string } | { label: string; items: Dropd
     { label: 'Grabar salida', href: '/grabar' },
     { label: 'Mis actividades', href: '/actividades' },
     { label: 'Mapa personal', href: '/mapa-personal' },
+    { label: 'Segmentos y rankings', href: '/segmentos' },
     { label: 'Mi progreso', href: '/progreso' },
     { label: 'Mi taller', href: '/taller' },
   ]},

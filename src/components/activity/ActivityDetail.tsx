@@ -11,6 +11,7 @@ import {
 import ActivityMap from './ActivityMap';
 import ActivityElevationProfile from './ActivityElevationProfile';
 import ActivityWeatherTimeline from './ActivityWeatherTimeline';
+import { SegmentEffortsPanel } from '@/components/segments/SegmentEffortsPanel';
 import { activityEditNotice, normalizeActivityTitle } from '@/lib/activities/edit';
 import { downloadActivityGpx } from '@/lib/activities/gpx';
 import { getActivity, saveActivity } from '@/lib/activities/storage';
@@ -342,6 +343,11 @@ export default function ActivityDetail({ activityId }: { activityId: string }) {
           <Stat icon={TimerReset} label="Parado" value={formatDuration(stoppedSeconds)} />
         </section>
         <ActivityWeatherTimeline samples={activity.weatherSamples ?? []} />
+        <SegmentEffortsPanel
+          efforts={activity.segmentEfforts ?? []}
+          activityId={activity.id}
+          sportType={activity.sportType}
+        />
 
         {trackAnalysis && trackAnalysis.splits.length > 0 && (
           <div className="mt-5 grid gap-5 lg:grid-cols-[.75fr_1.25fr]">
