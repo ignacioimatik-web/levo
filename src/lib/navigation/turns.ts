@@ -20,6 +20,24 @@ export interface TurnInstruction {
   label: string;
 }
 
+export type TurnAlertStage = 'prepare' | 'near' | 'now';
+
+export function turnAlertStage(distanceM: number): TurnAlertStage | null {
+  if (!Number.isFinite(distanceM) || distanceM < 0 || distanceM > 400) return null;
+  if (distanceM <= 35) return 'now';
+  if (distanceM <= 140) return 'near';
+  return 'prepare';
+}
+
+export function turnAlertMessage(
+  instruction: Pick<TurnInstruction, 'label' | 'distanceM'>,
+  stage: TurnAlertStage,
+): string {
+  if (stage === 'now') return `${instruction.label}, ahora.`;
+  const roundedDistance = Math.max(10, Math.round(instruction.distanceM / 10) * 10);
+  return `${instruction.label} en ${roundedDistance} metros.`;
+}
+
 function distanceM(a: PlannedRoutePoint, b: PlannedRoutePoint): number {
   return haversineKm(a.latitude, a.longitude, b.latitude, b.longitude) * 1_000;
 }

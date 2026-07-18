@@ -51,7 +51,13 @@ import {
   sampleRoutePointAtFraction,
   sampleRoutePointsByDistance,
 } from '../src/lib/route-sampling.ts';
-import { calculateUpcomingTurn, formatTurnDistance } from '../src/lib/navigation/turns.ts';
+import {
+  calculateUpcomingTurn,
+  formatTurnDistance,
+  turnAlertMessage,
+  turnAlertStage,
+} from '../src/lib/navigation/turns.ts';
+import { normalizeRideDisplayMode } from '../src/lib/activities/display-mode.ts';
 import {
   buildOverpassTrailQuery,
   buildOverpassTrailOnlyQuery,
@@ -1015,6 +1021,15 @@ test('la navegación guiada marca llegada al final del track', () => {
   assert.equal(instruction?.direction, 'arrive');
 });
 
+test('los avisos de giro se escalonan para preparar, acercar y ejecutar', () => {
+  assert.equal(turnAlertStage(450), null);
+  assert.equal(turnAlertStage(350), 'prepare');
+  assert.equal(turnAlertStage(120), 'near');
+  assert.equal(turnAlertStage(25), 'now');
+  assert.equal(turnAlertMessage({ label: 'Gira a la derecha', distanceM: 117 }, 'near'), 'Gira a la derecha en 120 metros.');
+  assert.equal(turnAlertMessage({ label: 'Gira a la derecha', distanceM: 20 }, 'now'), 'Gira a la derecha, ahora.');
+});
+
 test('el paquete offline muestrea una ruta larga sin perder inicio ni final', () => {
   const route = Array.from({ length: 100 }, (_, index) => ({
     latitude: 40 + index * 0.001,
@@ -1264,6 +1279,13 @@ test('el tema sigue el sistema hasta que el ciclista elige día o noche', () => 
   assert.equal(resolveThemePreference('dark', false), 'dark');
   assert.equal(oppositeTheme('dark'), 'light');
   assert.equal(oppositeTheme('light'), 'dark');
+});
+
+test('la vista de conducción arranca en Basic y conserva Pro si se eligió', () => {
+  assert.equal(normalizeRideDisplayMode(null), 'basic');
+  assert.equal(normalizeRideDisplayMode('basic'), 'basic');
+  assert.equal(normalizeRideDisplayMode('pro'), 'pro');
+  assert.equal(normalizeRideDisplayMode('unexpected'), 'basic');
 });
 
 test('el callback de acceso solo acepta destinos internos seguros', () => {

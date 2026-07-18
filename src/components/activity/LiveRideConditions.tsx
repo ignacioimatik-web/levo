@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  AlertTriangle, ChevronDown, CloudSun, Droplets, RefreshCw, Sunset, Wind,
+  AlertTriangle, CloudSun, Droplets, RefreshCw, Sunset, Wind,
 } from 'lucide-react';
 import type { RidePoint, RideWeatherSample, SportType } from '@/lib/activities/types';
+import type { RideDisplayMode } from '@/lib/activities/display-mode';
 import {
   deriveLiveRideConditions,
 } from '@/lib/navigation/live-ride-conditions';
@@ -47,6 +48,7 @@ export default function LiveRideConditions({
   averageSpeedKmh,
   movingSeconds,
   sportType,
+  displayMode,
   onSample,
 }: {
   active: boolean;
@@ -58,12 +60,12 @@ export default function LiveRideConditions({
   averageSpeedKmh: number;
   movingSeconds: number;
   sportType: SportType;
+  displayMode: RideDisplayMode;
   onSample?: (sample: RideWeatherSample) => void;
 }) {
   const [payload, setPayload] = useState<RouteStatusPayload | null>(null);
   const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'offline' | 'error'>('idle');
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
-  const [pro, setPro] = useState(false);
   const latestInput = useRef({ routeId, routeName, routePoints });
   const lastFetchAt = useRef(0);
   const lastSampleKey = useRef('');
@@ -185,14 +187,9 @@ export default function LiveRideConditions({
           </p>
         </div>
         <div className="flex gap-1">
-          <button
-            type="button"
-            onClick={() => setPro((value) => !value)}
-            className="min-h-11 rounded-xl border border-white/10 bg-slate-950/60 px-3 text-[10px] font-black uppercase text-slate-300"
-            aria-expanded={pro}
-          >
-            {pro ? 'Basic' : 'Pro'} <ChevronDown className={`ml-1 inline h-3 w-3 transition-transform ${pro ? 'rotate-180' : ''}`} />
-          </button>
+          <span className="flex min-h-11 items-center rounded-xl border border-white/10 bg-slate-950/60 px-3 text-[10px] font-black uppercase text-slate-400">
+            {displayMode}
+          </span>
           <button
             type="button"
             onClick={() => { void refresh(true); }}
@@ -230,7 +227,7 @@ export default function LiveRideConditions({
         {phase?.feelLabel ? `${phase.feelLabel}. ` : ''}{summary.recommendation}
       </p>
 
-      {pro && (
+      {displayMode === 'pro' && (
         <div className="mt-3 grid grid-cols-2 gap-2 border-t border-white/10 pt-3 sm:grid-cols-4">
           <div className="rounded-lg bg-slate-950/40 p-2">
             <p className="flex items-center gap-1 text-[8px] uppercase text-slate-500"><Droplets className="h-3 w-3" /> Humedad</p>

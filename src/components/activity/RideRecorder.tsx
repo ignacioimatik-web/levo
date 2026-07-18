@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   AlertTriangle, BatteryCharging, Bike, CircleStop, Flag, Gauge, LocateFixed, Mountain,
@@ -10,6 +10,7 @@ import RideNavigationMap from '@/components/activity/RideNavigationMap';
 import RideControlDock from '@/components/activity/RideControlDock';
 import TurnGuidanceHud from '@/components/activity/TurnGuidanceHud';
 import LiveRideConditions from '@/components/activity/LiveRideConditions';
+import RideDisplayToolbar from '@/components/activity/RideDisplayToolbar';
 import {
   assessRidePoint, calculateRideMetrics, estimateBattery, pointFromPosition,
 } from '@/lib/activities/geo';
@@ -22,6 +23,12 @@ import type {
   ActivityPrivacy, AssistMode, RideActivity, RideDraft, RidePoint, RideSettings, SportType,
   RideWeatherSample,
 } from '@/lib/activities/types';
+import {
+  normalizeRideDisplayMode,
+  RIDE_DISPLAY_MODE_EVENT,
+  RIDE_DISPLAY_MODE_STORAGE_KEY,
+} from '@/lib/activities/display-mode';
+import type { RideDisplayMode } from '@/lib/activities/display-mode';
 import { calculateNavigationProgress, cardinalForBearing } from '@/lib/navigation/progress';
 import {
   calculateGhostComparison, calculateSecuredNavigation,
@@ -33,7 +40,10 @@ import { getOfflineMapPackage } from '@/lib/navigation/offline-map-storage';
 import type { OfflineMapPackage } from '@/lib/navigation/offline-map-storage';
 import { summarizeOfflineMap } from '@/lib/navigation/offline-map-data';
 import { parseNavigationGpx } from '@/lib/navigation/gpx';
-import { calculateUpcomingTurn } from '@/lib/navigation/turns';
+import {
+  calculateUpcomingTurn, turnAlertMessage, turnAlertStage,
+} from '@/lib/navigation/turns';
+import type { TurnAlertStage } from '@/lib/navigation/turns';
 import { matchCompetitiveSegments } from '@/lib/segments/matcher';
 import { createClient } from '@/lib/supabase/browser';
 
@@ -45,6 +55,26 @@ const DEFAULT_SETTINGS: RideSettings = {
   batteryCapacityWh: 700,
   assistMode: 'trail',
 };
+
+function subscribeRideDisplayMode(onStoreChange: () => void): () => void {
+  const notifyFromStorage = (event: StorageEvent) => {
+    if (event.key === RIDE_DISPLAY_MODE_STORAGE_KEY) onStoreChange();
+  };
+  window.addEventListener('storage', notifyFromStorage);
+  window.addEventListener(RIDE_DISPLAY_MODE_EVENT, onStoreChange);
+  return () => {
+    window.removeEventListener('storage', notifyFromStorage);
+    window.removeEventListener(RIDE_DISPLAY_MODE_EVENT, onStoreChange);
+  };
+}
+
+function readRideDisplayMode(): RideDisplayMode {
+  return normalizeRideDisplayMode(window.localStorage.getItem(RIDE_DISPLAY_MODE_STORAGE_KEY));
+}
+
+function readServerRideDisplayMode(): RideDisplayMode {
+  return 'basic';
+}
 
 function formatDuration(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
@@ -114,6 +144,12 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
   const [gpsSignalAgeSeconds, setGpsSignalAgeSeconds] = useState(0);
   const [finishArmed, setFinishArmed] = useState(false);
   const [voiceGuidance, setVoiceGuidance] = useState(false);
+  const displayMode = useSyncExternalStore(
+    subscribeRideDisplayMode,
+    readRideDisplayMode,
+    readServerRideDisplayMode,
+  );
+  const [rideFocused, setRideFocused] = useState(false);
   const [weatherSamples, setWeatherSamples] = useState<RideWeatherSample[]>([]);
   const startedAtRef = useRef<number | null>(null);
   const draftIdRef = useRef<string | null>(null);
@@ -126,7 +162,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
   const wakeLockRef = useRef<{ release: () => Promise<void> } | null>(null);
   const lastLiveUpdateRef = useRef(0);
   const lastAcceptedPointRef = useRef<RidePoint | null>(null);
-  const announcedTurnRef = useRef<number | null>(null);
+  const announcedTurnRef = useRef<{ turnIndex: number; stage: TurnAlertStage } | null>(null);
   const lastOffRouteAlertRef = useRef(0);
 
   const requestWakeLock = useCallback(async () => {
@@ -157,6 +193,20 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
 
   useEffect(() => stopWatch, [stopWatch]);
   useEffect(() => () => { void releaseWakeLock(); }, [releaseWakeLock]);
+
+  useEffect(() => {
+    if (!rideFocused) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setRideFocused(false);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [rideFocused]);
 
   useEffect(() => {
     let cancelled = false;
@@ -293,6 +343,10 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
   }, [requestWakeLock, status]);
 
   const metrics = useMemo(() => calculateRideMetrics(points), [points]);
+  const currentSpeedMps = points.at(-1)?.speed;
+  const currentSpeedKmh = currentSpeedMps != null
+    ? Math.max(0, currentSpeedMps * 3.6)
+    : metrics.averageSpeedKmh;
   const batteryModel = useMemo(
     () => buildBatteryModel(batteryHistory, settings.assistMode),
     [batteryHistory, settings.assistMode],
@@ -385,15 +439,27 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
       );
       return;
     }
+    const alertStage = upcomingTurn ? turnAlertStage(upcomingTurn.distanceM) : null;
+    const previousAlert = announcedTurnRef.current;
+    const stageRank: Record<TurnAlertStage, number> = { prepare: 1, near: 2, now: 3 };
     if (
       upcomingTurn
       && upcomingTurn.direction !== 'continue'
-      && upcomingTurn.distanceM <= 120
-      && upcomingTurn.turnIndex !== announcedTurnRef.current
+      && alertStage
+      && (
+        previousAlert?.turnIndex !== upcomingTurn.turnIndex
+        || stageRank[alertStage] > stageRank[previousAlert.stage]
+      )
     ) {
-      announcedTurnRef.current = upcomingTurn.turnIndex;
-      navigator.vibrate?.([160, 80, 160]);
-      speak(`${upcomingTurn.label} en ${Math.max(10, Math.round(upcomingTurn.distanceM / 10) * 10)} metros.`);
+      announcedTurnRef.current = { turnIndex: upcomingTurn.turnIndex, stage: alertStage };
+      navigator.vibrate?.(
+        alertStage === 'now'
+          ? [220, 80, 220, 80, 220]
+          : alertStage === 'near'
+            ? [160, 80, 160]
+            : [120],
+      );
+      speak(turnAlertMessage(upcomingTurn, alertStage));
     }
   }, [navigation, plannedRoute, status, upcomingTurn, voiceGuidance]);
 
@@ -462,6 +528,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
   }, [releaseWakeLock, stopWatch]);
 
   const start = (demo = false) => {
+    setRideFocused(false);
     setPoints([]);
     setDurationSeconds(0);
     setError('');
@@ -610,6 +677,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
   };
 
   const finish = () => {
+    setRideFocused(false);
     setFinishArmed(false);
     if (!isDemoRef.current && recordingStartedAtRef.current != null) {
       const nextDuration = durationBaseRef.current
@@ -722,18 +790,31 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
   }, []);
 
   const active = status === 'recording' || status === 'paused' || status === 'requesting';
+  const activeDisplayMode: RideDisplayMode = active ? displayMode : 'basic';
+  const changeDisplayMode = (mode: RideDisplayMode) => {
+    window.localStorage.setItem(RIDE_DISPLAY_MODE_STORAGE_KEY, mode);
+    window.dispatchEvent(new Event(RIDE_DISPLAY_MODE_EVENT));
+  };
 
   return (
-    <main className="min-h-screen bg-slate-950 pb-28 text-white md:pb-16">
-      <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 md:py-10">
+    <main className={`min-h-screen bg-slate-950 text-white ${
+      rideFocused
+        ? 'fixed inset-0 z-[2000] overflow-y-auto overscroll-contain pb-24'
+        : 'pb-28 md:pb-16'
+    }`}>
+      <div className={`mx-auto max-w-6xl px-4 sm:px-6 ${rideFocused ? 'py-3' : 'py-6 md:py-10'}`}>
         <header className="mb-6 flex items-end justify-between gap-4">
           <div>
             <p className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-orange-400">
               <Radio className={`h-4 w-4 ${status === 'recording' ? 'animate-pulse' : ''}`} />
               Ride recorder
             </p>
-            <h1 className="text-3xl font-black tracking-tight sm:text-4xl">Graba tu salida</h1>
-            <p className="mt-2 max-w-xl text-sm text-slate-400">GPS, desnivel y autonomía e-bike. Se guarda incluso sin cobertura.</p>
+            <h1 className={`${rideFocused ? 'text-xl' : 'text-3xl sm:text-4xl'} font-black tracking-tight`}>
+              {rideFocused ? plannedRoute?.name ?? 'Salida en curso' : 'Graba tu salida'}
+            </h1>
+            {!rideFocused && (
+              <p className="mt-2 max-w-xl text-sm text-slate-400">GPS, desnivel y autonomía e-bike. Se guarda incluso sin cobertura.</p>
+            )}
           </div>
           {active && (
             <div className="flex flex-col items-end gap-2">
@@ -751,6 +832,15 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
             </div>
           )}
         </header>
+
+        {active && (
+          <RideDisplayToolbar
+            mode={displayMode}
+            focused={rideFocused}
+            onModeChange={changeDisplayMode}
+            onFocusedChange={setRideFocused}
+          />
+        )}
 
         <div className="grid gap-5 lg:grid-cols-[1.15fr_.85fr]">
           <section className="space-y-5">
@@ -782,6 +872,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
                     : null
                 : null}
               offlineMap={activeOfflineMap}
+              focused={rideFocused}
             />
             {plannedRoute && (
               <div className={`rounded-2xl border p-4 ${
@@ -849,7 +940,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
                         : `Batería insuficiente para conservar ${remainingBattery.reservePercent}% de reserva`}
                   </p>
                 )}
-                {plannedRoute.reference && (
+                {activeDisplayMode === 'pro' && plannedRoute.reference && (
                   <div className="mt-3 rounded-xl border border-orange-500/20 bg-orange-500/5 px-3 py-3">
                     <div className="flex items-start justify-between gap-3">
                       <div>
@@ -878,13 +969,22 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
                 )}
               </div>
             )}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <Metric icon={Timer} label="Tiempo" value={formatDuration(durationSeconds)} />
               <Metric icon={Mountain} label="Distancia" value={(metrics.distanceM / 1000).toFixed(2)} unit="km" />
-              <Metric icon={Gauge} label="Velocidad" value={metrics.averageSpeedKmh.toFixed(1)} unit="km/h" />
-              <Metric icon={Mountain} label="Desnivel +" value={Math.round(metrics.elevationGainM).toString()} unit="m" />
-              <Metric icon={Zap} label="Máxima" value={metrics.maxSpeedKmh.toFixed(1)} unit="km/h" />
-              <Metric icon={BatteryCharging} label="Batería est." value={`${battery.batteryPercent}`} unit="%" />
+              <Metric icon={Gauge} label="Velocidad" value={currentSpeedKmh.toFixed(1)} unit="km/h" />
+              {(activeDisplayMode === 'pro' || settings.sportType === 'mtb') && (
+                <Metric icon={Mountain} label="Desnivel +" value={Math.round(metrics.elevationGainM).toString()} unit="m" />
+              )}
+              {activeDisplayMode === 'pro' && (
+                <Metric icon={Gauge} label="Media" value={metrics.averageSpeedKmh.toFixed(1)} unit="km/h" />
+              )}
+              {activeDisplayMode === 'pro' && (
+                <Metric icon={Zap} label="Máxima" value={metrics.maxSpeedKmh.toFixed(1)} unit="km/h" />
+              )}
+              {settings.sportType === 'ebike' && (
+                <Metric icon={BatteryCharging} label="Batería est." value={`${battery.batteryPercent}`} unit="%" />
+              )}
             </div>
             <LiveRideConditions
               active={active && status !== 'requesting'}
@@ -896,10 +996,11 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
               averageSpeedKmh={metrics.averageSpeedKmh}
               movingSeconds={metrics.movingSeconds}
               sportType={settings.sportType}
+              displayMode={activeDisplayMode}
               onSample={recordWeatherSample}
             />
 
-            {settings.sportType === 'ebike' && active && (
+            {settings.sportType === 'ebike' && active && (activeDisplayMode === 'pro' || !plannedRoute) && (
               <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4">
                 <div className="flex items-center justify-between gap-4">
                   <div>
@@ -912,7 +1013,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
                 </div>
               </div>
             )}
-            {active && (
+            {active && (activeDisplayMode === 'pro' || liveSession) && (
               <div className={`rounded-2xl border p-4 ${
                 liveSession ? 'border-blue-500/25 bg-blue-500/5' : 'border-white/10 bg-slate-900/50'
               }`}>
@@ -1239,6 +1340,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
           onResume={resume}
           onArmFinish={() => setFinishArmed(true)}
           onFinish={finish}
+          focused={rideFocused}
         />
       )}
     </main>

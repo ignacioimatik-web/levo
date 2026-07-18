@@ -97,6 +97,7 @@ export default function RideNavigationMap({
   rejoinPoint,
   navigationCue,
   offlineMap,
+  focused = false,
 }: {
   points: RidePoint[];
   plannedPoints?: PlannedRoutePoint[];
@@ -110,6 +111,7 @@ export default function RideNavigationMap({
     bearingDeg?: number | null;
   } | null;
   offlineMap?: OfflineMapPackage | null;
+  focused?: boolean;
 }) {
   const mapRef = useRef<MapRef>(null);
   const { theme } = useTheme();
@@ -174,7 +176,9 @@ export default function RideNavigationMap({
 
   if (!initialPoint) {
     return (
-      <div className={`overflow-hidden rounded-3xl border border-white/10 ${active ? 'h-[min(55svh,26rem)] min-h-52' : 'h-56'}`}>
+      <div className={`overflow-hidden rounded-3xl border border-white/10 ${
+        active ? focused ? 'h-[min(68svh,38rem)] min-h-56' : 'h-[min(55svh,26rem)] min-h-52' : 'h-56'
+      }`}>
         <SchematicFallback points={points} plannedPoints={plannedPoints} />
       </div>
     );
@@ -183,7 +187,12 @@ export default function RideNavigationMap({
   return (
     <div className={`relative overflow-hidden rounded-3xl border bg-slate-900 ${
       (offRouteM ?? 0) > 75 ? 'border-red-500/60' : 'border-white/10'
-    } ${active ? 'h-[min(55svh,26rem)] min-h-52' : 'h-56 sm:h-64'}`}>
+    } ${active
+      ? focused
+        ? 'h-[min(68svh,38rem)] min-h-56'
+        : 'h-[min(55svh,26rem)] min-h-52'
+      : 'h-56 sm:h-64'
+    }`}>
       <Map
         ref={mapRef}
         initialViewState={{

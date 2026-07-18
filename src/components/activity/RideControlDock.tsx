@@ -10,6 +10,7 @@ export default function RideControlDock({
   onResume,
   onArmFinish,
   onFinish,
+  focused = false,
 }: {
   status: 'requesting' | 'recording' | 'paused';
   duration: string;
@@ -18,9 +19,14 @@ export default function RideControlDock({
   onResume: () => void;
   onArmFinish: () => void;
   onFinish: () => void;
+  focused?: boolean;
 }) {
   return (
-    <div className="fixed inset-x-3 bottom-20 z-40 mx-auto max-w-md xl:hidden md:bottom-3">
+    <div className={`fixed inset-x-3 mx-auto max-w-md lg:hidden ${
+      focused
+        ? 'bottom-[max(.75rem,env(safe-area-inset-bottom))] z-[2010]'
+        : 'bottom-20 z-[90] md:bottom-3'
+    }`}>
       <div className="flex min-h-16 items-center gap-3 rounded-2xl border border-white/15 bg-slate-950/95 p-2.5 shadow-2xl shadow-black/60 backdrop-blur-xl">
         <div className="min-w-0 flex-1 pl-2">
           <p className={`text-[8px] font-black uppercase tracking-[0.18em] ${
