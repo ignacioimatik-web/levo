@@ -54,7 +54,9 @@ import {
 import { calculateUpcomingTurn, formatTurnDistance } from '../src/lib/navigation/turns.ts';
 import {
   buildOverpassTrailQuery,
+  buildOverpassTrailOnlyQuery,
   overpassWaysToGeoJson,
+  summarizeOfflineMap,
   sampleOfflineRoute,
 } from '../src/lib/navigation/offline-map-data.ts';
 import {
@@ -1026,7 +1028,7 @@ test('el paquete offline muestrea una ruta larga sin perder inicio ni final', ()
   assert.deepEqual(samples.at(-1), route.at(-1));
 });
 
-test('la consulta offline limita muestras y crea corredores acotados alrededor de la ruta', () => {
+test('la consulta offline compacta corredores solapados y cubre caminos, agua y puntos útiles', () => {
   const route = Array.from({ length: 30 }, (_, index) => ({
     latitude: 40 + index * 0.001,
     longitude: -0.1,
@@ -1034,10 +1036,12 @@ test('la consulta offline limita muestras y crea corredores acotados alrededor d
   }));
   const query = buildOverpassTrailQuery(route, 9_000);
 
-  assert.match(query, /way\["highway"\]/);
-  assert.equal(query.match(/way\["highway"\]/g)?.length, 12);
+  assert.match(query, /highway\|waterway\|barrier/);
+  assert.match(query, /drinking_water\|shelter\|parking/);
+  const corridorCount = query.match(/way\[~"\^\(highway/g)?.length ?? 0;
+  assert.ok(corridorCount >= 2 && corridorCount < 12);
   assert.match(query, /39\.982034/);
-  assert.match(query, /out tags geom/);
+  assert.match(query, /out tags geom qt/);
 });
 
 test('la respuesta Overpass se convierte en caminos GeoJSON útiles offline', () => {
@@ -1061,6 +1065,56 @@ test('la respuesta Overpass se convierte en caminos GeoJSON útiles offline', ()
   assert.equal(collection.features[0].properties.mtbScale, '2');
   assert.equal(collection.features[0].properties.name, 'Senda del bosque');
   assert.deepEqual(collection.features[0].geometry.coordinates[0], [-0.1, 40]);
+});
+
+test('la descarga offline conserva una consulta ligera de rescate si Overpass está saturado', () => {
+  const query = buildOverpassTrailOnlyQuery([
+    { latitude: 40, longitude: -0.1, elevation: null },
+    { latitude: 40.01, longitude: -0.1, elevation: null },
+  ]);
+  assert.match(query, /way\["highway"\]/);
+  assert.doesNotMatch(query, /drinking_water/);
+  assert.match(query, /timeout:15/);
+});
+
+test('el paquete offline incorpora agua, refugios, fuentes y barreras sin depender de teselas', () => {
+  const collection = overpassWaysToGeoJson([
+    {
+      type: 'way',
+      id: 1,
+      tags: { waterway: 'stream', name: 'Arroyo del Pinar' },
+      geometry: [{ lat: 40, lon: -0.1 }, { lat: 40.001, lon: -0.099 }],
+    },
+    {
+      type: 'node',
+      id: 2,
+      tags: { amenity: 'drinking_water', name: 'Fuente del Collado' },
+      lat: 40.002,
+      lon: -0.098,
+    },
+    {
+      type: 'node',
+      id: 3,
+      tags: { tourism: 'wilderness_hut' },
+      lat: 40.003,
+      lon: -0.097,
+    },
+    {
+      type: 'way',
+      id: 4,
+      tags: { barrier: 'fence' },
+      geometry: [{ lat: 40, lon: -0.096 }, { lat: 40.001, lon: -0.095 }],
+    },
+  ]);
+
+  assert.deepEqual(summarizeOfflineMap(collection), {
+    trails: 0,
+    water: 1,
+    barriers: 1,
+    pois: 2,
+  });
+  assert.equal(collection.features[1].properties.poiType, 'drinking_water');
+  assert.equal(collection.features[1].geometry.type, 'Point');
 });
 
 test('la meteo en marcha selecciona el tramo que el ciclista está recorriendo', () => {

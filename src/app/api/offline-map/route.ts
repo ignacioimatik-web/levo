@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
-  buildOverpassTrailQuery,
-  overpassWaysToGeoJson,
+  buildOverpassMapQuery,
+  buildOverpassTrailOnlyQuery,
+  overpassElementsToGeoJson,
+  summarizeOfflineMap,
 } from '@/lib/navigation/offline-map-data';
-import type { OverpassWay } from '@/lib/navigation/offline-map-data';
+import type { OverpassElement } from '@/lib/navigation/offline-map-data';
 import type { PlannedRoutePoint } from '@/lib/navigation/types';
 
 type InputPoint = {
@@ -14,31 +16,36 @@ type InputPoint = {
 
 export const maxDuration = 35;
 
-async function fetchOverpassWays(query: string): Promise<OverpassWay[] | null> {
+async function fetchOverpassElements(query: string): Promise<OverpassElement[] | null> {
   const endpoints = [
     'https://overpass-api.de/api/interpreter',
-    'https://overpass.kumi.systems/api/interpreter',
+    'https://overpass.private.coffee/api/interpreter',
   ];
-  for (const endpoint of endpoints) {
+  const requests = endpoints.map(async (endpoint) => {
     try {
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-          'User-Agent': 'LEVO-offline-route/1.0 contact:https://levo-eta.vercel.app',
+          'User-Agent': 'LEVO-offline-route/2.0 contact:https://levo-eta.vercel.app',
         },
         body: new URLSearchParams({ data: query }),
-        signal: AbortSignal.timeout(16_000),
+        signal: AbortSignal.timeout(13_000),
         cache: 'no-store',
       });
-      if (!response.ok) continue;
+      if (!response.ok) throw new Error(`OpenStreetMap respondió ${response.status}.`);
       const payload = await response.json() as { elements?: unknown };
-      if (Array.isArray(payload.elements)) return payload.elements as OverpassWay[];
+      if (!Array.isArray(payload.elements)) throw new Error('Respuesta OpenStreetMap no válida.');
+      return payload.elements as OverpassElement[];
     } catch {
-      // Try the next public Overpass instance within the function time budget.
+      throw new Error('Instancia Overpass no disponible.');
     }
+  });
+  try {
+    return await Promise.any(requests);
+  } catch {
+    return null;
   }
-  return null;
 }
 
 export async function POST(request: NextRequest) {
@@ -69,15 +76,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'La ruta contiene coordenadas no válidas.' }, { status: 400 });
     }
 
-    const query = buildOverpassTrailQuery(points);
-    const elements = await fetchOverpassWays(query);
+    const enrichedQuery = buildOverpassMapQuery(points);
+    const elements = await fetchOverpassElements(enrichedQuery)
+      ?? await fetchOverpassElements(buildOverpassTrailOnlyQuery(points));
     if (!elements) {
       return NextResponse.json(
         { error: 'OpenStreetMap no pudo preparar el mapa offline en este momento.' },
         { status: 503 },
       );
     }
-    const trails = overpassWaysToGeoJson(elements);
+    const trails = overpassElementsToGeoJson(elements);
     if (trails.features.length === 0) {
       return NextResponse.json(
         { error: 'No se encontraron caminos cartografiados alrededor de esta ruta.' },
@@ -86,12 +94,14 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
+      version: 2,
       routeId: typeof body.routeId === 'string' ? body.routeId.slice(0, 120) : crypto.randomUUID(),
       routeName: typeof body.routeName === 'string' ? body.routeName.slice(0, 120) : 'Ruta offline',
       trails,
+      summary: summarizeOfflineMap(trails),
       fetchedAt: new Date().toISOString(),
       attribution: '© colaboradores de OpenStreetMap · datos obtenidos mediante Overpass API',
-      sampleRadiusM: 1_200,
+      sampleRadiusM: 800,
     }, {
       headers: { 'Cache-Control': 'private, no-store' },
     });

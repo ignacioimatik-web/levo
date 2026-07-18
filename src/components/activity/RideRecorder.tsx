@@ -31,6 +31,7 @@ import type { PlannedRoute } from '@/lib/navigation/types';
 import { requestPersistentRideStorage } from '@/lib/activities/durable-storage';
 import { getOfflineMapPackage } from '@/lib/navigation/offline-map-storage';
 import type { OfflineMapPackage } from '@/lib/navigation/offline-map-storage';
+import { summarizeOfflineMap } from '@/lib/navigation/offline-map-data';
 import { parseNavigationGpx } from '@/lib/navigation/gpx';
 import { calculateUpcomingTurn } from '@/lib/navigation/turns';
 import { matchCompetitiveSegments } from '@/lib/segments/matcher';
@@ -187,6 +188,9 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
     return () => { cancelled = true; };
   }, [plannedRoute?.id]);
   const activeOfflineMap = offlineMap?.routeId === plannedRoute?.id ? offlineMap : null;
+  const activeOfflineSummary = activeOfflineMap
+    ? activeOfflineMap.summary ?? summarizeOfflineMap(activeOfflineMap.trails)
+    : null;
 
   useEffect(() => {
     const supabase = createClient();
@@ -791,9 +795,9 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
                       <Navigation className="h-4 w-4 fill-current" /> Siguiendo ruta
                     </p>
                     <h2 className="mt-1 truncate font-black">{plannedRoute.name}</h2>
-                    {activeOfflineMap && (
+                    {activeOfflineSummary && (
                       <p className="mt-1 text-[9px] font-black uppercase tracking-wider text-blue-300">
-                        Mapa offline preparado · {activeOfflineMap.trails.features.length} caminos
+                        Mapa offline preparado · {activeOfflineSummary.trails} caminos · {activeOfflineSummary.pois} puntos útiles
                       </p>
                     )}
                   </div>

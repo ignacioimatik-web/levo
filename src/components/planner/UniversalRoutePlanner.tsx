@@ -29,10 +29,12 @@ import {
 } from '@/lib/navigation/offline-map-storage';
 import type { OfflineMapPackage } from '@/lib/navigation/offline-map-storage';
 import {
-  buildOverpassTrailQuery,
-  overpassWaysToGeoJson,
+  buildOverpassMapQuery,
+  buildOverpassTrailOnlyQuery,
+  overpassElementsToGeoJson,
+  summarizeOfflineMap,
 } from '@/lib/navigation/offline-map-data';
-import type { OverpassWay } from '@/lib/navigation/offline-map-data';
+import type { OverpassElement } from '@/lib/navigation/offline-map-data';
 import type { RouteStatusPayload } from '@/lib/route-status';
 import {
   deleteSavedRoute, fetchSavedRoutes, saveRouteToCloud,
@@ -107,16 +109,15 @@ function escapeXml(value: string): string {
 async function downloadOfflineMapFromDevice(route: PlannedRoute): Promise<OfflineMapPackage> {
   const endpoints = [
     'https://overpass-api.de/api/interpreter',
-    'https://overpass.kumi.systems/api/interpreter',
+    'https://overpass.private.coffee/api/interpreter',
   ];
-  const query = buildOverpassTrailQuery(route.points);
   const controllers = endpoints.map(() => new AbortController());
   const timeout = window.setTimeout(() => {
     controllers.forEach((controller) => controller.abort());
   }, 18_000);
 
   try {
-    const elements = await Promise.any(endpoints.map(async (endpoint, index) => {
+    const fetchElements = (query: string) => Promise.any(endpoints.map(async (endpoint, index) => {
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
@@ -128,19 +129,27 @@ async function downloadOfflineMapFromDevice(route: PlannedRoute): Promise<Offlin
       if (!Array.isArray(payload.elements)) {
         throw new Error('OpenStreetMap devolvió un mapa no válido.');
       }
-      return payload.elements as OverpassWay[];
+      return payload.elements as OverpassElement[];
     }));
-    const trails = overpassWaysToGeoJson(elements);
+    let elements: OverpassElement[];
+    try {
+      elements = await fetchElements(buildOverpassMapQuery(route.points));
+    } catch {
+      elements = await fetchElements(buildOverpassTrailOnlyQuery(route.points));
+    }
+    const trails = overpassElementsToGeoJson(elements);
     if (trails.features.length === 0) {
       throw new Error('No se encontraron caminos cartografiados alrededor de esta ruta.');
     }
     return {
+      version: 2,
       routeId: route.id,
       routeName: route.name,
       trails,
+      summary: summarizeOfflineMap(trails),
       fetchedAt: new Date().toISOString(),
       attribution: '© colaboradores de OpenStreetMap · datos obtenidos mediante Overpass API',
-      sampleRadiusM: 1_200,
+      sampleRadiusM: 800,
     };
   } finally {
     window.clearTimeout(timeout);
@@ -487,7 +496,7 @@ export default function UniversalRoutePlanner({
     const route = buildPlannedRoute();
     savePlannedRoute(route);
     setOfflineStatus('loading');
-    setOfflineMessage('Descargando caminos y senderos desde OpenStreetMap…');
+    setOfflineMessage('Descargando caminos, agua y puntos útiles desde OpenStreetMap…');
     try {
       let payload: OfflineMapPackage;
       try {
@@ -519,7 +528,8 @@ export default function UniversalRoutePlanner({
       await saveOfflineMapPackage(payload);
       setOfflineRouteIds((current) => new Set(current).add(route.id));
       setOfflineStatus('ready');
-      setOfflineMessage(`Offline listo: ${payload.trails.features.length.toLocaleString('es-ES')} caminos y senderos.`);
+      const summary = payload.summary ?? summarizeOfflineMap(payload.trails);
+      setOfflineMessage(`Offline listo: ${summary.trails.toLocaleString('es-ES')} caminos · ${summary.pois.toLocaleString('es-ES')} puntos útiles · ${summary.water.toLocaleString('es-ES')} referencias de agua.`);
     } catch (downloadError) {
       setOfflineStatus('error');
       setOfflineMessage(downloadError instanceof Error

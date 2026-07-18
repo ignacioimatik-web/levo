@@ -1,15 +1,18 @@
 'use client';
 
 import type { OfflineTrailCollection } from './offline-map-data';
+import type { OfflineMapSummary } from './offline-map-data';
 
 const DATABASE_NAME = 'e-nduro-offline';
 const STORE_NAME = 'route-maps';
 const DATABASE_VERSION = 1;
 
 export type OfflineMapPackage = {
+  version?: 2;
   routeId: string;
   routeName: string;
   trails: OfflineTrailCollection;
+  summary?: OfflineMapSummary;
   fetchedAt: string;
   attribution: string;
   sampleRadiusM: number;

@@ -12,6 +12,7 @@ import { OFFLINE_MAP_STYLE, OPEN_MAP_STYLES } from '@/lib/open-map-styles';
 import { useTheme } from '@/components/theme/ThemeProvider';
 import { cardinalForBearing } from '@/lib/navigation/progress';
 import { formatTurnDistance } from '@/lib/navigation/turns';
+import { summarizeOfflineMap } from '@/lib/navigation/offline-map-data';
 
 type MapPoint = RidePoint | PlannedRoutePoint;
 type FollowMode = 'north' | 'heading';
@@ -131,6 +132,10 @@ export default function RideNavigationMap({
     [currentPoint, rejoinPoint],
   );
   const offlineActive = Boolean(offlineMap) && (!online || preferOffline);
+  const offlineSummary = useMemo(
+    () => offlineMap ? offlineMap.summary ?? summarizeOfflineMap(offlineMap.trails) : null,
+    [offlineMap],
+  );
 
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
@@ -197,8 +202,33 @@ export default function RideNavigationMap({
         {offlineMap && (
           <Source id="offline-trail-context" type="geojson" data={offlineMap.trails}>
             <Layer
+              id="offline-water-areas"
+              type="fill"
+              filter={['all', ['==', ['geometry-type'], 'Polygon'], ['==', ['get', 'kind'], 'water']]}
+              paint={{
+                'fill-color': '#2563eb',
+                'fill-opacity': offlineActive ? 0.42 : 0.16,
+                'fill-outline-color': '#60a5fa',
+              }}
+            />
+            <Layer
+              id="offline-water-lines"
+              type="line"
+              filter={['all', ['==', ['geometry-type'], 'LineString'], ['==', ['get', 'kind'], 'water']]}
+              paint={{
+                'line-color': '#38bdf8',
+                'line-width': ['interpolate', ['linear'], ['zoom'], 10, 1, 16, 3],
+                'line-opacity': offlineActive ? 0.88 : 0.3,
+              }}
+              layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+            />
+            <Layer
               id="offline-trail-shadow"
               type="line"
+              filter={['any',
+                ['==', ['get', 'kind'], 'trail'],
+                ['all', ['!', ['has', 'kind']], ['has', 'highway']],
+              ]}
               paint={{
                 'line-color': '#020617',
                 'line-width': ['interpolate', ['linear'], ['zoom'], 10, 1.5, 16, 7],
@@ -209,6 +239,10 @@ export default function RideNavigationMap({
             <Layer
               id="offline-trail-lines"
               type="line"
+              filter={['any',
+                ['==', ['get', 'kind'], 'trail'],
+                ['all', ['!', ['has', 'kind']], ['has', 'highway']],
+              ]}
               paint={{
                 'line-color': [
                   'match', ['get', 'highway'],
@@ -230,12 +264,66 @@ export default function RideNavigationMap({
             <Layer
               id="offline-private-trails"
               type="line"
-              filter={['in', ['get', 'access'], ['literal', ['private', 'no']]]}
+              filter={['all',
+                ['any',
+                  ['==', ['get', 'kind'], 'trail'],
+                  ['all', ['!', ['has', 'kind']], ['has', 'highway']],
+                ],
+                ['in', ['get', 'access'], ['literal', ['private', 'no']]],
+              ]}
               paint={{
                 'line-color': '#ef4444',
                 'line-width': 2,
                 'line-dasharray': [2, 2],
                 'line-opacity': 0.9,
+              }}
+            />
+            <Layer
+              id="offline-barriers"
+              type="line"
+              filter={['all', ['==', ['geometry-type'], 'LineString'], ['==', ['get', 'kind'], 'barrier']]}
+              paint={{
+                'line-color': '#f87171',
+                'line-width': 1.5,
+                'line-dasharray': [1, 1],
+                'line-opacity': offlineActive ? 0.9 : 0.3,
+              }}
+            />
+            <Layer
+              id="offline-pois-halo"
+              type="circle"
+              filter={['==', ['get', 'kind'], 'poi']}
+              paint={{
+                'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 3, 16, 8],
+                'circle-color': '#020617',
+                'circle-opacity': offlineActive ? 0.9 : 0.35,
+              }}
+            />
+            <Layer
+              id="offline-pois"
+              type="circle"
+              filter={['==', ['get', 'kind'], 'poi']}
+              paint={{
+                'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 2, 16, 5],
+                'circle-color': [
+                  'match', ['get', 'poiType'],
+                  'drinking_water', '#38bdf8',
+                  'shelter', '#fbbf24',
+                  'alpine_hut', '#fbbf24',
+                  'wilderness_hut', '#fbbf24',
+                  'viewpoint', '#a78bfa',
+                  'peak', '#e2e8f0',
+                  'parking', '#60a5fa',
+                  'gate', '#f87171',
+                  'lift_gate', '#f87171',
+                  'cycle_barrier', '#f87171',
+                  'trailhead', '#34d399',
+                  'access_point', '#fb923c',
+                  '#94a3b8',
+                ],
+                'circle-stroke-color': '#f8fafc',
+                'circle-stroke-width': 1,
+                'circle-opacity': offlineActive ? 1 : 0.48,
               }}
             />
           </Source>
@@ -395,7 +483,17 @@ export default function RideNavigationMap({
               ? 'Sin red · mapa offline'
               : preferOffline
                 ? 'Mapa offline activo'
-                : `Offline listo · ${offlineMap.trails.features.length} caminos`}
+                : `Offline · ${offlineSummary?.trails ?? 0} caminos · ${offlineSummary?.pois ?? 0} puntos`}
+          </span>
+        )}
+        {offlineActive && (offlineSummary?.water ?? 0) > 0 && (
+          <span className="rounded-full bg-slate-950/85 px-2.5 py-1 text-[9px] font-black uppercase text-sky-300 backdrop-blur">
+            Celeste · agua
+          </span>
+        )}
+        {offlineActive && (offlineSummary?.pois ?? 0) > 0 && (
+          <span className="rounded-full bg-slate-950/85 px-2.5 py-1 text-[9px] font-black uppercase text-amber-300 backdrop-blur">
+            Puntos · refugio / fuente / acceso
           </span>
         )}
       </div>
