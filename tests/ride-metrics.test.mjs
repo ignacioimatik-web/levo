@@ -41,6 +41,7 @@ import {
 import { parseActivityGpx } from '../src/lib/activities/import-gpx.ts';
 import {
   analyzeActivityTrack,
+  calculateLiveRideSplitState,
   calculateRideSplits,
   calculateTerrainSummary,
 } from '../src/lib/activities/track-analysis.ts';
@@ -725,6 +726,37 @@ test('los parciales no crean kilómetros al otro lado de una pausa GPS larga', (
   const splits = calculateRideSplits(points);
 
   assert.equal(splits.length, 0);
+});
+
+test('el parcial en vivo expone progreso, proyección y tendencia sin esperar 100 metros', () => {
+  const points = Array.from({ length: 24 }, (_, index) => point({
+    latitude: 40,
+    longitude: -0.1 + index * 0.001,
+    timestamp: index * 30_000,
+  }));
+  const live = calculateLiveRideSplitState(points);
+
+  assert.equal(live.currentIndex, 2);
+  assert.ok(live.currentDistanceM > 700);
+  assert.ok(live.currentProgressPercent > 70);
+  assert.ok((live.projectedMovingSeconds ?? 0) > 0);
+  assert.equal(live.lastCompleted?.index, 1);
+  assert.equal(live.deltaFromPreviousSeconds, null);
+  assert.equal(live.fastestCompletedIndex, 1);
+});
+
+test('la tendencia del parcial en vivo compara únicamente kilómetros completos', () => {
+  const points = Array.from({ length: 34 }, (_, index) => point({
+    latitude: 40,
+    longitude: -0.1 + index * 0.001,
+    timestamp: index <= 15 ? index * 35_000 : 525_000 + (index - 15) * 20_000,
+  }));
+  const live = calculateLiveRideSplitState(points);
+
+  assert.equal(live.currentIndex, 3);
+  assert.equal(live.lastCompleted?.index, 2);
+  assert.ok((live.deltaFromPreviousSeconds ?? 0) < 0);
+  assert.equal(live.fastestCompletedIndex, 2);
 });
 
 test('el resumen distingue subida y bajada y calcula pendiente sostenida', () => {

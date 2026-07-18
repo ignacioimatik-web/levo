@@ -36,6 +36,18 @@ export interface ActivityTrackAnalysis {
   fastestFullSplitIndex: number | null;
 }
 
+export interface LiveRideSplitState {
+  currentIndex: number;
+  currentDistanceM: number;
+  currentMovingSeconds: number;
+  currentAverageSpeedKmh: number;
+  currentProgressPercent: number;
+  projectedMovingSeconds: number | null;
+  lastCompleted: RideSplit | null;
+  deltaFromPreviousSeconds: number | null;
+  fastestCompletedIndex: number | null;
+}
+
 function trackIntervals(points: RidePoint[]): TrackInterval[] {
   const intervals: TrackInterval[] = [];
   const accepted: RidePoint[] = [];
@@ -73,7 +85,7 @@ function finishSplit(split: Omit<RideSplit, 'averageSpeedKmh' | 'complete'>): Ri
   };
 }
 
-export function calculateRideSplits(points: RidePoint[]): RideSplit[] {
+function buildRideSplits(points: RidePoint[], minimumPartialDistanceM: number): RideSplit[] {
   const splits: RideSplit[] = [];
   let current = {
     index: 1,
@@ -110,8 +122,43 @@ export function calculateRideSplits(points: RidePoint[]): RideSplit[] {
     }
   }
 
-  if (current.distanceM >= 100) splits.push(finishSplit(current));
+  if (current.distanceM >= minimumPartialDistanceM) splits.push(finishSplit(current));
   return splits;
+}
+
+export function calculateRideSplits(points: RidePoint[]): RideSplit[] {
+  return buildRideSplits(points, 100);
+}
+
+export function calculateLiveRideSplitState(points: RidePoint[]): LiveRideSplitState {
+  const splits = buildRideSplits(points, 0.01);
+  const completed = splits.filter((split) => split.complete);
+  const lastCompleted = completed.at(-1) ?? null;
+  const previousCompleted = completed.at(-2) ?? null;
+  const partial = splits.at(-1)?.complete === false ? splits.at(-1)! : null;
+  const currentIndex = (lastCompleted?.index ?? 0) + 1;
+  const currentDistanceM = partial?.distanceM ?? 0;
+  const currentMovingSeconds = partial?.movingSeconds ?? 0;
+  const fastestCompleted = completed.reduce<RideSplit | null>(
+    (best, split) => !best || split.movingSeconds < best.movingSeconds ? split : best,
+    null,
+  );
+
+  return {
+    currentIndex,
+    currentDistanceM,
+    currentMovingSeconds,
+    currentAverageSpeedKmh: partial?.averageSpeedKmh ?? 0,
+    currentProgressPercent: Math.min(100, currentDistanceM / SPLIT_DISTANCE_M * 100),
+    projectedMovingSeconds: currentDistanceM >= 200 && currentMovingSeconds > 0
+      ? currentMovingSeconds / currentDistanceM * SPLIT_DISTANCE_M
+      : null,
+    lastCompleted,
+    deltaFromPreviousSeconds: lastCompleted && previousCompleted
+      ? lastCompleted.movingSeconds - previousCompleted.movingSeconds
+      : null,
+    fastestCompletedIndex: fastestCompleted?.index ?? null,
+  };
 }
 
 export function calculateTerrainSummary(points: RidePoint[]): TerrainSummary {

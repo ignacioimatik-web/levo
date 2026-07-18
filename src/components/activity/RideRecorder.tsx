@@ -12,6 +12,7 @@ import TurnGuidanceHud from '@/components/activity/TurnGuidanceHud';
 import LiveRideConditions from '@/components/activity/LiveRideConditions';
 import RideDisplayToolbar from '@/components/activity/RideDisplayToolbar';
 import RideReadinessCard from '@/components/activity/RideReadinessCard';
+import LiveSplitCard from '@/components/activity/LiveSplitCard';
 import {
   assessRidePoint, calculateRideMetrics, estimateBattery, pointFromPosition,
 } from '@/lib/activities/geo';
@@ -53,6 +54,7 @@ import {
 import type { TurnAlertStage } from '@/lib/navigation/turns';
 import { matchCompetitiveSegments } from '@/lib/segments/matcher';
 import { createClient } from '@/lib/supabase/browser';
+import { calculateLiveRideSplitState } from '@/lib/activities/track-analysis';
 
 type RecorderStatus = 'idle' | 'requesting' | 'recording' | 'paused' | 'finished' | 'error';
 
@@ -184,6 +186,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
   const [gpsRecoveryActive, setGpsRecoveryActive] = useState(false);
   const [demoRide, setDemoRide] = useState(false);
   const [weatherSamples, setWeatherSamples] = useState<RideWeatherSample[]>([]);
+  const [announcedSplitIndex, setAnnouncedSplitIndex] = useState<number | null>(null);
   const startedAtRef = useRef<number | null>(null);
   const draftIdRef = useRef<string | null>(null);
   const durationBaseRef = useRef(0);
@@ -198,6 +201,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
   const announcedTurnRef = useRef<{ turnIndex: number; stage: TurnAlertStage } | null>(null);
   const lastOffRouteAlertRef = useRef(0);
   const lastGpsRestartAtRef = useRef(0);
+  const lastAnnouncedSplitRef = useRef(0);
 
   const requestWakeLock = useCallback(async () => {
     try {
@@ -403,6 +407,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
   }, [status]);
 
   const metrics = useMemo(() => calculateRideMetrics(points), [points]);
+  const liveSplit = useMemo(() => calculateLiveRideSplitState(points), [points]);
   const currentSpeedMps = points.at(-1)?.speed;
   const currentSpeedKmh = displayedRideSpeedKmh({
     recording: status === 'recording',
@@ -476,6 +481,20 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
     if (gpsAccuracy <= 100) return { label: 'GPS débil', color: 'text-amber-300 bg-amber-500/10' };
     return { label: 'Sin señal fiable', color: 'text-red-300 bg-red-500/10' };
   }, [gpsAccuracy, gpsSignalAgeSeconds, status]);
+
+  const completedSplitIndex = liveSplit.lastCompleted?.index ?? 0;
+  useEffect(() => {
+    if (status !== 'recording' || completedSplitIndex <= lastAnnouncedSplitRef.current) return;
+    lastAnnouncedSplitRef.current = completedSplitIndex;
+    setAnnouncedSplitIndex(completedSplitIndex);
+    navigator.vibrate?.([150, 70, 150]);
+  }, [completedSplitIndex, status]);
+
+  useEffect(() => {
+    if (announcedSplitIndex == null) return;
+    const timer = window.setTimeout(() => setAnnouncedSplitIndex(null), 8_000);
+    return () => window.clearTimeout(timer);
+  }, [announcedSplitIndex]);
 
   useEffect(() => {
     if (!navigation || navigation.completedM <= navigationFloorM) return;
@@ -651,6 +670,8 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
     setNavigationFloorM(0);
     setFinishArmed(false);
     setWeatherSamples([]);
+    setAnnouncedSplitIndex(null);
+    lastAnnouncedSplitRef.current = 0;
     lastAcceptedPointRef.current = null;
     startedAtRef.current = Date.now();
     draftIdRef.current = crypto.randomUUID();
@@ -826,6 +847,10 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
     setLiveStatus(recoverableDraft.liveSession ? 'active' : 'idle');
     setNavigationFloorM(recoverableDraft.navigationCompletedM ?? 0);
     setWeatherSamples(recoverableDraft.weatherSamples ?? []);
+    setAnnouncedSplitIndex(null);
+    lastAnnouncedSplitRef.current = calculateLiveRideSplitState(
+      recoverableDraft.points,
+    ).lastCompleted?.index ?? 0;
     setGpsRecoveryActive(false);
     lastGpsRestartAtRef.current = 0;
     if (recoverableDraft.plannedRouteId) {
@@ -1116,6 +1141,17 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
                 <Metric icon={BatteryCharging} label="Batería est." value={`${battery.batteryPercent}`} unit="%" />
               )}
             </div>
+            {active && points.length > 1 && (
+              <LiveSplitCard
+                mode={activeDisplayMode}
+                state={liveSplit}
+                announcement={
+                  announcedSplitIndex === liveSplit.lastCompleted?.index
+                    ? liveSplit.lastCompleted
+                    : null
+                }
+              />
+            )}
             <LiveRideConditions
               active={active && status !== 'requesting'}
               routeId={plannedRoute?.id}
