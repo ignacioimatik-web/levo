@@ -13,6 +13,7 @@ import LiveRideConditions from '@/components/activity/LiveRideConditions';
 import RideDisplayToolbar from '@/components/activity/RideDisplayToolbar';
 import RideReadinessCard from '@/components/activity/RideReadinessCard';
 import LiveSplitCard from '@/components/activity/LiveSplitCard';
+import useRejoinRoute from '@/components/activity/useRejoinRoute';
 import {
   assessRidePoint, calculateRideMetrics, estimateBattery, pointFromPosition,
 } from '@/lib/activities/geo';
@@ -199,6 +200,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
   const lastLiveUpdateRef = useRef(0);
   const lastAcceptedPointRef = useRef<RidePoint | null>(null);
   const announcedTurnRef = useRef<{ turnIndex: number; stage: TurnAlertStage } | null>(null);
+  const announcedRecoveryTurnRef = useRef<{ turnIndex: number; stage: TurnAlertStage } | null>(null);
   const lastOffRouteAlertRef = useRef(0);
   const lastGpsRestartAtRef = useRef(0);
   const lastAnnouncedSplitRef = useRef(0);
@@ -408,7 +410,8 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
 
   const metrics = useMemo(() => calculateRideMetrics(points), [points]);
   const liveSplit = useMemo(() => calculateLiveRideSplitState(points), [points]);
-  const currentSpeedMps = points.at(-1)?.speed;
+  const currentPosition = points.at(-1) ?? null;
+  const currentSpeedMps = currentPosition?.speed ?? null;
   const currentSpeedKmh = displayedRideSpeedKmh({
     recording: status === 'recording',
     demo: demoRide,
@@ -438,15 +441,52 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
       : null
   ), [batteryModel, plannedRoute, settings]);
   const navigation = useMemo(() => {
-    const currentPosition = points.at(-1);
-    if (!plannedRoute || !currentPosition) return null;
+    const latestPosition = points.at(-1);
+    if (!plannedRoute || !latestPosition) return null;
     return calculateNavigationProgress(
       plannedRoute.points,
-      currentPosition,
+      latestPosition,
       metrics.distanceM + 1_000,
       Math.max(0, navigationFloorM - 200),
     );
   }, [metrics.distanceM, navigationFloorM, plannedRoute, points]);
+  const rejoinTarget = useMemo(() => (
+    navigation && navigation.offRouteM > 75
+      ? {
+          latitude: navigation.rejoinLatitude,
+          longitude: navigation.rejoinLongitude,
+          elevation: plannedRoute?.points[navigation.nearestIndex]?.elevation ?? null,
+        }
+      : null
+  ), [navigation, plannedRoute]);
+  const rejoinRoute = useRejoinRoute({
+    active: status === 'recording' && Boolean(plannedRoute),
+    online,
+    offRouteM: navigation?.offRouteM ?? 0,
+    currentPoint: currentPosition,
+    targetPoint: rejoinTarget,
+    sportType: settings.sportType,
+  });
+  const rejoinNavigation = useMemo(() => {
+    const latestPosition = points.at(-1);
+    return rejoinRoute.path && latestPosition
+      ? calculateNavigationProgress(
+          rejoinRoute.path.points,
+          latestPosition,
+          Number.POSITIVE_INFINITY,
+          0,
+        )
+      : null;
+  }, [points, rejoinRoute.path]);
+  const rejoinTurn = useMemo(() => (
+    rejoinRoute.path
+      ? calculateUpcomingTurn(rejoinRoute.path.points, rejoinNavigation)
+      : null
+  ), [rejoinNavigation, rejoinRoute.path]);
+  const rejoinRemainingM = rejoinNavigation?.remainingM
+    ?? rejoinRoute.path?.distanceM
+    ?? navigation?.offRouteM
+    ?? 0;
   const ghost = useMemo(() => (
     plannedRoute ? calculateGhostComparison(plannedRoute, navigation, durationSeconds) : null
   ), [durationSeconds, navigation, plannedRoute]);
@@ -512,13 +552,42 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
       utterance.rate = 1.05;
       window.speechSynthesis.speak(utterance);
     };
-    if (navigation.offRouteM > 75 && Date.now() - lastOffRouteAlertRef.current > 30_000) {
-      lastOffRouteAlertRef.current = Date.now();
-      navigator.vibrate?.([180, 90, 180, 90, 180]);
-      speak(
-        `Fuera de ruta, a ${Math.round(navigation.offRouteM)} metros del track. `
-        + `Vuelve rumbo ${cardinalForBearing(navigation.bearingToRejoinDeg)}.`,
-      );
+    if (navigation.offRouteM > 75) {
+      if (rejoinTurn) {
+        const recoveryStage = turnAlertStage(rejoinTurn.distanceM);
+        const previousRecoveryAlert = announcedRecoveryTurnRef.current;
+        const recoveryStageRank: Record<TurnAlertStage, number> = { prepare: 1, near: 2, now: 3 };
+        if (
+          recoveryStage
+          && (
+            previousRecoveryAlert?.turnIndex !== rejoinTurn.turnIndex
+            || recoveryStageRank[recoveryStage] > recoveryStageRank[previousRecoveryAlert.stage]
+          )
+        ) {
+          announcedRecoveryTurnRef.current = {
+            turnIndex: rejoinTurn.turnIndex,
+            stage: recoveryStage,
+          };
+          navigator.vibrate?.(recoveryStage === 'now' ? [220, 80, 220] : [140]);
+          speak(turnAlertMessage(rejoinTurn, recoveryStage));
+          return;
+        }
+      }
+      if (Date.now() - lastOffRouteAlertRef.current > 30_000) {
+        lastOffRouteAlertRef.current = Date.now();
+        navigator.vibrate?.([180, 90, 180, 90, 180]);
+        if (rejoinRoute.path) {
+          speak(
+            `Fuera de ruta. Reenganche por caminos calculado, `
+            + `${Math.round(rejoinRemainingM)} metros hasta el track.`,
+          );
+        } else {
+          speak(
+            `Fuera de ruta, a ${Math.round(navigation.offRouteM)} metros del track. `
+            + `Vuelve rumbo ${cardinalForBearing(navigation.bearingToRejoinDeg)}.`,
+          );
+        }
+      }
       return;
     }
     const alertStage = upcomingTurn ? turnAlertStage(upcomingTurn.distanceM) : null;
@@ -543,7 +612,20 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
       );
       speak(turnAlertMessage(upcomingTurn, alertStage));
     }
-  }, [navigation, plannedRoute, status, upcomingTurn, voiceGuidance]);
+  }, [
+    navigation,
+    plannedRoute,
+    rejoinRemainingM,
+    rejoinRoute.path,
+    rejoinTurn,
+    status,
+    upcomingTurn,
+    voiceGuidance,
+  ]);
+
+  useEffect(() => {
+    announcedRecoveryTurnRef.current = null;
+  }, [rejoinRoute.path]);
 
   useEffect(() => {
     const currentPoint = points.at(-1);
@@ -1010,13 +1092,19 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
                     longitude: navigation.rejoinLongitude,
                   }
                 : null}
+              rejoinPoints={rejoinRoute.path?.points}
               navigationCue={navigation
                 ? navigation.offRouteM > 75
                   ? {
-                      label: 'Volver al track',
-                      distanceM: navigation.offRouteM,
+                      label: rejoinTurn?.label
+                        ?? (rejoinRoute.status === 'loading'
+                          ? 'Calculando reenganche'
+                          : rejoinRoute.path
+                            ? 'Reenganche por caminos'
+                            : 'Volver al track'),
+                      distanceM: rejoinTurn?.distanceM ?? rejoinRemainingM,
                       offRoute: true,
-                      bearingDeg: navigation.bearingToRejoinDeg,
+                      bearingDeg: rejoinRoute.path ? null : navigation.bearingToRejoinDeg,
                     }
                   : upcomingTurn
                     ? {
@@ -1059,7 +1147,15 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
                 <TurnGuidanceHud
                   instruction={upcomingTurn}
                   offRouteM={navigation?.offRouteM ?? 0}
-                  rejoinBearingDeg={navigation?.bearingToRejoinDeg}
+                  rejoinBearingDeg={rejoinRoute.path ? null : navigation?.bearingToRejoinDeg}
+                  recovery={navigation && navigation.offRouteM > 75
+                    ? {
+                        status: rejoinRoute.status,
+                        routed: Boolean(rejoinRoute.path),
+                        distanceM: rejoinRemainingM,
+                        instruction: rejoinTurn,
+                      }
+                    : null}
                   voiceEnabled={voiceGuidance}
                   onVoiceChange={setVoiceGuidance}
                 />

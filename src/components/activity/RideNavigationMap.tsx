@@ -95,6 +95,7 @@ export default function RideNavigationMap({
   active,
   offRouteM,
   rejoinPoint,
+  rejoinPoints = [],
   navigationCue,
   offlineMap,
   focused = false,
@@ -104,6 +105,7 @@ export default function RideNavigationMap({
   active: boolean;
   offRouteM?: number | null;
   rejoinPoint?: { latitude: number; longitude: number } | null;
+  rejoinPoints?: PlannedRoutePoint[];
   navigationCue?: {
     label: string;
     distanceM: number;
@@ -130,9 +132,14 @@ export default function RideNavigationMap({
   const riddenRoute = useMemo(() => lineFeature(points), [points]);
   const plannedRoute = useMemo(() => lineFeature(plannedPoints), [plannedPoints]);
   const rejoinRoute = useMemo(
-    () => currentPoint && rejoinPoint ? lineFeature([currentPoint, rejoinPoint]) : null,
-    [currentPoint, rejoinPoint],
+    () => rejoinPoints.length > 1
+      ? lineFeature(rejoinPoints)
+      : currentPoint && rejoinPoint
+        ? lineFeature([currentPoint, rejoinPoint])
+        : null,
+    [currentPoint, rejoinPoint, rejoinPoints],
   );
+  const routedRejoin = rejoinPoints.length > 1;
   const offlineActive = Boolean(offlineMap) && (!online || preferOffline);
   const offlineSummary = useMemo(
     () => offlineMap ? offlineMap.summary ?? summarizeOfflineMap(offlineMap.trails) : null,
@@ -377,8 +384,8 @@ export default function RideNavigationMap({
                 type="line"
                 paint={{
                   'line-color': '#f87171',
-                  'line-width': 4,
-                  'line-dasharray': [1.5, 1.5],
+                  'line-width': routedRejoin ? 5 : 4,
+                  'line-dasharray': routedRejoin ? [8, 1] : [1.5, 1.5],
                   'line-opacity': 0.95,
                 }}
                 layout={{ 'line-cap': 'round', 'line-join': 'round' }}

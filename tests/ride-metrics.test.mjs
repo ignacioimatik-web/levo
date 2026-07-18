@@ -66,6 +66,10 @@ import {
   shouldRestartGpsWatch,
 } from '../src/lib/activities/gps-watchdog.ts';
 import {
+  REJOIN_MAX_AGE_MS,
+  shouldRequestRejoinRoute,
+} from '../src/lib/navigation/rejoin-routing.ts';
+import {
   buildOverpassTrailQuery,
   buildOverpassTrailOnlyQuery,
   overpassWaysToGeoJson,
@@ -418,6 +422,60 @@ test('la navegación fuera de ruta calcula un punto y rumbo de reenganche offlin
   assert.ok(Math.abs(navigation.rejoinLongitude + 0.09) < 0.000001);
   assert.ok(navigation.bearingToRejoinDeg > 175 && navigation.bearingToRejoinDeg < 185);
   assert.equal(cardinalForBearing(navigation.bearingToRejoinDeg), 'S');
+});
+
+test('el reenganche online no recalcula por cada punto GPS pequeño', () => {
+  const previous = {
+    originLatitude: 40,
+    originLongitude: -0.1,
+    targetLatitude: 40,
+    targetLongitude: -0.09,
+    requestedAt: 1_000,
+  };
+
+  assert.equal(shouldRequestRejoinRoute({
+    previous,
+    originLatitude: 40.0001,
+    originLongitude: -0.1,
+    targetLatitude: 40,
+    targetLongitude: -0.0899,
+    now: 10_000,
+  }), false);
+  assert.equal(shouldRequestRejoinRoute({
+    previous,
+    originLatitude: 40.001,
+    originLongitude: -0.1,
+    targetLatitude: 40,
+    targetLongitude: -0.09,
+    now: 10_000,
+  }), true);
+});
+
+test('el reenganche online se renueva por cambio de objetivo o antigüedad', () => {
+  const previous = {
+    originLatitude: 40,
+    originLongitude: -0.1,
+    targetLatitude: 40,
+    targetLongitude: -0.09,
+    requestedAt: 1_000,
+  };
+
+  assert.equal(shouldRequestRejoinRoute({
+    previous,
+    originLatitude: 40,
+    originLongitude: -0.1,
+    targetLatitude: 40,
+    targetLongitude: -0.089,
+    now: 10_000,
+  }), true);
+  assert.equal(shouldRequestRejoinRoute({
+    previous,
+    originLatitude: 40,
+    originLongitude: -0.1,
+    targetLatitude: 40,
+    targetLongitude: -0.09,
+    now: 1_000 + REJOIN_MAX_AGE_MS,
+  }), true);
 });
 
 test('el resumen conserva el 100% ya alcanzado aunque la posición instantánea retroceda', () => {

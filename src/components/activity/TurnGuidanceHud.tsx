@@ -24,18 +24,39 @@ export default function TurnGuidanceHud({
   instruction,
   offRouteM,
   rejoinBearingDeg,
+  recovery,
   voiceEnabled,
   onVoiceChange,
 }: {
   instruction: TurnInstruction | null;
   offRouteM: number;
   rejoinBearingDeg?: number | null;
+  recovery?: {
+    status: 'idle' | 'loading' | 'ready' | 'offline' | 'error';
+    routed: boolean;
+    distanceM: number;
+    instruction: TurnInstruction | null;
+  } | null;
   voiceEnabled: boolean;
   onVoiceChange: (enabled: boolean) => void;
 }) {
   const offRoute = offRouteM > 75;
   if (!instruction && !offRoute) return null;
   const rejoinCardinal = rejoinBearingDeg == null ? null : cardinalForBearing(rejoinBearingDeg);
+  const routedRecovery = offRoute && Boolean(recovery?.routed);
+  const recoveryInstruction = routedRecovery ? recovery?.instruction ?? null : null;
+  const recoveryLabel = recovery?.status === 'ready'
+    ? 'Recuperación por caminos'
+    : recovery?.status === 'loading'
+      ? routedRecovery ? 'Actualizando reenganche' : 'Calculando reenganche'
+      : recovery?.status === 'offline'
+        ? routedRecovery ? 'Ruta guardada · sin cobertura' : 'Recuperación offline'
+        : recovery?.status === 'error'
+          ? routedRecovery ? 'Ruta guardada' : 'Recuperación offline'
+          : 'Recuperación offline';
+  const recoveryDistanceM = recoveryInstruction?.distanceM
+    ?? recovery?.distanceM
+    ?? offRouteM;
 
   return (
     <div className={`mt-4 overflow-hidden rounded-2xl border ${
@@ -43,7 +64,7 @@ export default function TurnGuidanceHud({
     }`}>
       {offRoute && (
         <div className="flex items-center gap-2 border-b border-red-500/20 bg-red-500/15 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-red-200">
-          <TriangleAlert className="h-4 w-4" /> Fuera de ruta · {Math.round(offRouteM)} m
+          <TriangleAlert className="h-4 w-4" /> {recoveryLabel} · {Math.round(offRouteM)} m del track
         </div>
       )}
       <div className="flex items-center gap-4 p-3 sm:p-4">
@@ -51,19 +72,30 @@ export default function TurnGuidanceHud({
           offRoute ? 'bg-red-500 text-white' : 'bg-white text-slate-950'
         }`}>
           {offRoute
-            ? <Navigation2 className="h-10 w-10 fill-current" style={{ transform: `rotate(${rejoinBearingDeg ?? 0}deg)` }} />
+            ? recoveryInstruction
+              ? <TurnIcon direction={recoveryInstruction.direction} />
+              : <Navigation2 className="h-10 w-10 fill-current" style={{ transform: `rotate(${rejoinBearingDeg ?? 0}deg)` }} />
             : instruction && <TurnIcon direction={instruction.direction} />}
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">
-            {offRoute ? 'Recuperación offline' : 'Próxima indicación'}
+            {offRoute ? recoveryLabel : 'Próxima indicación'}
           </p>
           <p className="mt-1 text-lg font-black leading-tight text-white">
-            {offRoute ? 'Vuelve al track' : instruction?.label}
+            {offRoute
+              ? recoveryInstruction?.label ?? (recovery?.status === 'loading'
+                ? 'Buscando camino ciclable…'
+                : 'Vuelve al track')
+              : instruction?.label}
           </p>
           <p className={`mt-1 text-2xl font-black tabular-nums ${offRoute ? 'text-red-300' : 'text-orange-400'}`}>
-            {formatTurnDistance(offRoute ? offRouteM : instruction?.distanceM ?? 0)}
+            {formatTurnDistance(offRoute ? recoveryDistanceM : instruction?.distanceM ?? 0)}
           </p>
+          {offRoute && routedRecovery && recovery && (
+            <p className="mt-1 text-[10px] font-bold text-red-100/70">
+              {formatTurnDistance(recovery.distanceM)} por caminos hasta el track
+            </p>
+          )}
           {offRoute && rejoinBearingDeg != null && (
             <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-red-200">
               Rumbo {Math.round(rejoinBearingDeg)}° · {rejoinCardinal}
