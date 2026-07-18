@@ -1009,7 +1009,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
       : null;
     const activity: RideActivity = {
       id,
-      title: title.trim() || 'Salida e-bike',
+      title: title.trim() || (settings.sportType === 'ebike' ? 'Salida e-bike' : 'Salida MTB'),
       sportType: settings.sportType,
       startedAt: new Date(startedAtRef.current ?? now).toISOString(),
       endedAt: new Date(now).toISOString(),
