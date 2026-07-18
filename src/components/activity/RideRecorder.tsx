@@ -1381,10 +1381,10 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
                           {formatDuration(recoverableDraft.durationSeconds)} · {(calculateRideMetrics(recoverableDraft.points).distanceM / 1000).toFixed(2)} km
                         </p>
                         <div className="mt-3 flex gap-2">
-                          <button onClick={recoverDraft} className="rounded-lg bg-amber-300 px-3 py-2 text-[10px] font-black uppercase text-slate-950">
+                          <button onClick={recoverDraft} className="min-h-11 rounded-lg bg-amber-300 px-3 py-2 text-[10px] font-black uppercase text-slate-950">
                             Recuperar
                           </button>
-                          <button onClick={discardDraft} className="rounded-lg p-2 text-slate-500 hover:text-red-400" aria-label="Descartar salida sin terminar">
+                          <button onClick={discardDraft} className="grid h-11 w-11 place-items-center rounded-lg text-slate-500 hover:text-red-400" aria-label="Descartar salida sin terminar">
                             <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
@@ -1456,7 +1456,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
                 <div className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-950 p-1.5">
                   {(['ebike', 'mtb'] as SportType[]).map((sport) => (
                     <button key={sport} onClick={() => setSettings({ ...settings, sportType: sport })}
-                      className={`flex items-center justify-center gap-2 rounded-xl py-3 text-xs font-black uppercase ${
+                      className={`flex min-h-11 items-center justify-center gap-2 rounded-xl py-3 text-xs font-black uppercase ${
                         settings.sportType === sport ? 'bg-orange-500 text-white' : 'text-slate-500'
                       }`}>
                       <Bike className="h-4 w-4" /> {sport === 'ebike' ? 'E-bike' : 'MTB'}
@@ -1485,7 +1485,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
                       <div className="grid grid-cols-4 gap-2">
                         {(['eco', 'trail', 'turbo', 'smart'] as AssistMode[]).map((mode) => (
                           <button key={mode} onClick={() => setSettings({ ...settings, assistMode: mode })}
-                            className={`rounded-xl py-2.5 text-[10px] font-black uppercase ${
+                            className={`min-h-11 rounded-xl py-2.5 text-[10px] font-black uppercase ${
                               settings.assistMode === mode ? 'bg-white text-slate-950' : 'bg-slate-950 text-slate-500'
                             }`}>{mode}</button>
                         ))}
@@ -1500,10 +1500,10 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
                   <LocateFixed className="h-5 w-5" /> {plannedRoute ? 'Iniciar navegación GPS' : 'Iniciar con GPS'}
                 </button>
                 <button onClick={() => start(true)}
-                  className="w-full text-xs font-bold text-slate-500 underline decoration-slate-700 underline-offset-4 hover:text-slate-300">
+                  className="flex min-h-11 w-full scroll-mt-24 scroll-mb-24 items-center justify-center rounded-xl border border-white/10 bg-slate-950/55 px-4 text-xs font-bold text-slate-400 hover:border-orange-500/30 hover:text-slate-200">
                   Probar grabación en modo demo
                 </button>
-                <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-white/15 px-4 py-3 text-xs font-bold text-slate-400 hover:border-orange-500/40 hover:text-orange-300">
+                <label className="flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-white/15 px-4 py-3 text-xs font-bold text-slate-400 hover:border-orange-500/40 hover:text-orange-300">
                   <Upload className="h-4 w-4" />
                   Importar ruta GPX
                   <input type="file" accept=".gpx,application/gpx+xml" onChange={importGpx} className="sr-only" />

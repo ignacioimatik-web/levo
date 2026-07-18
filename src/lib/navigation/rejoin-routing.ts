@@ -12,6 +12,21 @@ export const REJOIN_ROUTE_THRESHOLD_M = 100;
 export const REJOIN_ORIGIN_REFRESH_M = 80;
 export const REJOIN_TARGET_REFRESH_M = 50;
 export const REJOIN_MAX_AGE_MS = 45_000;
+export const REJOIN_RETRY_BASE_MS = 15_000;
+export const REJOIN_RETRY_MAX_MS = 120_000;
+
+export function rejoinRetryDelayMs(
+  failureCount: number,
+  retryAfterMs: number | null = null,
+): number {
+  const safeFailureCount = Math.max(1, Math.floor(failureCount));
+  const exponentialDelay = Math.min(
+    REJOIN_RETRY_MAX_MS,
+    REJOIN_RETRY_BASE_MS * (2 ** (safeFailureCount - 1)),
+  );
+  if (retryAfterMs == null || !Number.isFinite(retryAfterMs)) return exponentialDelay;
+  return Math.max(exponentialDelay, retryAfterMs);
+}
 
 function distanceM(
   firstLatitude: number,

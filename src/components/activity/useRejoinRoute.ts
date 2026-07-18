@@ -6,6 +6,7 @@ import type { PlannedRoutePoint } from '@/lib/navigation/types';
 import type { RoutedPath, RouterProfile } from '@/lib/navigation/routing';
 import {
   REJOIN_ROUTE_THRESHOLD_M,
+  rejoinRetryDelayMs,
   shouldRequestRejoinRoute,
 } from '@/lib/navigation/rejoin-routing';
 import type { RejoinRouteAnchor } from '@/lib/navigation/rejoin-routing';
@@ -38,6 +39,8 @@ export default function useRejoinRoute({
   const requestRef = useRef<AbortController | null>(null);
   const anchorRef = useRef<RejoinRouteAnchor | null>(null);
   const sequenceRef = useRef(0);
+  const failureCountRef = useRef(0);
+  const retryAtRef = useRef(0);
 
   const originLatitude = currentPoint?.latitude ?? null;
   const originLongitude = currentPoint?.longitude ?? null;
@@ -60,6 +63,8 @@ export default function useRejoinRoute({
       requestRef.current?.abort();
       requestRef.current = null;
       anchorRef.current = null;
+      failureCountRef.current = 0;
+      retryAtRef.current = 0;
       const reset = window.setTimeout(() => setResult(EMPTY_RESULT), 0);
       return () => window.clearTimeout(reset);
     }
@@ -74,6 +79,7 @@ export default function useRejoinRoute({
     }
 
     const now = Date.now();
+    if (now < retryAtRef.current) return;
     if (!shouldRequestRejoinRoute({
       previous: anchorRef.current,
       originLatitude,
@@ -112,14 +118,33 @@ export default function useRejoinRoute({
       }),
       signal: controller.signal,
     }).then(async (response) => {
+      const retryAfterSeconds = Number(response.headers.get('Retry-After'));
+      const retryAfterMs = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+        ? retryAfterSeconds * 1_000
+        : null;
       const payload = await response.json() as { route?: RoutedPath; error?: string };
       if (!response.ok || !payload.route?.points || payload.route.points.length < 2) {
-        throw new Error(payload.error || 'No se encontró un camino de reenganche.');
+        throw Object.assign(
+          new Error(payload.error || 'No se encontró un camino de reenganche.'),
+          { retryAfterMs },
+        );
       }
       if (controller.signal.aborted || sequence !== sequenceRef.current) return;
+      failureCountRef.current = 0;
+      retryAtRef.current = 0;
       setResult({ status: 'ready', path: payload.route });
-    }).catch(() => {
+    }).catch((error: unknown) => {
       if (controller.signal.aborted || sequence !== sequenceRef.current) return;
+      failureCountRef.current += 1;
+      const retryAfterMs = error instanceof Error
+        && 'retryAfterMs' in error
+        && typeof error.retryAfterMs === 'number'
+        ? error.retryAfterMs
+        : null;
+      retryAtRef.current = Date.now() + rejoinRetryDelayMs(
+        failureCountRef.current,
+        retryAfterMs,
+      );
       setResult((current) => ({ status: 'error', path: current.path }));
     });
 

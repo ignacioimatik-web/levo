@@ -68,6 +68,8 @@ import {
 } from '../src/lib/activities/gps-watchdog.ts';
 import {
   REJOIN_MAX_AGE_MS,
+  REJOIN_RETRY_MAX_MS,
+  rejoinRetryDelayMs,
   shouldRequestRejoinRoute,
 } from '../src/lib/navigation/rejoin-routing.ts';
 import {
@@ -597,6 +599,14 @@ test('el reenganche online se renueva por cambio de objetivo o antigüedad', () 
     targetLongitude: -0.09,
     now: 1_000 + REJOIN_MAX_AGE_MS,
   }), true);
+});
+
+test('el reenganche aplica espera progresiva y respeta el límite del servidor', () => {
+  assert.equal(rejoinRetryDelayMs(1), 15_000);
+  assert.equal(rejoinRetryDelayMs(2), 30_000);
+  assert.equal(rejoinRetryDelayMs(3, 60_000), 60_000);
+  assert.equal(rejoinRetryDelayMs(20), REJOIN_RETRY_MAX_MS);
+  assert.equal(rejoinRetryDelayMs(2, 300_000), 300_000);
 });
 
 test('el resumen conserva el 100% ya alcanzado aunque la posición instantánea retroceda', () => {
