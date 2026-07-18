@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 
 export const PROTECTED_ROUTES = [
   '/account',
+  '/notificaciones',
 ] as const;
 
 export function isProtectedRoute(pathname: string): boolean {

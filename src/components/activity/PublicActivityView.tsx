@@ -50,7 +50,13 @@ export default function PublicActivityView({ activity }: { activity: PublicActiv
         <header className="mb-6 flex flex-wrap items-start justify-between gap-5">
           <div className="min-w-0">
             <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-orange-400">
-              <Bike className="h-4 w-4" /> {activity.sportType === 'ebike' ? 'E-bike' : 'MTB'} · {activity.privacy === 'followers' ? 'Para seguidores' : 'Actividad pública'}
+              <Bike className="h-4 w-4" /> {activity.sportType === 'ebike' ? 'E-bike' : 'MTB'} · {
+                activity.privacy === 'private'
+                  ? 'Solo tú'
+                  : activity.privacy === 'followers'
+                    ? 'Para seguidores'
+                    : 'Actividad pública'
+              }
             </p>
             <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">{activity.title}</h1>
             <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-400">
@@ -64,7 +70,7 @@ export default function PublicActivityView({ activity }: { activity: PublicActiv
               {activity.bikeName && <span>{activity.bikeName}</span>}
             </div>
           </div>
-          <PublicActivityShareButton title={activity.title} summary={summary} />
+          {activity.privacy === 'public' && <PublicActivityShareButton title={activity.title} summary={summary} />}
         </header>
 
         <section className="mb-5 h-[360px] overflow-hidden rounded-3xl border border-white/10 sm:h-[500px]">

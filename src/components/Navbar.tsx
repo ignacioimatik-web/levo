@@ -7,6 +7,7 @@ import { Menu, ChevronDown, X, LogOut } from 'lucide-react';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/browser';
 import { signOut } from '@/lib/supabase/auth';
 import type { User } from '@supabase/supabase-js';
+import NotificationBell from '@/components/social/NotificationBell';
 
 interface DropdownItem {
   label: string;
@@ -161,7 +162,7 @@ function UserMenu({ user, onSignOut, onNavigate }: {
         <div className="absolute top-full right-0 pt-2">
           <div className="w-48 bg-slate-900 border border-white/10 rounded-xl shadow-2xl py-2 space-y-1">
             <Link
-              href="/auth"
+              href="/account"
               onClick={() => { setOpen(false); onNavigate?.(); }}
               className="block px-4 py-2.5 text-xs font-bold text-slate-400 hover:text-orange-500 hover:bg-white/5 transition-colors"
             >
@@ -239,16 +240,19 @@ const Navbar = () => {
           <SocialIcons />
         </div>
 
-        <div className="xl:hidden">
-          <button
-            type="button"
-            onClick={() => setMobileOpen(!mobileOpen)}
-            className="-mr-2 flex min-h-11 min-w-11 items-center justify-center text-white"
-            aria-label={mobileOpen ? 'Cerrar menú' : 'Abrir menú'}
-            aria-expanded={mobileOpen}
-          >
-            {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </button>
+        <div className="flex items-center">
+          {user && <NotificationBell userId={user.id} onNavigate={closeMobile} />}
+          <div className="xl:hidden">
+            <button
+              type="button"
+              onClick={() => setMobileOpen(!mobileOpen)}
+              className="-mr-2 flex min-h-11 min-w-11 items-center justify-center text-white"
+              aria-label={mobileOpen ? 'Cerrar menú' : 'Abrir menú'}
+              aria-expanded={mobileOpen}
+            >
+              {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -262,9 +266,25 @@ const Navbar = () => {
                   <p className="text-sm font-bold text-white">
                     {user.user_metadata?.full_name as string || user.email}
                   </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Link
+                      href="/account"
+                      onClick={closeMobile}
+                      className="inline-flex min-h-11 items-center text-sm font-bold text-slate-300 transition-colors hover:text-orange-400"
+                    >
+                      Mi cuenta
+                    </Link>
+                    <Link
+                      href="/notificaciones"
+                      onClick={closeMobile}
+                      className="inline-flex min-h-11 items-center text-sm font-bold text-slate-300 transition-colors hover:text-orange-400"
+                    >
+                      Notificaciones
+                    </Link>
+                  </div>
                   <button
                     onClick={handleSignOut}
-                    className="flex items-center gap-2 text-sm font-bold text-red-400 hover:text-red-300 transition-colors"
+                    className="flex min-h-11 items-center gap-2 text-sm font-bold text-red-400 hover:text-red-300 transition-colors"
                   >
                     <LogOut className="w-3.5 h-3.5" />
                     Cerrar sesión

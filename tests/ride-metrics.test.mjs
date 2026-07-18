@@ -26,6 +26,11 @@ import {
   normalizeActivityTitle,
 } from '../src/lib/activities/edit.ts';
 import {
+  notificationDestination,
+  notificationMessage,
+  notificationRelativeTime,
+} from '../src/lib/social/notifications.ts';
+import {
   buildBatteryModel,
   predictBatteryForRoute,
 } from '../src/lib/activities/battery.ts';
@@ -355,6 +360,22 @@ test('reducir una actividad pública a seguidores queda protegido hasta sincroni
   assert.match(pending.message, /visibilidad anterior/);
   assert.equal(synced.urgent, false);
   assert.match(synced.message, /solo para tus seguidores/);
+});
+
+test('las notificaciones sociales enlazan al rider o a la actividad correcta', () => {
+  assert.equal(
+    notificationDestination('follow', 'rider-1', null),
+    '/riders/rider-1',
+  );
+  assert.equal(
+    notificationDestination('comment', 'rider-1', 'activity-1'),
+    '/actividad/activity-1',
+  );
+  assert.match(notificationMessage('kudo', 'Bosque y barro'), /Bosque y barro/);
+  assert.equal(
+    notificationRelativeTime('2026-07-18T10:00:00.000Z', Date.parse('2026-07-18T11:00:00.000Z')),
+    'Hace 1 h',
+  );
 });
 
 test('el modelo de batería aprende el consumo del modo de asistencia elegido', () => {

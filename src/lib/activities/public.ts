@@ -111,7 +111,11 @@ export async function getPublicActivity(id: string): Promise<PublicActivity | nu
   return {
     id: row.id,
     userId: row.user_id,
-    privacy: row.privacy === 'followers' ? 'followers' : 'public',
+    privacy: row.privacy === 'private'
+      ? 'private'
+      : row.privacy === 'followers'
+        ? 'followers'
+        : 'public',
     title: row.title,
     sportType: row.sport_type === 'mtb' ? 'mtb' : 'ebike',
     startedAt: row.started_at,
