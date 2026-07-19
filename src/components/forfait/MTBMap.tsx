@@ -8,6 +8,7 @@ import type { TrackMTB, TrackPoint, RutaConstruida } from '@/lib/forfait/types';
 import type { RouteHoverData } from '@/components/forfait/ContinuousProfile';
 import { MapPinned } from 'lucide-react';
 import { MAPBOX_ACCESS_TOKEN, OPEN_MAP_STYLES } from '@/lib/open-map-styles';
+import useResilientMapStyle from '@/components/map/useResilientMapStyle';
 
 function distM(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
   const R = 6371000;
@@ -140,7 +141,7 @@ function PitchToggle() {
   return null;
 }
 
-function StyleSwitcherControl({ current, onChange }: { current: string; onChange: (style: string) => void }) {
+function StyleSwitcherControl({ current, onChange }: { current: number; onChange: (styleIndex: number) => void }) {
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -160,13 +161,13 @@ function StyleSwitcherControl({ current, onChange }: { current: string; onChange
 
       const panel = document.createElement('div');
       panel.style.cssText = 'position:absolute;top:0;right:34px;display:none;flex-direction:column;background:#0f172a;border:1px solid rgba(255,255,255,0.1);border-radius:4px;overflow:hidden';
-      OPEN_MAP_STYLES.forEach(s => {
+      OPEN_MAP_STYLES.forEach((s, styleIndex) => {
         const b = document.createElement('button');
         b.textContent = s.label;
         b.style.cssText = 'padding:6px 10px;font-size:10px;font-weight:700;cursor:pointer;border:none;border-bottom:1px solid rgba(255,255,255,0.06);color:#94a3b8;background:transparent;text-align:left;white-space:nowrap';
         b.onmouseenter = () => { b.style.background = '#1e293b'; };
         b.onmouseleave = () => { b.style.background = 'transparent'; };
-        b.onclick = () => { onChange(s.style); setOpen(false); };
+        b.onclick = () => { onChange(styleIndex); setOpen(false); };
         panel.appendChild(b);
       });
       div.appendChild(panel);
@@ -186,8 +187,8 @@ function StyleSwitcherControl({ current, onChange }: { current: string; onChange
     panelRef.current.style.display = open ? 'flex' : 'none';
     if (open) {
       const btns = panelRef.current.querySelectorAll('button');
-      OPEN_MAP_STYLES.forEach((s, i) => {
-        (btns[i] as HTMLButtonElement).style.color = s.style === current ? '#f97316' : '#94a3b8';
+      OPEN_MAP_STYLES.forEach((_, i) => {
+        (btns[i] as HTMLButtonElement).style.color = i === current ? '#f97316' : '#94a3b8';
       });
     }
   }, [open, current]);
@@ -302,8 +303,9 @@ export default function MTBMap({
   hoveredRouteKm: RouteHoverData | null;
   onTrackClick: (track: TrackMTB) => void;
 }) {
-  const [mapStyle, setMapStyle] = useState<string>(OPEN_MAP_STYLES[0].style);
+  const [mapStyleIndex, setMapStyleIndex] = useState(0);
   const [mapFailed, setMapFailed] = useState(false);
+  const resilientStyle = useResilientMapStyle(mapStyleIndex);
   const hasSelection = selectedTrackIds.length > 0 || previewTrackIds.length > 0;
   const fitTrack = fitToTrackId ? tracks.find(t => t.id === fitToTrackId) || null : null;
 
@@ -331,17 +333,23 @@ export default function MTBMap({
   return (
     <Map
       mapboxAccessToken={MAPBOX_ACCESS_TOKEN}
-      mapStyle={mapStyle}
+      mapStyle={resilientStyle.mapStyle}
       initialViewState={{ latitude: 40.6, longitude: -0.02, zoom: 13, pitch: 40 }}
       interactiveLayerIds={lineLayerIds}
       onClick={onClick}
-      onError={() => setMapFailed(true)}
+      onError={() => {
+        if (resilientStyle.usingFallback) {
+          setMapFailed(true);
+          return;
+        }
+        resilientStyle.handleMapError();
+      }}
       style={{ width: '100%', height: '100%', borderRadius: '12px', overflow: 'hidden' }}
     >
       <NavigationControl visualizePitch={true} position="top-right" />
       <FullscreenControl position="top-right" />
       <PitchToggle />
-      <StyleSwitcherControl current={mapStyle} onChange={setMapStyle} />
+      <StyleSwitcherControl current={mapStyleIndex} onChange={setMapStyleIndex} />
 
       <FitBounds tracks={tracks} routePoints={builtRoute?.pointsCombinados ?? []} />
       <FlyToTrack track={fitTrack} />

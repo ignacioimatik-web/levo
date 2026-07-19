@@ -8,7 +8,8 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import type { TrackMTB, DificultadMTB } from '@/lib/forfait/types';
 import { buildProfileSeries } from '@/lib/forfait/geo-utils';
 import { splitIntoSendas, type SendaSegment, type CameraView } from '@/lib/forfait/senda-utils';
-import { DEFAULT_OPEN_MAP_STYLE, MAPBOX_ACCESS_TOKEN } from '@/lib/open-map-styles';
+import { MAPBOX_ACCESS_TOKEN } from '@/lib/open-map-styles';
+import useResilientMapStyle from '@/components/map/useResilientMapStyle';
 
 /* ─── Types ─── */
 interface Bounds {
@@ -108,6 +109,7 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
   const [showPanel, setShowPanel] = useState(true);
   const mapRef = useRef<MapRef>(null);
   const panoramaRef = useRef<HTMLDivElement>(null);
+  const resilientStyle = useResilientMapStyle();
 
   /* ── Computed sector data ── */
   const sectorsData = useMemo(() => {
@@ -394,8 +396,6 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
   /* ── Render: Sector detail ── */
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col">
-      <style>{`.mapboxgl-ctrl-attrib { display: none !important; }`}</style>
-
       {/* ── NAV ── */}
       <nav className="relative z-20 bg-slate-950/90 backdrop-blur-md border-b border-white/5">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-12 sm:h-14 flex items-center justify-between gap-2">
@@ -426,7 +426,8 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
           {sectorBounds ? (
             <MapboxMap ref={mapRef}
               mapboxAccessToken={MAPBOX_ACCESS_TOKEN}
-              mapStyle={DEFAULT_OPEN_MAP_STYLE}
+              mapStyle={resilientStyle.mapStyle}
+              onError={resilientStyle.handleMapError}
               initialViewState={{ latitude: sectorCenter.lat, longitude: sectorCenter.lng, zoom: sectorCenter.zoom, pitch: 78, bearing: 170 }}
               interactiveLayerIds={trackLineIds}
               onMouseMove={handleMapHover}
@@ -435,7 +436,6 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
               onMoveEnd={handleMoveEnd}
               onLoad={handleMoveEnd}
               style={{ width: '100%', height: '100%' }}
-              attributionControl={false}
             >
               <NavigationControl visualizePitch={true} position="top-right" />
 

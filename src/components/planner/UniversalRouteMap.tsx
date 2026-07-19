@@ -12,6 +12,7 @@ import type { GeocodingResult } from '@/lib/geocoding';
 import type { PlannedRoutePoint } from '@/lib/navigation/types';
 import { MAPBOX_ACCESS_TOKEN, OPEN_MAP_STYLES } from '@/lib/open-map-styles';
 import { useTheme } from '@/components/theme/ThemeProvider';
+import useResilientMapStyle from '@/components/map/useResilientMapStyle';
 
 function routeFeature(points: PlannedRoutePoint[]) {
   return {
@@ -49,6 +50,7 @@ export default function UniversalRouteMap({
   const { theme } = useTheme();
   const [selectedStyleIndex, setSelectedStyleIndex] = useState<number | null>(null);
   const styleIndex = selectedStyleIndex ?? (theme === 'dark' ? 2 : 0);
+  const resilientStyle = useResilientMapStyle(styleIndex);
   const route = useMemo(() => routeFeature(points), [points]);
   const displayedControls = useMemo(() => visibleControls(controlPoints), [controlPoints]);
   const fitRoute = useCallback(() => {
@@ -97,8 +99,8 @@ export default function UniversalRouteMap({
       ref={mapRef}
       mapboxAccessToken={MAPBOX_ACCESS_TOKEN}
       initialViewState={{ longitude: -3.7, latitude: 40.25, zoom: 5.4 }}
-      mapStyle={OPEN_MAP_STYLES[styleIndex].style}
-      attributionControl={false}
+      mapStyle={resilientStyle.mapStyle}
+      onError={resilientStyle.handleMapError}
       cursor={drawing ? 'crosshair' : 'grab'}
       onClick={(event) => {
         if (!drawing) return;
@@ -166,11 +168,16 @@ export default function UniversalRouteMap({
       <div className="pointer-events-none absolute left-3 top-3 z-10">
         <PlaceSearch onSelect={showPlace} onUseAsStart={usePlaceAsPoint} />
       </div>
+      {resilientStyle.usingFallback && (
+        <span className="pointer-events-none absolute bottom-3 left-3 z-10 rounded-full bg-slate-950/90 px-2.5 py-1 text-[9px] font-black uppercase text-amber-200 shadow-lg backdrop-blur">
+          Mapa de respaldo activo
+        </span>
+      )}
       <button
         type="button"
         aria-label={`Mapa ${OPEN_MAP_STYLES[styleIndex].label}. Cambiar estilo`}
         onClick={() => setSelectedStyleIndex((styleIndex + 1) % OPEN_MAP_STYLES.length)}
-        className="absolute bottom-3 right-3 z-10 flex min-h-11 items-center gap-2 rounded-xl border border-white/15 bg-slate-950/90 px-3 text-[10px] font-black uppercase text-white shadow-xl backdrop-blur"
+        className="absolute bottom-12 right-3 z-10 flex min-h-11 items-center gap-2 rounded-xl border border-white/15 bg-slate-950/90 px-3 text-[10px] font-black uppercase text-white shadow-xl backdrop-blur"
       >
         <Layers3 className="h-4 w-4 text-orange-400" /> {OPEN_MAP_STYLES[styleIndex].label}
       </button>

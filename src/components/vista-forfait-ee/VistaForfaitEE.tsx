@@ -10,7 +10,8 @@ import type { TrackMTB, DificultadMTB, TrackPoint } from '@/lib/forfait/types';
 import type { SendaSegment, CameraView } from '@/lib/forfait/senda-utils';
 import { splitIntoSendas } from '@/lib/forfait/senda-utils';
 import { buildProfileSeries } from '@/lib/forfait/geo-utils';
-import { MAPBOX_ACCESS_TOKEN, OPEN_MAP_STYLES } from '@/lib/open-map-styles';
+import { MAPBOX_ACCESS_TOKEN } from '@/lib/open-map-styles';
+import useResilientMapStyle from '@/components/map/useResilientMapStyle';
 
 const SENDA_VIEWS_KEY = 'vista-forfait-senda-views';
 type LinePaint = NonNullable<LineLayerSpecification['paint']>;
@@ -196,6 +197,7 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
   const [showPanel, setShowPanel] = useState(true);
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [cursorPos, setCursorPos] = useState<{ x: number; y: number; containerWidth: number } | null>(null);
+  const resilientStyle = useResilientMapStyle(1);
 
   /* ── Sector data ── */
   const sectorsData = useMemo(() => {
@@ -549,7 +551,8 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
         <MapboxMap
           ref={mapRef}
           mapboxAccessToken={MAPBOX_ACCESS_TOKEN}
-          mapStyle={OPEN_MAP_STYLES[1].style}
+          mapStyle={resilientStyle.mapStyle}
+          onError={resilientStyle.handleMapError}
           initialViewState={{ latitude: sectorCenter.latitude, longitude: sectorCenter.longitude, zoom: 15.3, pitch: 60, bearing: 0 }}
           onMove={e => {
             setViewState(e.viewState);
@@ -570,7 +573,6 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
           }}
           onLoad={() => setMapReady(true)}
           style={{ width: '100%', height: '100%', position: 'absolute', inset: 0 }}
-          attributionControl={false}
           scrollZoom={{ around: 'center' }}
           dragRotate={true}
           touchPitch={true}

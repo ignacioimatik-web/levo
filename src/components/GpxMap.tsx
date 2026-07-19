@@ -1,14 +1,14 @@
 'use client';
 
 import { useState, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
-import { MapContainer, TileLayer, Polyline, CircleMarker, useMap } from 'react-leaflet';
+import { MapContainer, Polyline, CircleMarker, useMap } from 'react-leaflet';
 import type { LatLngExpression } from 'leaflet';
 import { TrailPoint } from '@/data/trails';
 import { parseGPX, haversineKm } from '@/lib/gpx-utils';
 import { useTrailHover } from '@/lib/trail-hover-context';
 import { Map, Maximize2, Minimize2 } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
-import { MAPBOX_RASTER_ATTRIBUTION, MAPBOX_RASTER_TILE_URL } from '@/lib/open-map-styles';
+import ResilientRasterTileLayer from '@/components/map/ResilientRasterTileLayer';
 
 interface GpxMapProps {
   coordinates?: TrailPoint[];
@@ -186,10 +186,7 @@ export default function GpxMap({ coordinates, gpxUrl, preparsedPoints, title, fa
             className="w-full h-full"
             zoomControl={true}
           >
-            <TileLayer
-              attribution={MAPBOX_RASTER_ATTRIBUTION}
-              url={MAPBOX_RASTER_TILE_URL}
-            />
+            <ResilientRasterTileLayer />
             {trackCoords.length > 1 && (
               <Polyline
                 positions={trackCoords}
@@ -242,10 +239,7 @@ export default function GpxMap({ coordinates, gpxUrl, preparsedPoints, title, fa
           className="w-full h-full"
           zoomControl={true}
         >
-        <TileLayer
-          attribution={MAPBOX_RASTER_ATTRIBUTION}
-          url={MAPBOX_RASTER_TILE_URL}
-        />
+        <ResilientRasterTileLayer />
         {trackCoords.length > 1 && (
           <Polyline 
             positions={trackCoords} 

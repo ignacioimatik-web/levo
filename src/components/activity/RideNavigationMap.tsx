@@ -13,6 +13,7 @@ import { useTheme } from '@/components/theme/ThemeProvider';
 import { cardinalForBearing } from '@/lib/navigation/progress';
 import { formatTurnDistance } from '@/lib/navigation/turns';
 import { summarizeOfflineMap } from '@/lib/navigation/offline-map-data';
+import useResilientMapStyle from '@/components/map/useResilientMapStyle';
 
 type MapPoint = RidePoint | PlannedRoutePoint;
 type FollowMode = 'north' | 'heading';
@@ -123,6 +124,7 @@ export default function RideNavigationMap({
   const styleIndex = selectedStyleIndex ?? (theme === 'dark' ? 2 : 0);
   const [online, setOnline] = useState(true);
   const [preferOffline, setPreferOffline] = useState(false);
+  const resilientStyle = useResilientMapStyle(styleIndex);
   const currentPoint = points.at(-1);
   const initialPoint = currentPoint ?? plannedPoints[0];
   const heading = useMemo(() => {
@@ -208,8 +210,10 @@ export default function RideNavigationMap({
           latitude: initialPoint.latitude,
           zoom: currentPoint ? 15.5 : 12,
         }}
-        mapStyle={offlineActive ? OFFLINE_MAP_STYLE : OPEN_MAP_STYLES[styleIndex].style}
-        attributionControl={false}
+        mapStyle={offlineActive ? OFFLINE_MAP_STYLE : resilientStyle.mapStyle}
+        onError={() => {
+          if (!offlineActive) resilientStyle.handleMapError();
+        }}
         dragRotate
         touchPitch
         touchZoomRotate
@@ -344,6 +348,11 @@ export default function RideNavigationMap({
               }}
             />
           </Source>
+        )}
+        {!offlineActive && resilientStyle.usingFallback && (
+          <span className="rounded-full bg-amber-950/90 px-2.5 py-1 text-[9px] font-black uppercase text-amber-200 backdrop-blur">
+            Mapbox sin acceso · respaldo
+          </span>
         )}
         {plannedPoints.length > 1 && (
           <Source id="planned-ride-route" type="geojson" data={plannedRoute}>

@@ -73,6 +73,10 @@ import {
   shouldRequestRejoinRoute,
 } from '../src/lib/navigation/rejoin-routing.ts';
 import {
+  FALLBACK_MAP_STYLES,
+  OPEN_MAP_STYLES,
+} from '../src/lib/open-map-styles.ts';
+import {
   buildOverpassTrailQuery,
   buildOverpassTrailOnlyQuery,
   overpassWaysToGeoJson,
@@ -607,6 +611,18 @@ test('el reenganche aplica espera progresiva y respeta el límite del servidor',
   assert.equal(rejoinRetryDelayMs(3, 60_000), 60_000);
   assert.equal(rejoinRetryDelayMs(20), REJOIN_RETRY_MAX_MS);
   assert.equal(rejoinRetryDelayMs(2, 300_000), 300_000);
+});
+
+test('cada estilo Mapbox conserva un respaldo cartográfico independiente', () => {
+  assert.deepEqual(
+    FALLBACK_MAP_STYLES.map((item) => item.label),
+    OPEN_MAP_STYLES.map((item) => item.label),
+  );
+  for (const item of FALLBACK_MAP_STYLES) {
+    const serialized = JSON.stringify(item.style);
+    assert.doesNotMatch(serialized, /api\.mapbox\.com|mapbox:\/\//);
+    assert.match(serialized, /attribution/);
+  }
 });
 
 test('el resumen conserva el 100% ya alcanzado aunque la posición instantánea retroceda', () => {

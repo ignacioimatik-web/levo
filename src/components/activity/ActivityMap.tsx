@@ -6,7 +6,8 @@ import type { MapRef } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import type { RidePoint } from '@/lib/activities/types';
 import { MapPinned } from 'lucide-react';
-import { DEFAULT_OPEN_MAP_STYLE, MAPBOX_ACCESS_TOKEN } from '@/lib/open-map-styles';
+import { MAPBOX_ACCESS_TOKEN } from '@/lib/open-map-styles';
+import useResilientMapStyle from '@/components/map/useResilientMapStyle';
 
 function SchematicMap({ points }: { points: RidePoint[] }) {
   const path = useMemo(() => {
@@ -39,6 +40,7 @@ function SchematicMap({ points }: { points: RidePoint[] }) {
 export default function ActivityMap({ points }: { points: RidePoint[] }) {
   const mapRef = useRef<MapRef>(null);
   const [mapFailed, setMapFailed] = useState(false);
+  const resilientStyle = useResilientMapStyle();
   const route = useMemo(() => ({
     type: 'Feature' as const,
     properties: {},
@@ -77,9 +79,14 @@ export default function ActivityMap({ points }: { points: RidePoint[] }) {
         latitude: points[0].latitude,
         zoom: 12,
       }}
-      mapStyle={DEFAULT_OPEN_MAP_STYLE}
-      attributionControl={false}
-      onError={() => setMapFailed(true)}
+      mapStyle={resilientStyle.mapStyle}
+      onError={() => {
+        if (resilientStyle.usingFallback) {
+          setMapFailed(true);
+          return;
+        }
+        resilientStyle.handleMapError();
+      }}
     >
       <Source id="activity-route" type="geojson" data={route}>
         <Layer

@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Polyline, useMap, Tooltip } from 'react-leaflet';
+import { MapContainer, Polyline, useMap, Tooltip } from 'react-leaflet';
 import type { LatLngExpression } from 'leaflet';
 import { MTBTrail, TrailDifficulty } from '@/data/trails';
 import { getTrailDifficultyLabel } from '@/lib/trail-utils';
 import 'leaflet/dist/leaflet.css';
-import { MAPBOX_RASTER_ATTRIBUTION, MAPBOX_RASTER_TILE_URL } from '@/lib/open-map-styles';
+import ResilientRasterTileLayer from '@/components/map/ResilientRasterTileLayer';
 
 const DIFFICULTY_BASE: Record<TrailDifficulty, { weight: number; opacity: number }> = {
   green: { weight: 4, opacity: 0.85 },
@@ -205,10 +205,7 @@ export default function RealMap({ trails, selectedTrailId, onTrailSelect }: Real
         zoomControl={true}
         scrollWheelZoom={true}
       >
-        <TileLayer
-          attribution={MAPBOX_RASTER_ATTRIBUTION}
-          url={MAPBOX_RASTER_TILE_URL}
-        />
+        <ResilientRasterTileLayer />
 
         <MapController
           selectedTrailId={selectedTrailId ?? null}

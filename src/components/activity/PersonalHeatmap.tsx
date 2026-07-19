@@ -17,7 +17,8 @@ import type {
   HeatmapPeriod, HeatmapSportFilter,
 } from '@/lib/activities/heatmap';
 import type { RideActivity, RidePoint } from '@/lib/activities/types';
-import { DEFAULT_OPEN_MAP_STYLE, MAPBOX_ACCESS_TOKEN } from '@/lib/open-map-styles';
+import { MAPBOX_ACCESS_TOKEN } from '@/lib/open-map-styles';
+import useResilientMapStyle from '@/components/map/useResilientMapStyle';
 
 type MapMode = 'heat' | 'routes';
 
@@ -69,6 +70,7 @@ function SchematicHeatmap({ activities }: { activities: RideActivity[] }) {
 function PersonalRoutesMap({ activities, mode }: { activities: RideActivity[]; mode: MapMode }) {
   const mapRef = useRef<MapRef>(null);
   const [mapFailed, setMapFailed] = useState(false);
+  const resilientStyle = useResilientMapStyle();
   const routeCollection = useMemo(() => ({
     type: 'FeatureCollection' as const,
     features: activities.map((activity) => ({
@@ -111,9 +113,14 @@ function PersonalRoutesMap({ activities, mode }: { activities: RideActivity[]; m
       ref={mapRef}
       mapboxAccessToken={MAPBOX_ACCESS_TOKEN}
       initialViewState={{ longitude: -0.1, latitude: 40.62, zoom: 10 }}
-      mapStyle={DEFAULT_OPEN_MAP_STYLE}
-      attributionControl={false}
-      onError={() => setMapFailed(true)}
+      mapStyle={resilientStyle.mapStyle}
+      onError={() => {
+        if (resilientStyle.usingFallback) {
+          setMapFailed(true);
+          return;
+        }
+        resilientStyle.handleMapError();
+      }}
     >
       <Source id="personal-heat-points" type="geojson" data={pointCollection}>
         <Layer

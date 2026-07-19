@@ -2,7 +2,8 @@
 
 import Map, { Marker, NavigationControl } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { DEFAULT_OPEN_MAP_STYLE, MAPBOX_ACCESS_TOKEN } from '@/lib/open-map-styles';
+import { MAPBOX_ACCESS_TOKEN } from '@/lib/open-map-styles';
+import useResilientMapStyle from '@/components/map/useResilientMapStyle';
 
 export default function LivePositionMap({
   latitude,
@@ -11,12 +12,14 @@ export default function LivePositionMap({
   latitude: number;
   longitude: number;
 }) {
+  const resilientStyle = useResilientMapStyle();
+
   return (
     <Map
       mapboxAccessToken={MAPBOX_ACCESS_TOKEN}
       initialViewState={{ latitude, longitude, zoom: 14.5 }}
-      mapStyle={DEFAULT_OPEN_MAP_STYLE}
-      attributionControl={false}
+      mapStyle={resilientStyle.mapStyle}
+      onError={resilientStyle.handleMapError}
     >
       <NavigationControl position="top-right" showCompass />
       <Marker latitude={latitude} longitude={longitude} anchor="center">
