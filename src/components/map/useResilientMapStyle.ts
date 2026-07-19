@@ -16,12 +16,20 @@ export default function useResilientMapStyle(styleIndex = 0) {
   const handleMapError = useCallback(() => {
     setUsingFallback(true);
   }, []);
+  const retryMapbox = useCallback(() => {
+    if (MAPBOX_ACCESS_TOKEN) setUsingFallback(false);
+  }, []);
+  const selectedStyle = usingFallback
+    ? FALLBACK_MAP_STYLES[safeStyleIndex]
+    : OPEN_MAP_STYLES[safeStyleIndex];
 
   return {
-    mapStyle: usingFallback
-      ? FALLBACK_MAP_STYLES[safeStyleIndex].style
-      : OPEN_MAP_STYLES[safeStyleIndex].style,
+    mapStyle: selectedStyle.style,
     usingFallback,
     handleMapError,
+    retryMapbox,
+    canRetryMapbox: usingFallback && Boolean(MAPBOX_ACCESS_TOKEN),
+    providerName: selectedStyle.provider,
+    styleLabel: selectedStyle.label,
   };
 }

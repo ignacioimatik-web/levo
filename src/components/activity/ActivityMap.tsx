@@ -8,6 +8,7 @@ import type { RidePoint } from '@/lib/activities/types';
 import { MapPinned } from 'lucide-react';
 import { MAPBOX_ACCESS_TOKEN } from '@/lib/open-map-styles';
 import useResilientMapStyle from '@/components/map/useResilientMapStyle';
+import { MapProviderBadge } from '@/components/map/MapProviderBadge';
 
 function SchematicMap({ points }: { points: RidePoint[] }) {
   const path = useMemo(() => {
@@ -109,6 +110,15 @@ export default function ActivityMap({ points }: { points: RidePoint[] }) {
         <span className="grid h-5 w-5 place-items-center rounded-full border-2 border-white bg-orange-500 shadow-lg" aria-label="Final" />
       </Marker>
       <NavigationControl position="top-right" showCompass visualizePitch />
+      <div className="absolute bottom-3 left-3 z-10">
+        <MapProviderBadge
+          usingFallback={resilientStyle.usingFallback}
+          providerName={resilientStyle.providerName}
+          styleLabel={resilientStyle.styleLabel}
+          canRetry={resilientStyle.canRetryMapbox}
+          onRetry={resilientStyle.retryMapbox}
+        />
+      </div>
     </Map>
   );
 }

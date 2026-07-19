@@ -9,6 +9,7 @@ import type { RouteHoverData } from '@/components/forfait/ContinuousProfile';
 import { MapPinned } from 'lucide-react';
 import { MAPBOX_ACCESS_TOKEN, OPEN_MAP_STYLES } from '@/lib/open-map-styles';
 import useResilientMapStyle from '@/components/map/useResilientMapStyle';
+import { MapProviderBadge } from '@/components/map/MapProviderBadge';
 
 function distM(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
   const R = 6371000;
@@ -350,6 +351,15 @@ export default function MTBMap({
       <FullscreenControl position="top-right" />
       <PitchToggle />
       <StyleSwitcherControl current={mapStyleIndex} onChange={setMapStyleIndex} />
+      <div className="absolute bottom-3 left-3 z-10">
+        <MapProviderBadge
+          usingFallback={resilientStyle.usingFallback}
+          providerName={resilientStyle.providerName}
+          styleLabel={resilientStyle.styleLabel}
+          canRetry={resilientStyle.canRetryMapbox}
+          onRetry={resilientStyle.retryMapbox}
+        />
+      </div>
 
       <FitBounds tracks={tracks} routePoints={builtRoute?.pointsCombinados ?? []} />
       <FlyToTrack track={fitTrack} />

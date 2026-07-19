@@ -832,6 +832,14 @@ test('cada estilo Mapbox conserva un respaldo cartográfico independiente', () =
     assert.doesNotMatch(serialized, /api\.mapbox\.com|mapbox:\/\//);
     assert.match(serialized, /attribution/);
   }
+  assert.deepEqual(
+    OPEN_MAP_STYLES.map((item) => item.provider),
+    ['Mapbox', 'Mapbox', 'Mapbox'],
+  );
+  assert.deepEqual(
+    FALLBACK_MAP_STYLES.map((item) => item.provider),
+    ['OpenTopoMap', 'Esri', 'CARTO'],
+  );
 });
 
 test('el resumen conserva el 100% ya alcanzado aunque la posición instantánea retroceda', () => {

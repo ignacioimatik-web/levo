@@ -34,14 +34,17 @@ function rasterStyle({
 export const OPEN_MAP_STYLES = [
   {
     label: 'Topo',
+    provider: 'Mapbox',
     style: 'mapbox://styles/mapbox/outdoors-v12',
   },
   {
     label: 'Satélite',
+    provider: 'Mapbox',
     style: 'mapbox://styles/mapbox/satellite-streets-v12',
   },
   {
     label: 'Oscuro',
+    provider: 'Mapbox',
     style: 'mapbox://styles/mapbox/navigation-night-v1',
   },
 ] as const;
@@ -49,6 +52,7 @@ export const OPEN_MAP_STYLES = [
 export const FALLBACK_MAP_STYLES = [
   {
     label: 'Topo',
+    provider: 'OpenTopoMap',
     style: rasterStyle({
       id: 'fallback-open-topo',
       name: 'OpenTopoMap fallback',
@@ -59,6 +63,7 @@ export const FALLBACK_MAP_STYLES = [
   },
   {
     label: 'Satélite',
+    provider: 'Esri',
     style: rasterStyle({
       id: 'fallback-esri-satellite',
       name: 'Esri World Imagery fallback',
@@ -68,6 +73,7 @@ export const FALLBACK_MAP_STYLES = [
   },
   {
     label: 'Oscuro',
+    provider: 'CARTO',
     style: rasterStyle({
       id: 'fallback-carto-dark',
       name: 'CARTO Dark fallback',

@@ -13,6 +13,7 @@ import type { PlannedRoutePoint } from '@/lib/navigation/types';
 import { MAPBOX_ACCESS_TOKEN, OPEN_MAP_STYLES } from '@/lib/open-map-styles';
 import { useTheme } from '@/components/theme/ThemeProvider';
 import useResilientMapStyle from '@/components/map/useResilientMapStyle';
+import { MapProviderBadge } from '@/components/map/MapProviderBadge';
 
 function routeFeature(points: PlannedRoutePoint[]) {
   return {
@@ -168,11 +169,15 @@ export default function UniversalRouteMap({
       <div className="pointer-events-none absolute left-3 top-3 z-10">
         <PlaceSearch onSelect={showPlace} onUseAsStart={usePlaceAsPoint} />
       </div>
-      {resilientStyle.usingFallback && (
-        <span className="pointer-events-none absolute bottom-3 left-3 z-10 rounded-full bg-slate-950/90 px-2.5 py-1 text-[9px] font-black uppercase text-amber-200 shadow-lg backdrop-blur">
-          Mapa de respaldo activo
-        </span>
-      )}
+      <div className="absolute bottom-3 left-3 z-10">
+        <MapProviderBadge
+          usingFallback={resilientStyle.usingFallback}
+          providerName={resilientStyle.providerName}
+          styleLabel={resilientStyle.styleLabel}
+          canRetry={resilientStyle.canRetryMapbox}
+          onRetry={resilientStyle.retryMapbox}
+        />
+      </div>
       <button
         type="button"
         aria-label={`Mapa ${OPEN_MAP_STYLES[styleIndex].label}. Cambiar estilo`}

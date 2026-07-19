@@ -14,6 +14,7 @@ import { cardinalForBearing } from '@/lib/navigation/progress';
 import { formatTurnDistance } from '@/lib/navigation/turns';
 import { summarizeOfflineMap } from '@/lib/navigation/offline-map-data';
 import useResilientMapStyle from '@/components/map/useResilientMapStyle';
+import { MapProviderBadge } from '@/components/map/MapProviderBadge';
 
 type MapPoint = RidePoint | PlannedRoutePoint;
 type FollowMode = 'north' | 'heading';
@@ -349,11 +350,6 @@ export default function RideNavigationMap({
             />
           </Source>
         )}
-        {!offlineActive && resilientStyle.usingFallback && (
-          <span className="rounded-full bg-amber-950/90 px-2.5 py-1 text-[9px] font-black uppercase text-amber-200 backdrop-blur">
-            Mapbox sin acceso · respaldo
-          </span>
-        )}
         {plannedPoints.length > 1 && (
           <Source id="planned-ride-route" type="geojson" data={plannedRoute}>
             <Layer
@@ -497,6 +493,15 @@ export default function RideNavigationMap({
       </div>
 
       <div className="pointer-events-none absolute bottom-3 left-3 z-10 flex flex-wrap gap-2">
+        {!offlineActive && (
+          <MapProviderBadge
+            usingFallback={resilientStyle.usingFallback}
+            providerName={resilientStyle.providerName}
+            styleLabel={resilientStyle.styleLabel}
+            canRetry={resilientStyle.canRetryMapbox}
+            onRetry={resilientStyle.retryMapbox}
+          />
+        )}
         <span className="rounded-full bg-slate-950/85 px-2.5 py-1 text-[9px] font-black uppercase text-blue-300 backdrop-blur">
           Azul · ruta
         </span>
