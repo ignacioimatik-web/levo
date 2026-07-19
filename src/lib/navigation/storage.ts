@@ -51,20 +51,22 @@ export function getPlannedRoute(id: string): PlannedRoute | null {
   return getPlannedRoutes().find((route) => route.id === id) ?? null;
 }
 
-export function savePlannedRoute(route: PlannedRoute): void {
-  const routes = getPlannedRoutes();
-  const existing = routes.findIndex((item) => item.id === route.id);
-  if (existing >= 0) routes[existing] = route;
-  else routes.unshift(route);
+export function savePlannedRoute(route: PlannedRoute): boolean {
+  if (typeof window === 'undefined') return false;
+  const routes = [
+    route,
+    ...getPlannedRoutes().filter((item) => item.id !== route.id),
+  ];
   let retained = routes.slice(0, 30);
   while (retained.length > 0) {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(retained.map(serialize)));
-      return;
+      return true;
     } catch {
       retained = retained.slice(0, -1);
     }
   }
+  return false;
 }
 
 export function deletePlannedRoute(id: string): void {

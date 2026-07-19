@@ -34,10 +34,14 @@ export interface SavedRouteResponse {
 }
 
 export async function fetchSavedRoutes(): Promise<SavedRouteData[]> {
-  const res = await fetch('/api/forfait/save-route');
-  if (!res.ok) return [];
-  const data: SavedRoutesResponse = await res.json();
-  return data.routes ?? [];
+  try {
+    const res = await fetch('/api/forfait/save-route');
+    if (!res.ok) return [];
+    const data: SavedRoutesResponse = await res.json();
+    return data.routes ?? [];
+  } catch {
+    return [];
+  }
 }
 
 export async function fetchSavedRoute(id: string): Promise<SavedRouteData | null> {
@@ -65,15 +69,26 @@ export async function saveRouteToCloud(params: {
   routing_mode?: RoutePlanningMode;
   reference?: SavedRouteData['reference'];
   warnings: string[];
-}): Promise<{ route?: SavedRouteData; error?: string }> {
-  const res = await fetch('/api/forfait/save-route', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(params),
-  });
-  const data = await res.json();
-  if (!res.ok) return { error: data.error ?? 'Error al guardar' };
-  return { route: data.route };
+}, options: {
+  timeoutMs?: number;
+} = {}): Promise<{ route?: SavedRouteData; error?: string }> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? 12_000);
+  try {
+    const res = await fetch('/api/forfait/save-route', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+      signal: controller.signal,
+    });
+    const data = await res.json() as { route?: SavedRouteData; error?: string };
+    if (!res.ok) return { error: data.error ?? 'Error al guardar' };
+    return { route: data.route };
+  } catch {
+    return { error: 'No se pudo conectar con tu cuenta.' };
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export async function deleteSavedRoute(id: string): Promise<{ error?: string }> {

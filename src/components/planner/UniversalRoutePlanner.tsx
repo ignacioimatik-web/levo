@@ -105,6 +105,14 @@ function escapeXml(value: string): string {
     .replaceAll("'", '&apos;');
 }
 
+function saveStatusColor(message: string): string {
+  if (message.startsWith('No se')) return 'text-red-300';
+  if (message.toLowerCase().includes('no pudo') || message.toLowerCase().includes('no se pudo')) {
+    return 'text-amber-300';
+  }
+  return 'text-emerald-300';
+}
+
 async function downloadOfflineMapFromDevice(route: PlannedRoute): Promise<OfflineMapPackage> {
   const endpoints = [
     'https://overpass-api.de/api/interpreter',
@@ -477,16 +485,22 @@ export default function UniversalRoutePlanner({
     createdAt: new Date().toISOString(),
   });
 
-  const saveRoute = async () => {
-    if (points.length < 2) {
-      setError('La ruta necesita al menos dos puntos.');
-      return;
-    }
-    const route = buildPlannedRoute();
-    savePlannedRoute(route);
+  const persistRoute = async (route: PlannedRoute, refreshLibrary = false) => {
+    const localSaved = savePlannedRoute(route);
     setRouteLibrary(mergeRouteLibrary(getPlannedRoutes()));
-    setSaveStatus('Guardada en este dispositivo.');
-    if (!user) return;
+    if (!user) {
+      setSaveStatus(localSaved
+        ? 'Guardada en este dispositivo.'
+        : 'No se pudo guardar la ruta en este dispositivo.');
+      return {
+        available: localSaved,
+        cloud: false,
+        error: localSaved ? null : 'El almacenamiento local no está disponible.',
+      };
+    }
+    setSaveStatus(localSaved
+      ? 'Guardada en el dispositivo · sincronizando con tu cuenta…'
+      : 'El dispositivo no pudo guardarla · copiando en tu cuenta…');
     const result = await saveRouteToCloud({
       id: route.id,
       name: route.name,
@@ -501,14 +515,30 @@ export default function UniversalRoutePlanner({
       routing_mode: route.routingMode,
       reference: route.reference ?? null,
       warnings: route.warnings,
-    });
-    setSaveStatus(result.error
-      ? 'Guardada localmente; la copia en la cuenta no se pudo completar.'
-      : 'Guardada en el dispositivo y en tu cuenta.');
-    if (!result.error) {
+    }, { timeoutMs: 6_000 });
+    if (result.error) {
+      setSaveStatus(localSaved
+        ? 'Guardada localmente; la copia en la cuenta no se pudo completar.'
+        : 'No se ha podido guardar la ruta. Libera espacio o recupera la conexión.');
+      return { available: localSaved, cloud: false, error: result.error };
+    }
+    setSaveStatus(localSaved
+      ? 'Guardada en el dispositivo y en tu cuenta.'
+      : 'Guardada en tu cuenta; este dispositivo no admite copia local.');
+    if (refreshLibrary) {
       const cloud = await fetchSavedRoutes();
       setRouteLibrary(mergeRouteLibrary(getPlannedRoutes(), cloud));
     }
+    return { available: true, cloud: true, error: null };
+  };
+
+  const saveRoute = async () => {
+    if (points.length < 2) {
+      setError('La ruta necesita al menos dos puntos.');
+      return;
+    }
+    const route = buildPlannedRoute();
+    await persistRoute(route, true);
   };
 
   const loadLibraryRoute = (route: PlannedRoute) => {
@@ -614,7 +644,6 @@ export default function UniversalRoutePlanner({
   const startNavigation = async () => {
     if (points.length < 2 || navigationStatus === 'preparing') return;
     const route = buildPlannedRoute();
-    savePlannedRoute(route);
     const navigationUrl = `/grabar?ruta=${encodeURIComponent(route.id)}`;
     if (navigationStatus === 'fallback') {
       window.location.assign(navigationUrl);
@@ -623,6 +652,14 @@ export default function UniversalRoutePlanner({
 
     setNavigationStatus('preparing');
     setOfflineStatus('loading');
+    setOfflineMessage('Guardando la última versión de la ruta antes de salir…');
+    const persistence = await persistRoute(route);
+    if (!persistence.available) {
+      setNavigationStatus('idle');
+      setOfflineStatus('error');
+      setOfflineMessage('No se puede iniciar: la ruta no ha quedado guardada ni en el dispositivo ni en tu cuenta.');
+      return;
+    }
     setOfflineMessage('Comprobando el mapa exacto de esta ruta antes de salir…');
     try {
       const storedPackage = await getOfflineMapPackage(route.id);
@@ -867,7 +904,11 @@ export default function UniversalRoutePlanner({
                       : 'Preparar y navegar'}
               </button>
             </div>
-            {saveStatus && <p role="status" className="text-[10px] text-emerald-300">{saveStatus}</p>}
+            {saveStatus && (
+              <p role="status" className={`text-[10px] ${saveStatusColor(saveStatus)}`}>
+                {saveStatus}
+              </p>
+            )}
             {offlineMessage && (
               <p role="status" className={`rounded-xl border p-3 text-[10px] ${
                 offlineStatus === 'error'

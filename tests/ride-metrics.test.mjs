@@ -130,7 +130,8 @@ import {
 } from '../src/lib/activities/durable-storage.ts';
 import { completeRidePointsForSave } from '../src/lib/activities/finalize.ts';
 import { plannedRouteFromSavedRoute } from '../src/lib/navigation/cloud-route.ts';
-import { fetchSavedRoute } from '../src/lib/forfait/save-route.ts';
+import { fetchSavedRoute, saveRouteToCloud } from '../src/lib/forfait/save-route.ts';
+import { savePlannedRoute } from '../src/lib/navigation/storage.ts';
 import {
   externalGpxFileName,
   isPublicNetworkAddress,
@@ -268,6 +269,135 @@ test('el grabador puede recuperar una ruta concreta de la cuenta en otro disposi
     assert.equal(requestedUrl, `/api/forfait/save-route?id=${routeId}`);
   } finally {
     globalThis.fetch = originalFetch;
+  }
+});
+
+test('un fallo de red al sincronizar una ruta no bloquea el guardado local', async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => {
+    throw new TypeError('Failed to fetch');
+  };
+  try {
+    const result = await saveRouteToCloud({
+      id: 'bd93e7d7-5616-4e8d-8aea-97ace7b19595',
+      name: 'Ruta local segura',
+      track_ids: [],
+      distance_km: 12,
+      elevation_gain_m: 450,
+      elevation_loss_m: 450,
+      estimated_time_min: 75,
+      difficulty: 'azul',
+      route_points: [
+        { latitude: 40.61, longitude: -0.1, elevation: 900 },
+        { latitude: 40.62, longitude: -0.09, elevation: 940 },
+      ],
+      warnings: [],
+    }, { timeoutMs: 50 });
+    assert.equal(result.route, undefined);
+    assert.match(result.error, /cuenta/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('el planificador detecta si el navegador rechaza la copia local de una ruta', () => {
+  const windowDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  const storageDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: {},
+  });
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: {
+      getItem: () => null,
+      setItem: () => {
+        throw new DOMException('Quota exceeded', 'QuotaExceededError');
+      },
+    },
+  });
+  try {
+    assert.equal(savePlannedRoute({
+      id: 'bd93e7d7-5616-4e8d-8aea-97ace7b19595',
+      name: 'Ruta sin almacenamiento',
+      trackIds: [],
+      distanceKm: 12,
+      elevationGainM: 450,
+      estimatedTimeMin: 75,
+      difficulty: 'azul',
+      warnings: [],
+      points: [
+        { latitude: 40.61, longitude: -0.1, elevation: 900 },
+        { latitude: 40.62, longitude: -0.09, elevation: 940 },
+      ],
+      createdAt: '2026-07-19T00:00:00.000Z',
+    }), false);
+  } finally {
+    if (windowDescriptor) Object.defineProperty(globalThis, 'window', windowDescriptor);
+    else delete globalThis.window;
+    if (storageDescriptor) Object.defineProperty(globalThis, 'localStorage', storageDescriptor);
+    else delete globalThis.localStorage;
+  }
+});
+
+test('la ruta recién actualizada no se descarta al limitar la biblioteca local', () => {
+  const windowDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  const storageDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  const updatedId = 'bd93e7d7-5616-4e8d-8aea-97ace7b19595';
+  const existing = Array.from({ length: 30 }, (_, index) => ({
+    id: index === 29 ? updatedId : `route-${index}`,
+    name: `Ruta ${index}`,
+    trackIds: [],
+    distanceKm: index,
+    elevationGainM: index * 10,
+    estimatedTimeMin: 60,
+    difficulty: 'azul',
+    warnings: [],
+    createdAt: `2026-07-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`,
+    p: [
+      [40.61, -0.1, 900],
+      [40.62, -0.09, 940],
+    ],
+  }));
+  let stored = JSON.stringify(existing);
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: {},
+  });
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: {
+      getItem: () => stored,
+      setItem: (_key, value) => {
+        stored = value;
+      },
+    },
+  });
+  try {
+    assert.equal(savePlannedRoute({
+      id: updatedId,
+      name: 'Ruta actualizada para navegar',
+      trackIds: [],
+      distanceKm: 44,
+      elevationGainM: 1_200,
+      estimatedTimeMin: 180,
+      difficulty: 'roja',
+      warnings: [],
+      points: [
+        { latitude: 40.61, longitude: -0.1, elevation: 900 },
+        { latitude: 40.62, longitude: -0.09, elevation: 940 },
+      ],
+      createdAt: '2026-07-01T00:00:00.000Z',
+    }), true);
+    const retained = JSON.parse(stored);
+    assert.equal(retained.length, 30);
+    assert.equal(retained[0].id, updatedId);
+    assert.equal(retained[0].name, 'Ruta actualizada para navegar');
+  } finally {
+    if (windowDescriptor) Object.defineProperty(globalThis, 'window', windowDescriptor);
+    else delete globalThis.window;
+    if (storageDescriptor) Object.defineProperty(globalThis, 'localStorage', storageDescriptor);
+    else delete globalThis.localStorage;
   }
 });
 
