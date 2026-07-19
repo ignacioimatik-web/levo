@@ -118,6 +118,9 @@ import {
   normalizeProviderAvailability,
 } from '../src/lib/supabase/provider-status.ts';
 import {
+  selectLatestAemetObservations,
+} from '../src/lib/aemet-observations.ts';
+import {
   oppositeTheme,
   resolveThemePreference,
 } from '../src/lib/theme.ts';
@@ -1371,6 +1374,19 @@ test('convierte el viento observado por AEMET de m/s a km/h antes de mostrarlo',
   assert.equal(aemetWindMpsToKmh(10), 36);
   assert.equal(aemetWindMpsToKmh(12.34), 44.4);
   assert.equal(aemetWindMpsToKmh(undefined), undefined);
+});
+
+test('consolida el último dato disponible de cada estación AEMET', () => {
+  const latest = selectLatestAemetObservations([
+    { idema: ' 9563X ', fint: '2026-07-19T08:00:00+0000', ta: 18 },
+    { idema: '9563X', fint: '2026-07-19T09:00:00+0000', ta: 20 },
+    { idema: 'B893', fint: '2026-07-19T08:30:00+0000', vv: 4 },
+    { idema: '', fint: '2026-07-19T10:00:00+0000', ta: 99 },
+  ]);
+
+  assert.equal(latest.size, 2);
+  assert.equal(latest.get('9563X')?.ta, 20);
+  assert.equal(latest.get('B893')?.vv, 4);
 });
 
 test('la meteo por tramos sigue la distancia real aunque el GPX tenga densidad irregular', () => {

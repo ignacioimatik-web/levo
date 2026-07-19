@@ -1,6 +1,10 @@
 import { haversineKm } from '@/lib/gpx-utils';
 import { sampleRoutePointsByDistance } from '@/lib/route-sampling';
 import { aemetWindMpsToKmh } from '@/lib/weather-units';
+import {
+  selectLatestAemetObservations,
+  type AemetObservation,
+} from '@/lib/aemet-observations';
 
 const AEMET_BASE_URL = 'https://opendata.aemet.es/opendata/api';
 
@@ -17,20 +21,6 @@ interface AemetStationInventory {
   longitud: string;
   provincia?: string;
   altitud?: number | string;
-}
-
-interface AemetObservation {
-  idema: string;
-  fint?: string;
-  ta?: number;
-  hr?: number;
-  vv?: number;
-  dv?: number;
-  prec?: number | string;
-  vis?: number;
-  nubes?: string;
-  vmax?: number;
-  uvMax?: number;
 }
 
 export interface AemetNow {
@@ -227,21 +217,39 @@ async function getAemetObservationsForTargets(
     selectedCodes.add(station.indicativo);
     candidates.push(station);
   }
-  const stationObs = await Promise.all(
-    candidates.map(async (st) => {
-      try {
-        const arr = await fetchAemetData<AemetObservation[]>(`/observacion/convencional/datos/estacion/${st.indicativo}`, apiKey);
-        const latest = [...(arr ?? [])].sort((a, b) => {
-          const ta = parseAemetTimestamp(a.fint) ?? 0;
-          const tb = parseAemetTimestamp(b.fint) ?? 0;
-          return tb - ta;
-        })[0];
-        return { station: st, obs: latest };
-      } catch {
-        return { station: st, obs: undefined };
-      }
-    })
-  );
+  let stationObs: Array<{
+    station: (typeof candidates)[number];
+    obs: AemetObservation | undefined;
+  }>;
+  try {
+    const observations = await fetchAemetData<AemetObservation[]>(
+      '/observacion/convencional/todas',
+      apiKey,
+    );
+    const latestByStation = selectLatestAemetObservations(observations ?? []);
+    stationObs = candidates.map((station) => ({
+      station,
+      obs: latestByStation.get(station.indicativo.trim().toUpperCase()),
+    }));
+  } catch {
+    stationObs = await Promise.all(
+      candidates.map(async (station) => {
+        try {
+          const observations = await fetchAemetData<AemetObservation[]>(
+            `/observacion/convencional/datos/estacion/${station.indicativo}`,
+            apiKey,
+          );
+          return {
+            station,
+            obs: selectLatestAemetObservations(observations ?? [])
+              .get(station.indicativo.trim().toUpperCase()),
+          };
+        } catch {
+          return { station, obs: undefined };
+        }
+      }),
+    );
+  }
 
   const nearestAvailable = stationObs.find((item) => item.obs);
   if (!nearestAvailable?.obs) return null;

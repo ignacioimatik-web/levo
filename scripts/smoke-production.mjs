@@ -102,6 +102,11 @@ assert.ok(Array.isArray(analysis.ridePlan?.phases), 'Falta el plan meteorológic
 assert.ok(analysis.ridePlan.phases.length >= 3, 'El análisis meteorológico tiene muy poca resolución.');
 assert.ok(analysis.ridePlan.stationCount >= 1, 'No se obtuvieron estaciones o muestras meteorológicas.');
 assert.ok(analysis.ridePlan.sourceLabel, 'Falta identificar la fuente meteorológica.');
+assert.equal(
+  analysis.weatherNow?.source,
+  'aemet-observation',
+  `Producción no está usando observaciones AEMET: ${analysis.weatherNow?.sourceLabel || 'fuente desconocida'}.`,
+);
 assert.match(analysis.daylight?.sunrise || '', /^\d{2}:\d{2}$/, 'La salida del sol no es válida.');
 assert.match(analysis.daylight?.sunset || '', /^\d{2}:\d{2}$/, 'La puesta del sol no es válida.');
 
@@ -120,6 +125,7 @@ console.log(JSON.stringify({
   },
   weather: {
     source: analysis.ridePlan.sourceLabel,
+    kind: analysis.weatherNow.source,
     samples: analysis.ridePlan.stationCount,
     phases: analysis.ridePlan.phases.length,
   },
