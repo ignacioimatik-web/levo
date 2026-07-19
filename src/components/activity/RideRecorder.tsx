@@ -8,6 +8,7 @@ import {
   Navigation, Pause, Play, Radio, RotateCcw, Save, Share2, ShieldCheck, Timer, Trash2, Upload, Zap,
 } from 'lucide-react';
 import RideNavigationMap from '@/components/activity/RideNavigationMap';
+import type { RideNavigationStats } from '@/components/activity/RideNavigationMap';
 import RideControlDock from '@/components/activity/RideControlDock';
 import TurnGuidanceHud from '@/components/activity/TurnGuidanceHud';
 import LiveRideConditions from '@/components/activity/LiveRideConditions';
@@ -48,6 +49,7 @@ import {
 import { calculateNavigationProgress, cardinalForBearing } from '@/lib/navigation/progress';
 import { assessRouteDirection } from '@/lib/navigation/direction';
 import type { LiveRideConditionAlert } from '@/lib/navigation/live-ride-conditions';
+import type { LiveRideConditionSummary } from '@/lib/navigation/live-ride-conditions';
 import {
   calculateGhostComparison, calculateSecuredNavigation,
 } from '@/lib/navigation/repeat';
@@ -226,6 +228,9 @@ export default function RideRecorder({
   const [gpsRecoveryActive, setGpsRecoveryActive] = useState(false);
   const [demoRide, setDemoRide] = useState(false);
   const [weatherSamples, setWeatherSamples] = useState<RideWeatherSample[]>([]);
+  const [liveConditionSummary, setLiveConditionSummary] = useState<LiveRideConditionSummary | null>(
+    null,
+  );
   const [announcedSplitIndex, setAnnouncedSplitIndex] = useState<number | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'error'>('idle');
   const [saveError, setSaveError] = useState('');
@@ -592,6 +597,26 @@ export default function RideRecorder({
   const routeDirection = useMemo(() => (
     plannedRoute ? assessRouteDirection(plannedRoute.points, points, navigation) : null
   ), [navigation, plannedRoute, points]);
+  const focusedRideStats = useMemo<RideNavigationStats | null>(() => {
+    if (!navigation || !plannedRoute) return null;
+    return {
+      displayMode,
+      remainingM: securedNavigation.remainingM,
+      remainingGainM: navigation.remainingGainM,
+      estimatedRemainingMinutes: liveConditionSummary?.estimatedRemainingMinutes ?? null,
+      batteryPercent: settings.sportType === 'ebike' ? battery.batteryPercent : null,
+      lightMarginMinutes: liveConditionSummary?.lightMarginMinutes ?? null,
+      lightRisk: liveConditionSummary?.lightRisk ?? 'green',
+    };
+  }, [
+    battery.batteryPercent,
+    displayMode,
+    liveConditionSummary,
+    navigation,
+    plannedRoute,
+    securedNavigation.remainingM,
+    settings.sportType,
+  ]);
   const gpsQuality = useMemo(() => {
     if (gpsAccuracy == null) return null;
     if (status === 'recording' && gpsSignalAgeSeconds > 30) {
@@ -909,6 +934,7 @@ export default function RideRecorder({
     setNavigationFloorM(0);
     setFinishArmed(false);
     setWeatherSamples([]);
+    setLiveConditionSummary(null);
     setAnnouncedSplitIndex(null);
     setSaveStatus('idle');
     setSaveError('');
@@ -1365,6 +1391,7 @@ export default function RideRecorder({
                       }
                     : null
                 : null}
+              rideStats={focusedRideStats}
               offlineMap={activeOfflineMap}
               focused={rideFocused}
             />
@@ -1520,6 +1547,7 @@ export default function RideRecorder({
               displayMode={activeDisplayMode}
               onSample={recordWeatherSample}
               onAlert={announceConditionAlert}
+              onSummary={setLiveConditionSummary}
             />
 
             {settings.sportType === 'ebike' && active && (
@@ -1619,10 +1647,10 @@ export default function RideRecorder({
                         <input value={trackingUrl} readOnly aria-label="Enlace de seguimiento"
                           className="w-full truncate rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-[10px] text-slate-400" />
                         <div className="flex gap-2">
-                          <button onClick={() => shareTrackingLink()} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-blue-500 px-3 py-2.5 text-xs font-black text-white">
+                          <button onClick={() => shareTrackingLink()} className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-blue-500 px-3 py-2.5 text-xs font-black text-white">
                             <Share2 className="h-4 w-4" /> Compartir enlace
                           </button>
-                          <button onClick={() => { void stopLiveTracking(); }} className="rounded-xl border border-white/10 px-3 py-2.5 text-xs font-bold text-slate-400">
+                          <button onClick={() => { void stopLiveTracking(); }} className="min-h-11 rounded-xl border border-white/10 px-3 py-2.5 text-xs font-bold text-slate-400">
                             Detener
                           </button>
                         </div>
@@ -1631,7 +1659,7 @@ export default function RideRecorder({
                       <button
                         onClick={() => { void startLiveTracking(); }}
                         disabled={liveStatus === 'starting' || status === 'requesting'}
-                        className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-500 px-3 py-3 text-xs font-black text-white disabled:opacity-40"
+                        className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-blue-500 px-3 py-3 text-xs font-black text-white disabled:opacity-40"
                       >
                         <Share2 className="h-4 w-4" />
                         {liveStatus === 'starting' ? 'Preparando…' : 'Compartir seguimiento'}

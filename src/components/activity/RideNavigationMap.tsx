@@ -6,6 +6,8 @@ import type { MapRef } from 'react-map-gl/mapbox';
 import { CloudOff, Layers3, LocateFixed, MapPinned, Navigation2, Target } from 'lucide-react';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import type { RidePoint } from '@/lib/activities/types';
+import type { RideDisplayMode } from '@/lib/activities/display-mode';
+import type { LiveConditionRisk } from '@/lib/navigation/live-ride-conditions';
 import type { PlannedRoutePoint } from '@/lib/navigation/types';
 import type { OfflineMapPackage } from '@/lib/navigation/offline-map-storage';
 import { MAPBOX_ACCESS_TOKEN, OFFLINE_MAP_STYLE, OPEN_MAP_STYLES } from '@/lib/open-map-styles';
@@ -18,6 +20,32 @@ import { MapProviderBadge } from '@/components/map/MapProviderBadge';
 
 type MapPoint = RidePoint | PlannedRoutePoint;
 type FollowMode = 'north' | 'heading';
+
+export interface RideNavigationStats {
+  displayMode: RideDisplayMode;
+  remainingM: number;
+  remainingGainM: number;
+  estimatedRemainingMinutes: number | null;
+  batteryPercent: number | null;
+  lightMarginMinutes: number | null;
+  lightRisk: LiveConditionRisk;
+}
+
+function formatArrival(estimatedRemainingMinutes: number | null): string {
+  if (estimatedRemainingMinutes == null || !Number.isFinite(estimatedRemainingMinutes)) return '—';
+  return new Intl.DateTimeFormat('es-ES', {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(Date.now() + Math.max(0, estimatedRemainingMinutes) * 60_000));
+}
+
+function formatLightMargin(minutes: number | null): string {
+  if (minutes == null || !Number.isFinite(minutes)) return '—';
+  const rounded = Math.round(minutes);
+  if (rounded < 0) return `-${Math.abs(rounded)}m`;
+  if (rounded >= 60) return `${Math.floor(rounded / 60)}h${String(rounded % 60).padStart(2, '0')}`;
+  return `${rounded}m`;
+}
 
 function bearingBetween(a: MapPoint, b: MapPoint): number {
   const lat1 = a.latitude * Math.PI / 180;
@@ -99,6 +127,7 @@ export default function RideNavigationMap({
   rejoinPoint,
   rejoinPoints = [],
   navigationCue,
+  rideStats,
   offlineMap,
   focused = false,
 }: {
@@ -114,6 +143,7 @@ export default function RideNavigationMap({
     offRoute: boolean;
     bearingDeg?: number | null;
   } | null;
+  rideStats?: RideNavigationStats | null;
   offlineMap?: OfflineMapPackage | null;
   focused?: boolean;
 }) {
@@ -442,6 +472,58 @@ export default function RideNavigationMap({
         </div>
       )}
 
+      {active && focused && rideStats && (
+        <section
+          aria-label="Resumen de navegación"
+          className={`pointer-events-none absolute bottom-24 left-3 right-3 z-10 grid gap-1.5 rounded-2xl border border-white/15 bg-slate-950/92 p-2 shadow-2xl backdrop-blur [@media(max-height:500px)]:bottom-36 [@media(max-height:500px)]:right-32 ${
+            rideStats.displayMode === 'pro' ? 'grid-cols-4' : 'grid-cols-3'
+          }`}
+        >
+          <div className="min-w-0 rounded-xl bg-white/5 px-2 py-2 text-center">
+            <p className="truncate text-[7px] font-black uppercase tracking-wider text-slate-500">Restante</p>
+            <p className="mt-0.5 text-sm font-black tabular-nums text-white">
+              {(rideStats.remainingM / 1_000).toFixed(1)} <span className="text-[8px] text-slate-500">km</span>
+            </p>
+          </div>
+          <div className="min-w-0 rounded-xl bg-white/5 px-2 py-2 text-center">
+            <p className="truncate text-[7px] font-black uppercase tracking-wider text-slate-500">Llegada</p>
+            <p className="mt-0.5 text-sm font-black tabular-nums text-orange-300">
+              {formatArrival(rideStats.estimatedRemainingMinutes)}
+            </p>
+          </div>
+          <div className="min-w-0 rounded-xl bg-white/5 px-2 py-2 text-center">
+            <p className="truncate text-[7px] font-black uppercase tracking-wider text-slate-500">
+              {rideStats.batteryPercent == null ? 'Subida' : 'Batería'}
+            </p>
+            <p className="mt-0.5 text-sm font-black tabular-nums text-emerald-300">
+              {rideStats.batteryPercent == null
+                ? <>{Math.round(rideStats.remainingGainM)} <span className="text-[8px] text-slate-500">m</span></>
+                : <>{rideStats.batteryPercent} <span className="text-[8px] text-slate-500">%</span></>}
+            </p>
+          </div>
+          {rideStats.displayMode === 'pro' && (
+            <div className={`min-w-0 rounded-xl px-2 py-2 text-center ${
+              rideStats.lightRisk === 'red'
+                ? 'bg-red-500/15'
+                : rideStats.lightRisk === 'yellow'
+                  ? 'bg-amber-500/15'
+                  : 'bg-white/5'
+            }`}>
+              <p className="truncate text-[7px] font-black uppercase tracking-wider text-slate-500">Margen luz</p>
+              <p className={`mt-0.5 truncate text-xs font-black tabular-nums ${
+                rideStats.lightRisk === 'red'
+                  ? 'text-red-300'
+                  : rideStats.lightRisk === 'yellow'
+                    ? 'text-amber-300'
+                    : 'text-cyan-200'
+              }`}>
+                {formatLightMargin(rideStats.lightMarginMinutes)}
+              </p>
+            </div>
+          )}
+        </section>
+      )}
+
       <div className="absolute right-3 top-3 z-10 flex flex-col gap-2">
         <button
           type="button"
@@ -502,27 +584,33 @@ export default function RideNavigationMap({
             onRetry={resilientStyle.retryMapbox}
           />
         )}
-        <span className="rounded-full bg-slate-950/85 px-2.5 py-1 text-[9px] font-black uppercase text-blue-300 backdrop-blur">
-          Azul · ruta
-        </span>
-        <span className="rounded-full bg-slate-950/85 px-2.5 py-1 text-[9px] font-black uppercase text-orange-300 backdrop-blur">
-          Naranja · recorrido
-        </span>
+        {!focused && (
+          <>
+            <span className="rounded-full bg-slate-950/85 px-2.5 py-1 text-[9px] font-black uppercase text-blue-300 backdrop-blur">
+              Azul · ruta
+            </span>
+            <span className="rounded-full bg-slate-950/85 px-2.5 py-1 text-[9px] font-black uppercase text-orange-300 backdrop-blur">
+              Naranja · recorrido
+            </span>
+          </>
+        )}
         {offlineMap && (
           <span className="rounded-full bg-blue-950/90 px-2.5 py-1 text-[9px] font-black uppercase text-blue-200 backdrop-blur">
             {!online
               ? 'Sin red · mapa offline'
               : preferOffline
                 ? 'Mapa offline activo'
-                : `Offline · ${offlineSummary?.trails ?? 0} caminos · ${offlineSummary?.pois ?? 0} puntos`}
+                : focused
+                  ? 'Offline preparado'
+                  : `Offline · ${offlineSummary?.trails ?? 0} caminos · ${offlineSummary?.pois ?? 0} puntos`}
           </span>
         )}
-        {offlineActive && (offlineSummary?.water ?? 0) > 0 && (
+        {!focused && offlineActive && (offlineSummary?.water ?? 0) > 0 && (
           <span className="rounded-full bg-slate-950/85 px-2.5 py-1 text-[9px] font-black uppercase text-sky-300 backdrop-blur">
             Celeste · agua
           </span>
         )}
-        {offlineActive && (offlineSummary?.pois ?? 0) > 0 && (
+        {!focused && offlineActive && (offlineSummary?.pois ?? 0) > 0 && (
           <span className="rounded-full bg-slate-950/85 px-2.5 py-1 text-[9px] font-black uppercase text-amber-300 backdrop-blur">
             Puntos · refugio / fuente / acceso
           </span>

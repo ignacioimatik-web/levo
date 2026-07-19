@@ -9,7 +9,9 @@ import type { RideDisplayMode } from '@/lib/activities/display-mode';
 import {
   buildLiveConditionAlert, deriveLiveRideConditions, shouldRefreshLiveWeather,
 } from '@/lib/navigation/live-ride-conditions';
-import type { LiveRideConditionAlert } from '@/lib/navigation/live-ride-conditions';
+import type {
+  LiveRideConditionAlert, LiveRideConditionSummary,
+} from '@/lib/navigation/live-ride-conditions';
 import type { PlannedRoutePoint } from '@/lib/navigation/types';
 import type { RouteStatusPayload } from '@/lib/route-status';
 
@@ -66,6 +68,7 @@ export default function LiveRideConditions({
   displayMode,
   onSample,
   onAlert,
+  onSummary,
 }: {
   active: boolean;
   routeId?: string;
@@ -79,6 +82,7 @@ export default function LiveRideConditions({
   displayMode: RideDisplayMode;
   onSample?: (sample: RideWeatherSample) => void;
   onAlert?: (alert: LiveRideConditionAlert) => void;
+  onSummary?: (summary: LiveRideConditionSummary | null) => void;
 }) {
   const [payload, setPayload] = useState<RouteStatusPayload | null>(null);
   const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'offline' | 'error'>('idle');
@@ -199,6 +203,10 @@ export default function LiveRideConditions({
     weatherDataIsStale: payload?.ridePlan?.dataIsStale,
     weatherFetchedAt: fetchedAt,
   }), [averageSpeedKmh, completedM, fetchedAt, movingSeconds, payload, remainingM, sportType]);
+
+  useEffect(() => {
+    onSummary?.(active ? summary : null);
+  }, [active, onSummary, summary]);
 
   useEffect(() => {
     const phase = summary.phase;
