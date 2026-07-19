@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   AlertTriangle, BatteryCharging, Bike, CircleStop, Flag, Gauge, LocateFixed, Mountain,
@@ -60,6 +61,8 @@ import type { TurnAlertStage } from '@/lib/navigation/turns';
 import { matchCompetitiveSegments } from '@/lib/segments/matcher';
 import { createClient } from '@/lib/supabase/browser';
 import { calculateLiveRideSplitState } from '@/lib/activities/track-analysis';
+import { fetchSavedRoute } from '@/lib/forfait/save-route';
+import { plannedRouteFromSavedRoute } from '@/lib/navigation/cloud-route';
 
 type RecorderStatus = 'idle' | 'requesting' | 'recording' | 'paused' | 'finished' | 'error';
 
@@ -167,6 +170,9 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
   const [recoverableDraft, setRecoverableDraft] = useState<RideDraft | null>(null);
   const [batteryHistory, setBatteryHistory] = useState<RideActivity[]>([]);
   const [plannedRoute, setPlannedRoute] = useState<PlannedRoute | null>(null);
+  const [routeLoadStatus, setRouteLoadStatus] = useState<'idle' | 'loading' | 'ready' | 'missing'>(
+    plannedRouteId ? 'loading' : 'idle',
+  );
   const [offlineMap, setOfflineMap] = useState<OfflineMapPackage | null>(null);
   const [navigationFloorM, setNavigationFloorM] = useState(0);
   const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
@@ -212,6 +218,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
   const gpsWatchStartedAtRef = useRef(0);
   const lastAnnouncedSplitRef = useRef(0);
   const saveInProgressRef = useRef(false);
+  const routeLoadRequestRef = useRef(0);
 
   const requestWakeLock = useCallback(async () => {
     try {
@@ -246,6 +253,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
 
   useEffect(() => stopWatch, [stopWatch]);
   useEffect(() => () => { void releaseWakeLock(); }, [releaseWakeLock]);
+  useEffect(() => () => { routeLoadRequestRef.current += 1; }, []);
 
   useEffect(() => {
     if (!rideFocused) return;
@@ -263,17 +271,41 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
 
   useEffect(() => {
     let cancelled = false;
+    const requestId = ++routeLoadRequestRef.current;
     const draftRead = window.setTimeout(() => {
-      void Promise.all([getRideDraftDurable(), getActivitiesDurable()]).then(([draft, activities]) => {
-        if (cancelled) return;
+      void (async () => {
+        const [draft, activities] = await Promise.all([getRideDraftDurable(), getActivitiesDurable()]);
+        if (cancelled || routeLoadRequestRef.current !== requestId) return;
         setRecoverableDraft(draft);
         setBatteryHistory(activities);
         const routeId = plannedRouteId ?? draft?.plannedRouteId;
-        if (routeId) {
-          setPlannedRoute(getPlannedRoute(routeId));
-          setNavigationFloorM(0);
+        if (!routeId) {
+          setPlannedRoute(null);
+          setRouteLoadStatus('idle');
+          return;
         }
-      });
+        setPlannedRoute(null);
+        setRouteLoadStatus('loading');
+        const localRoute = getPlannedRoute(routeId);
+        if (localRoute) {
+          setPlannedRoute(localRoute);
+          setNavigationFloorM(0);
+          setRouteLoadStatus('ready');
+          return;
+        }
+        const savedRoute = await fetchSavedRoute(routeId);
+        if (cancelled || routeLoadRequestRef.current !== requestId) return;
+        if (!savedRoute) {
+          setPlannedRoute(null);
+          setRouteLoadStatus('missing');
+          return;
+        }
+        const cloudRoute = plannedRouteFromSavedRoute(savedRoute);
+        savePlannedRoute(cloudRoute);
+        setPlannedRoute(cloudRoute);
+        setNavigationFloorM(0);
+        setRouteLoadStatus('ready');
+      })();
     }, 0);
     return () => {
       cancelled = true;
@@ -950,6 +982,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
 
   const recoverDraft = () => {
     if (!recoverableDraft) return;
+    routeLoadRequestRef.current += 1;
     draftIdRef.current = recoverableDraft.id;
     startedAtRef.current = recoverableDraft.startedAt;
     durationBaseRef.current = recoverableDraft.durationSeconds;
@@ -972,7 +1005,29 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
     setGpsRecoveryActive(false);
     lastGpsRestartAtRef.current = 0;
     if (recoverableDraft.plannedRouteId) {
-      setPlannedRoute(getPlannedRoute(recoverableDraft.plannedRouteId));
+      const recoveredRoute = getPlannedRoute(recoverableDraft.plannedRouteId);
+      setPlannedRoute(recoveredRoute);
+      if (recoveredRoute) {
+        setRouteLoadStatus('ready');
+      } else {
+        const requestId = routeLoadRequestRef.current;
+        setRouteLoadStatus('loading');
+        void fetchSavedRoute(recoverableDraft.plannedRouteId).then((savedRoute) => {
+          if (routeLoadRequestRef.current !== requestId) return;
+          if (!savedRoute) {
+            setRouteLoadStatus('missing');
+            return;
+          }
+          const cloudRoute = plannedRouteFromSavedRoute(savedRoute);
+          savePlannedRoute(cloudRoute);
+          setPlannedRoute(cloudRoute);
+          setNavigationFloorM(0);
+          setRouteLoadStatus('ready');
+        });
+      }
+    } else {
+      setPlannedRoute(null);
+      setRouteLoadStatus('idle');
     }
     setRecoverableDraft(null);
     setStatus('paused');
@@ -997,8 +1052,10 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
     if (!file) return;
     try {
       const route = parseNavigationGpx(await file.text(), file.name);
+      routeLoadRequestRef.current += 1;
       savePlannedRoute(route);
       setPlannedRoute(route);
+      setRouteLoadStatus('ready');
       setNavigationFloorM(0);
       setError('');
     } catch (importError) {
@@ -1412,6 +1469,31 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
                   </div>
                 )}
 
+                {routeLoadStatus === 'loading' && (
+                  <div role="status" className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-4">
+                    <p className="flex items-center gap-2 text-xs font-black text-blue-200">
+                      <Navigation className="h-4 w-4 animate-pulse" /> Recuperando la ruta…
+                    </p>
+                    <p className="mt-1 text-[10px] leading-relaxed text-slate-500">
+                      Buscamos primero en este dispositivo y después en tu cuenta.
+                    </p>
+                  </div>
+                )}
+
+                {routeLoadStatus === 'missing' && (
+                  <div role="alert" className="rounded-2xl border border-amber-400/25 bg-amber-400/10 p-4">
+                    <p className="flex items-center gap-2 text-xs font-black text-amber-200">
+                      <AlertTriangle className="h-4 w-4" /> No se ha podido recuperar la ruta
+                    </p>
+                    <p className="mt-1 text-[10px] leading-relaxed text-slate-400">
+                      Puede que pertenezca a otra cuenta o que estés sin conexión. Puedes abrirla desde Planifica, importar el GPX o grabar expresamente sin navegación.
+                    </p>
+                    <Link href="/planifica" className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-amber-300 px-4 text-[10px] font-black uppercase text-slate-950">
+                      Abrir Planifica
+                    </Link>
+                  </div>
+                )}
+
                 <div>
                   <h2 className="text-lg font-black">Configura la bici</h2>
                   <p className="mt-1 text-xs text-slate-500">Podrás cambiar estos datos antes de cada salida.</p>
@@ -1514,12 +1596,30 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
                 )}
                 {error && <p role="alert" className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-300">{error}</p>}
 
-                <button onClick={() => start(false)}
-                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 py-4 text-sm font-black uppercase tracking-wider shadow-lg shadow-orange-950/30 hover:bg-orange-400">
-                  <LocateFixed className="h-5 w-5" /> {plannedRoute ? 'Iniciar navegación GPS' : 'Iniciar con GPS'}
+                <button
+                  onClick={() => start(false)}
+                  disabled={routeLoadStatus === 'loading'}
+                  className={`flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-sm font-black uppercase tracking-wider shadow-lg disabled:cursor-wait disabled:opacity-50 ${
+                    routeLoadStatus === 'missing'
+                      ? 'border border-amber-400/30 bg-amber-400/10 text-amber-200'
+                      : 'bg-orange-500 text-white shadow-orange-950/30 hover:bg-orange-400'
+                  }`}
+                >
+                  <LocateFixed className="h-5 w-5" /> {
+                    routeLoadStatus === 'loading'
+                      ? 'Recuperando ruta…'
+                      : plannedRoute
+                        ? 'Iniciar navegación GPS'
+                        : routeLoadStatus === 'missing'
+                          ? 'Grabar sin esa ruta'
+                          : 'Iniciar con GPS'
+                  }
                 </button>
-                <button onClick={() => start(true)}
-                  className="flex min-h-11 w-full scroll-mt-24 scroll-mb-24 items-center justify-center rounded-xl border border-white/10 bg-slate-950/55 px-4 text-xs font-bold text-slate-400 hover:border-orange-500/30 hover:text-slate-200">
+                <button
+                  onClick={() => start(true)}
+                  disabled={routeLoadStatus === 'loading'}
+                  className="flex min-h-11 w-full scroll-mt-24 scroll-mb-24 items-center justify-center rounded-xl border border-white/10 bg-slate-950/55 px-4 text-xs font-bold text-slate-400 hover:border-orange-500/30 hover:text-slate-200 disabled:cursor-wait disabled:opacity-50"
+                >
                   Probar grabación en modo demo
                 </button>
                 <label className="flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-white/15 px-4 py-3 text-xs font-bold text-slate-400 hover:border-orange-500/40 hover:text-orange-300">

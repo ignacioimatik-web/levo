@@ -130,6 +130,7 @@ import {
 } from '../src/lib/activities/durable-storage.ts';
 import { completeRidePointsForSave } from '../src/lib/activities/finalize.ts';
 import { plannedRouteFromSavedRoute } from '../src/lib/navigation/cloud-route.ts';
+import { fetchSavedRoute } from '../src/lib/forfait/save-route.ts';
 import {
   externalGpxFileName,
   isPublicNetworkAddress,
@@ -229,6 +230,45 @@ test('una ruta privada conserva modo y controles al viajar entre dispositivos', 
 
   assert.equal(route.routingMode, 'ebike');
   assert.deepEqual(route.controlPoints, controls);
+});
+
+test('el grabador puede recuperar una ruta concreta de la cuenta en otro dispositivo', async () => {
+  const routeId = 'bd93e7d7-5616-4e8d-8aea-97ace7b19595';
+  const savedRoute = {
+    id: routeId,
+    name: 'Circular e-bike',
+    track_ids: [],
+    distance_km: 18.4,
+    elevation_gain_m: 620,
+    elevation_loss_m: 620,
+    estimated_time_min: 92,
+    difficulty: 'azul',
+    route_points: [
+      { latitude: 40.61, longitude: -0.1, elevation: 900 },
+      { latitude: 40.62, longitude: -0.09, elevation: 940 },
+    ],
+    control_points: [],
+    routing_mode: 'manual',
+    reference: null,
+    warnings: [],
+    created_at: '2026-07-18T10:00:00.000Z',
+    updated_at: '2026-07-19T10:00:00.000Z',
+  };
+  const originalFetch = globalThis.fetch;
+  let requestedUrl = '';
+  globalThis.fetch = async (input) => {
+    requestedUrl = String(input);
+    return new Response(JSON.stringify({ route: savedRoute }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+  try {
+    assert.deepEqual(await fetchSavedRoute(routeId), savedRoute);
+    assert.equal(requestedUrl, `/api/forfait/save-route?id=${routeId}`);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test('rechaza saltos GPS imposibles y puntos con precisión inutilizable', () => {

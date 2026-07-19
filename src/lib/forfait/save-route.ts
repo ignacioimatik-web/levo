@@ -29,11 +29,26 @@ export interface SavedRoutesResponse {
   routes: SavedRouteData[];
 }
 
+export interface SavedRouteResponse {
+  route: SavedRouteData | null;
+}
+
 export async function fetchSavedRoutes(): Promise<SavedRouteData[]> {
   const res = await fetch('/api/forfait/save-route');
   if (!res.ok) return [];
   const data: SavedRoutesResponse = await res.json();
   return data.routes ?? [];
+}
+
+export async function fetchSavedRoute(id: string): Promise<SavedRouteData | null> {
+  try {
+    const res = await fetch(`/api/forfait/save-route?id=${encodeURIComponent(id)}`);
+    if (!res.ok) return null;
+    const data: SavedRouteResponse = await res.json();
+    return data.route ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export async function saveRouteToCloud(params: {

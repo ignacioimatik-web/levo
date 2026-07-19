@@ -1,12 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
     return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+  }
+
+  const id = request.nextUrl.searchParams.get('id');
+  if (id) {
+    const validId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+    if (!validId) {
+      return NextResponse.json({ error: 'El identificador de ruta no es válido.' }, { status: 400 });
+    }
+    const { data, error } = await supabase
+      .from('saved_routes')
+      .select('id, name, track_ids, distance_km, elevation_gain_m, elevation_loss_m, estimated_time_min, difficulty, route_points, control_points, routing_mode, reference, warnings, created_at, updated_at')
+      .eq('user_id', user.id)
+      .eq('id', id)
+      .maybeSingle();
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    return NextResponse.json({ route: data ?? null });
   }
 
   const { data, error } = await supabase
