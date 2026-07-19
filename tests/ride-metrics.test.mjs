@@ -38,6 +38,11 @@ import {
   buildBatteryModel,
   predictBatteryForRoute,
 } from '../src/lib/activities/battery.ts';
+import {
+  batteryLaunchSearchParams,
+  batteryLaunchSettingsFromSearchParams,
+  normalizeBatteryLaunchSettings,
+} from '../src/lib/activities/battery-launch.ts';
 import { parseActivityGpx } from '../src/lib/activities/import-gpx.ts';
 import {
   analyzeActivityTrack,
@@ -475,6 +480,44 @@ test('una lectura real de la bici recalibra la autonomía desde ese punto', () =
   assert.equal(estimate.energyUsedWh, 55);
   assert.equal(estimate.batteryPercent, 54);
   assert.ok(estimate.remainingRangeKm > 34 && estimate.remainingRangeKm < 35);
+});
+
+test('la planificación transmite una configuración e-bike segura al grabador', () => {
+  const query = batteryLaunchSearchParams({
+    sportType: 'ebike',
+    batteryStart: 78,
+    batteryCapacityWh: 750,
+    assistMode: 'smart',
+    batteryReservePercent: 20,
+  });
+  const parsed = batteryLaunchSettingsFromSearchParams(
+    Object.fromEntries(query.entries()),
+  );
+
+  assert.deepEqual(parsed, {
+    sportType: 'ebike',
+    batteryStart: 78,
+    batteryCapacityWh: 750,
+    assistMode: 'smart',
+    batteryReservePercent: 20,
+  });
+});
+
+test('los parámetros manipulados de batería quedan dentro de límites funcionales', () => {
+  assert.deepEqual(normalizeBatteryLaunchSettings({
+    sportType: 'ebike',
+    batteryStart: -20,
+    batteryCapacityWh: 99_999,
+    assistMode: 'turbo',
+    batteryReservePercent: 90,
+  }), {
+    sportType: 'ebike',
+    batteryStart: 1,
+    batteryCapacityWh: 2_000,
+    assistMode: 'turbo',
+    batteryReservePercent: 30,
+  });
+  assert.equal(batteryLaunchSettingsFromSearchParams({}), undefined);
 });
 
 function activity(id, startedAt, sportType, points) {

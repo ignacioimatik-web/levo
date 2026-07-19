@@ -3,8 +3,9 @@
 import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  CloudDownload, CloudSun, Download, Eraser, FileUp, LocateFixed, Navigation,
-  FolderOpen, Link2, Mountain, PenLine, Redo2, Save, Trash2, Undo2, Zap,
+  BatteryCharging, CloudDownload, CloudSun, Download, Eraser, FileUp,
+  LocateFixed, Navigation, FolderOpen, Link2, Mountain, PenLine, Redo2, Save,
+  Trash2, Undo2, Zap,
 } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import RouteRideBriefing, {
@@ -48,6 +49,13 @@ import {
 } from '@/lib/forfait/save-route';
 import type { SavedRouteData } from '@/lib/forfait/save-route';
 import { createClient } from '@/lib/supabase/browser';
+import { buildBatteryModel, predictBatteryForRoute } from '@/lib/activities/battery';
+import {
+  batteryLaunchSearchParams,
+} from '@/lib/activities/battery-launch';
+import { getActivitiesDurable } from '@/lib/activities/storage';
+import { pullActivities } from '@/lib/activities/sync';
+import type { AssistMode, RideActivity } from '@/lib/activities/types';
 
 const UniversalRouteMap = dynamic(() => import('@/components/planner/UniversalRouteMap'), {
   ssr: false,
@@ -193,6 +201,11 @@ export default function UniversalRoutePlanner({
   const [user, setUser] = useState<User | null>(null);
   const [bikeMode, setBikeMode] = useState<RideBriefingMode>('ebike');
   const [briefingView, setBriefingView] = useState<RideBriefingView>('basic');
+  const [batteryHistory, setBatteryHistory] = useState<RideActivity[]>([]);
+  const [batteryStart, setBatteryStart] = useState(100);
+  const [batteryCapacityWh, setBatteryCapacityWh] = useState(700);
+  const [batteryAssistMode, setBatteryAssistMode] = useState<AssistMode>('trail');
+  const [batteryReservePercent, setBatteryReservePercent] = useState(15);
   const [routeLibrary, setRouteLibrary] = useState<RouteLibraryEntry[]>([]);
   const [deleteArmedId, setDeleteArmedId] = useState<string | null>(null);
   const [offlineMapIdentities, setOfflineMapIdentities] = useState<Map<string, OfflineMapIdentity>>(
@@ -205,8 +218,32 @@ export default function UniversalRoutePlanner({
   const [externalImporting, setExternalImporting] = useState(false);
   const [now, setNow] = useState(() => new Date(0));
   const metrics = useMemo(() => routeMetrics(points), [points]);
+  const batteryModel = useMemo(
+    () => buildBatteryModel(batteryHistory, batteryAssistMode),
+    [batteryAssistMode, batteryHistory],
+  );
+  const batteryPrediction = useMemo(() => (
+    analysis?.profile && bikeMode === 'ebike'
+      ? predictBatteryForRoute({
+        model: batteryModel,
+        distanceKm: analysis.profile.distanceKm,
+        elevationGainM: analysis.profile.gainM,
+        batteryStart,
+        capacityWh: batteryCapacityWh,
+        reservePercent: batteryReservePercent,
+      })
+      : null
+  ), [
+    analysis,
+    batteryCapacityWh,
+    batteryModel,
+    batteryReservePercent,
+    batteryStart,
+    bikeMode,
+  ]);
 
   useEffect(() => {
+    let cancelled = false;
     const timer = window.setTimeout(() => {
       setNow(new Date());
       setRouteLibrary(mergeRouteLibrary(getPlannedRoutes()));
@@ -221,13 +258,41 @@ export default function UniversalRoutePlanner({
       });
     }, 0);
     const supabase = createClient();
-    void supabase?.auth.getUser().then(async ({ data }) => {
+    void (async () => {
+      await pullActivities().catch(() => 0);
+      const activities = await getActivitiesDurable();
+      if (cancelled) return;
+      setBatteryHistory(activities);
+      const recentCapacity = activities.find((activity) => (
+        activity.sportType === 'ebike'
+        && activity.batteryCapacityWh != null
+        && activity.batteryCapacityWh > 0
+      ))?.batteryCapacityWh;
+      if (recentCapacity) setBatteryCapacityWh(recentCapacity);
+      if (!supabase) return;
+      const { data } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
+      if (cancelled) return;
       setUser(data.user);
       if (!data.user) return;
-      const cloud = await fetchSavedRoutes();
+      const [cloud, profileResult] = await Promise.all([
+        fetchSavedRoutes(),
+        supabase
+          .from('profiles')
+          .select('battery_capacity_wh,rider_type')
+          .eq('user_id', data.user.id)
+          .maybeSingle(),
+      ]);
+      if (cancelled) return;
       setRouteLibrary(mergeRouteLibrary(getPlannedRoutes(), cloud));
-    });
-    return () => window.clearTimeout(timer);
+      if (profileResult.data?.battery_capacity_wh) {
+        setBatteryCapacityWh(profileResult.data.battery_capacity_wh);
+      }
+      if (profileResult.data?.rider_type === 'mtb') setBikeMode('trail');
+    })();
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
   }, []);
 
   useEffect(() => {
@@ -644,7 +709,15 @@ export default function UniversalRoutePlanner({
   const startNavigation = async () => {
     if (points.length < 2 || navigationStatus === 'preparing') return;
     const route = buildPlannedRoute();
-    const navigationUrl = `/grabar?ruta=${encodeURIComponent(route.id)}`;
+    const navigationParams = batteryLaunchSearchParams({
+      sportType: bikeMode === 'ebike' ? 'ebike' : 'mtb',
+      batteryStart,
+      batteryCapacityWh,
+      assistMode: batteryAssistMode,
+      batteryReservePercent,
+    });
+    navigationParams.set('ruta', route.id);
+    const navigationUrl = `/grabar?${navigationParams.toString()}`;
     if (navigationStatus === 'fallback') {
       window.location.assign(navigationUrl);
       return;
@@ -972,7 +1045,129 @@ export default function UniversalRoutePlanner({
         </div>
 
         {analysis?.ok && (
-          <div className="mt-5">
+          <div className="mt-5 space-y-5">
+            {batteryPrediction && (
+              <section
+                aria-labelledby="route-battery-title"
+                className={`rounded-3xl border p-4 sm:p-5 ${
+                  batteryPrediction.state === 'safe'
+                    ? 'border-emerald-500/25 bg-emerald-500/5'
+                    : batteryPrediction.state === 'tight'
+                      ? 'border-amber-500/30 bg-amber-500/10'
+                      : 'border-red-500/30 bg-red-500/10'
+                }`}
+              >
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p
+                      id="route-battery-title"
+                      className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300"
+                    >
+                      <BatteryCharging className="h-4 w-4" /> Plan de batería e-bike
+                    </p>
+                    <p className="mt-2 text-2xl font-black tabular-nums">
+                      {Math.round(batteryPrediction.arrivalPercent)}% al llegar
+                    </p>
+                    <p className="mt-1 text-xs leading-relaxed text-slate-400">
+                      {batteryPrediction.state === 'safe'
+                        ? `Ruta compatible con tu reserva del ${batteryPrediction.reservePercent}%.`
+                        : batteryPrediction.state === 'tight'
+                          ? `Llegarías con poco margen sobre la reserva del ${batteryPrediction.reservePercent}%.`
+                          : `Faltan aproximadamente ${Math.ceil(Math.abs(batteryPrediction.marginWh))} Wh para conservar tu reserva.`}
+                    </p>
+                  </div>
+                  <div className="grid shrink-0 grid-cols-2 gap-2 text-center sm:min-w-64">
+                    <div className="rounded-xl bg-slate-950/65 p-3">
+                      <p className="text-[8px] font-black uppercase tracking-widest text-slate-500">Consumo</p>
+                      <p className="mt-1 text-lg font-black">{batteryPrediction.adjustedWhPerKm.toFixed(1)} <small className="text-[9px] text-slate-500">Wh/km</small></p>
+                    </div>
+                    <div className="rounded-xl bg-slate-950/65 p-3">
+                      <p className="text-[8px] font-black uppercase tracking-widest text-slate-500">Alcance seguro</p>
+                      <p className="mt-1 text-lg font-black">{batteryPrediction.safeRangeKm.toFixed(0)} <small className="text-[9px] text-slate-500">km</small></p>
+                    </div>
+                  </div>
+                </div>
+
+                <details className="mt-4 rounded-2xl border border-white/10 bg-slate-950/55">
+                  <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 text-xs font-black text-slate-200">
+                    Ajustar batería y asistencia
+                    <span className="text-[9px] font-black uppercase text-slate-500">
+                      {batteryModel.sampleCount > 0
+                        ? `${batteryModel.sampleCount} salidas`
+                        : 'modelo inicial'}
+                    </span>
+                  </summary>
+                  <div className="grid gap-4 border-t border-white/10 p-4 md:grid-cols-2">
+                    <label className="block text-xs font-bold text-slate-300">
+                      Batería al salir: <span className="text-orange-300">{batteryStart}%</span>
+                      <input
+                        type="range"
+                        min="10"
+                        max="100"
+                        step="1"
+                        value={batteryStart}
+                        onChange={(event) => setBatteryStart(Number(event.target.value))}
+                        className="mt-3 h-11 w-full accent-orange-500"
+                      />
+                    </label>
+                    <label className="block text-xs font-bold text-slate-300">
+                      Capacidad
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min="200"
+                        max="2000"
+                        step="10"
+                        value={batteryCapacityWh}
+                        onChange={(event) => setBatteryCapacityWh(
+                          Math.min(2_000, Math.max(200, Number(event.target.value))),
+                        )}
+                        className="mt-2 min-h-11 w-full rounded-xl border border-white/10 bg-slate-950 px-3 text-sm"
+                      />
+                      <span className="mt-1 block text-[9px] font-normal text-slate-500">Wh indicados en tu batería</span>
+                    </label>
+                    <div>
+                      <p className="mb-2 text-xs font-bold text-slate-300">Asistencia prevista</p>
+                      <div className="grid grid-cols-4 gap-2" aria-label="Asistencia prevista">
+                        {(['eco', 'trail', 'turbo', 'smart'] as AssistMode[]).map((mode) => (
+                          <button
+                            type="button"
+                            key={mode}
+                            aria-pressed={batteryAssistMode === mode}
+                            onClick={() => setBatteryAssistMode(mode)}
+                            className={`min-h-11 rounded-xl text-[10px] font-black uppercase ${
+                              batteryAssistMode === mode
+                                ? 'bg-emerald-400 text-slate-950'
+                                : 'border border-white/10 bg-slate-950 text-slate-500'
+                            }`}
+                          >
+                            {mode}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <label className="block text-xs font-bold text-slate-300">
+                      Reserva: <span className="text-orange-300">{batteryReservePercent}%</span>
+                      <input
+                        type="range"
+                        min="5"
+                        max="30"
+                        step="5"
+                        value={batteryReservePercent}
+                        onChange={(event) => setBatteryReservePercent(Number(event.target.value))}
+                        className="mt-3 h-11 w-full accent-orange-500"
+                      />
+                    </label>
+                  </div>
+                </details>
+                <p className="mt-3 text-[9px] leading-relaxed text-slate-500">
+                  {batteryModel.sampleCount > 0
+                    ? `Predicción personal basada en ${batteryModel.distanceKm.toFixed(0)} km registrados en modo ${batteryAssistMode}.`
+                    : `Estimación conservadora inicial para modo ${batteryAssistMode}; se personalizará con lecturas reales al terminar tus salidas.`}
+                  {' '}La configuración viajará al grabador al iniciar la navegación.
+                </p>
+              </section>
+            )}
             <RouteRideBriefing
               data={analysis}
               now={now}
@@ -996,6 +1191,17 @@ export default function UniversalRoutePlanner({
               <p className="mt-1 text-sm font-black tabular-nums text-white">
                 {metrics.distanceKm.toFixed(1)} km
                 <span className="ml-2 text-[10px] text-slate-500">+{Math.round(metrics.gainM)} m</span>
+                {batteryPrediction && (
+                  <span className={`ml-2 text-[10px] ${
+                    batteryPrediction.state === 'safe'
+                      ? 'text-emerald-300'
+                      : batteryPrediction.state === 'tight'
+                        ? 'text-amber-300'
+                        : 'text-red-300'
+                  }`}>
+                    · batería ~{Math.round(batteryPrediction.arrivalPercent)}%
+                  </span>
+                )}
               </p>
             </div>
             <button

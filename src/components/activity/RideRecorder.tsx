@@ -22,6 +22,10 @@ import { completeRidePointsForSave } from '@/lib/activities/finalize';
 import type { RidePointRejection } from '@/lib/activities/geo';
 import { buildBatteryModel, predictBatteryForRoute } from '@/lib/activities/battery';
 import {
+  normalizeBatteryLaunchSettings,
+  type BatteryLaunchSettings,
+} from '@/lib/activities/battery-launch';
+import {
   clearRideDraft, getActivitiesDurable, getRideDraftDurable, saveActivity, saveRideDraft,
 } from '@/lib/activities/storage';
 import { syncActivity } from '@/lib/activities/sync';
@@ -160,10 +164,26 @@ function Metric({ icon: Icon, label, value, unit }: {
   );
 }
 
-export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: string }) {
+export default function RideRecorder({
+  plannedRouteId,
+  initialBatterySettings,
+}: {
+  plannedRouteId?: string;
+  initialBatterySettings?: BatteryLaunchSettings;
+}) {
   const router = useRouter();
   const [status, setStatus] = useState<RecorderStatus>('idle');
-  const [settings, setSettings] = useState<RideSettings>(DEFAULT_SETTINGS);
+  const [settings, setSettings] = useState<RideSettings>(() => {
+    if (!initialBatterySettings) return DEFAULT_SETTINGS;
+    const initial = normalizeBatteryLaunchSettings(initialBatterySettings);
+    return {
+      sportType: initial.sportType,
+      batteryStart: initial.batteryStart,
+      batteryCapacityWh: initial.batteryCapacityWh,
+      assistMode: initial.assistMode,
+      batteryReservePercent: initial.batteryReservePercent,
+    };
+  });
   const [points, setPoints] = useState<RidePoint[]>([]);
   const [durationSeconds, setDurationSeconds] = useState(0);
   const [error, setError] = useState('');
@@ -376,11 +396,11 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
         .select('battery_capacity_wh')
         .eq('user_id', data.user.id)
         .maybeSingle();
-      if (profile?.battery_capacity_wh) {
+      if (profile?.battery_capacity_wh && !initialBatterySettings) {
         setSettings((current) => ({ ...current, batteryCapacityWh: profile.battery_capacity_wh }));
       }
     });
-  }, []);
+  }, [initialBatterySettings]);
 
   useEffect(() => {
     if (status !== 'recording' && status !== 'requesting') return;
@@ -1512,7 +1532,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
                       value={batteryReadingInput}
                       onChange={(event) => setBatteryReadingInput(Number(event.target.value))}
                       aria-label="Porcentaje real de batería"
-                      className="mt-3 w-full accent-emerald-400"
+                      className="mt-3 h-11 w-full accent-emerald-400"
                     />
                     <button
                       type="button"
@@ -1704,7 +1724,10 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
 
                 <div className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-950 p-1.5">
                   {(['ebike', 'mtb'] as SportType[]).map((sport) => (
-                    <button key={sport} onClick={() => setSettings({ ...settings, sportType: sport })}
+                    <button
+                      key={sport}
+                      aria-pressed={settings.sportType === sport}
+                      onClick={() => setSettings({ ...settings, sportType: sport })}
                       className={`flex min-h-11 items-center justify-center gap-2 rounded-xl py-3 text-xs font-black uppercase ${
                         settings.sportType === sport ? 'bg-orange-500 text-white' : 'text-slate-500'
                       }`}>
@@ -1717,23 +1740,35 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
                   <>
                     <label className="block text-xs font-bold text-slate-300">
                       Batería inicial: <span className="text-orange-400">{settings.batteryStart}%</span>
-                      <input type="range" min="10" max="100" step="5" value={settings.batteryStart}
+                      <input type="range" min="10" max="100" step="1" value={settings.batteryStart}
                         onChange={(event) => setSettings({ ...settings, batteryStart: Number(event.target.value) })}
-                        className="mt-3 w-full accent-orange-500" />
+                        className="mt-3 h-11 w-full accent-orange-500" />
                     </label>
                     <label className="block text-xs font-bold text-slate-300">
-                      Capacidad
-                      <select value={settings.batteryCapacityWh}
-                        onChange={(event) => setSettings({ ...settings, batteryCapacityWh: Number(event.target.value) })}
-                        className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-3 text-sm">
-                        {[500, 625, 700, 750, 900].map((capacity) => <option key={capacity} value={capacity}>{capacity} Wh</option>)}
-                      </select>
+                      Capacidad de batería
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min="200"
+                        max="2000"
+                        step="10"
+                        value={settings.batteryCapacityWh}
+                        onChange={(event) => setSettings({
+                          ...settings,
+                          batteryCapacityWh: Math.min(2_000, Math.max(200, Number(event.target.value))),
+                        })}
+                        className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-3 text-sm"
+                      />
+                      <span className="mt-1 block text-[9px] font-normal text-slate-500">Wh indicados en tu batería</span>
                     </label>
                     <div>
                       <p className="mb-2 text-xs font-bold text-slate-300">Asistencia</p>
                       <div className="grid grid-cols-4 gap-2">
                         {(['eco', 'trail', 'turbo', 'smart'] as AssistMode[]).map((mode) => (
-                          <button key={mode} onClick={() => setSettings({ ...settings, assistMode: mode })}
+                          <button
+                            key={mode}
+                            aria-pressed={settings.assistMode === mode}
+                            onClick={() => setSettings({ ...settings, assistMode: mode })}
                             className={`min-h-11 rounded-xl py-2.5 text-[10px] font-black uppercase ${
                               settings.assistMode === mode ? 'bg-white text-slate-950' : 'bg-slate-950 text-slate-500'
                             }`}>{mode}</button>
@@ -1752,7 +1787,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
                           ...settings,
                           batteryReservePercent: Number(event.target.value),
                         })}
-                        className="mt-3 w-full accent-orange-500"
+                        className="mt-3 h-11 w-full accent-orange-500"
                       />
                       <span className="mt-2 block text-[10px] font-normal leading-relaxed text-slate-500">
                         La app avisará si la ruta puede consumir este margen.
@@ -1848,7 +1883,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
                       step="1"
                       value={batteryEnd}
                       onChange={(event) => setBatteryEnd(Number(event.target.value))}
-                      className="mt-3 w-full accent-emerald-400"
+                      className="mt-3 h-11 w-full accent-emerald-400"
                     />
                     <span className="mt-2 block text-[10px] font-normal leading-relaxed text-slate-500">
                       Indica la lectura real de la bici para personalizar consumo y autonomía.
