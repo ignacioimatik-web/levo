@@ -22,10 +22,10 @@ export default function RideControlDock({
   focused?: boolean;
 }) {
   return (
-    <div className={`fixed inset-x-3 mx-auto max-w-md lg:hidden ${
+    <div className={`fixed inset-x-3 mx-auto max-w-md xl:hidden ${
       focused
         ? 'bottom-[max(.75rem,env(safe-area-inset-bottom))] z-[2010]'
-        : 'bottom-20 z-[90] md:bottom-3'
+        : 'bottom-[calc(5rem+env(safe-area-inset-bottom))] z-[90] md:bottom-[max(.75rem,env(safe-area-inset-bottom))]'
     }`}>
       <div className="flex min-h-16 items-center gap-3 rounded-2xl border border-white/15 bg-slate-950/95 p-2.5 shadow-2xl shadow-black/60 backdrop-blur-xl">
         <div className="min-w-0 flex-1 pl-2">

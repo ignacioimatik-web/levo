@@ -1083,7 +1083,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
     <main className={`min-h-screen bg-slate-950 text-white ${
       rideFocused
         ? 'fixed inset-0 z-[2000] overflow-y-auto overscroll-contain pb-24'
-        : 'pb-28 md:pb-16'
+        : 'pb-28 xl:pb-16'
     }`}>
       <div className={`mx-auto max-w-6xl px-4 sm:px-6 ${rideFocused ? 'ride-focus-shell py-3' : 'py-6 md:py-10'}`}>
         <header className={`mb-6 flex items-end justify-between gap-4 ${rideFocused ? 'ride-focus-header' : ''}`}>
@@ -1140,7 +1140,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
           </div>
         )}
 
-        <div className={`grid gap-5 lg:grid-cols-[1.15fr_.85fr] ${rideFocused ? 'ride-focus-grid' : ''}`}>
+        <div className={`grid gap-5 xl:grid-cols-[1.15fr_.85fr] ${rideFocused ? 'ride-focus-grid' : ''}`}>
           <section className="space-y-5">
             <RideNavigationMap
               points={points}
