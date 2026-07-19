@@ -129,6 +129,7 @@ import {
   mergeRideDraftVersions,
 } from '../src/lib/activities/durable-storage.ts';
 import { completeRidePointsForSave } from '../src/lib/activities/finalize.ts';
+import { plannedRouteFromSavedRoute } from '../src/lib/navigation/cloud-route.ts';
 import {
   externalGpxFileName,
   isPublicNetworkAddress,
@@ -201,6 +202,33 @@ test('el guardado incorpora una última posición GPS aceptada sin duplicarla', 
   assert.deepEqual(completeRidePointsForSave([first], final), [first, final]);
   assert.deepEqual(completeRidePointsForSave([first, final], final), [first, final]);
   assert.deepEqual(completeRidePointsForSave([first, final], first), [first, final]);
+});
+
+test('una ruta privada conserva modo y controles al viajar entre dispositivos', () => {
+  const controls = [
+    { latitude: 40.6, longitude: -0.1, elevation: 900 },
+    { latitude: 40.61, longitude: -0.09, elevation: 960 },
+  ];
+  const route = plannedRouteFromSavedRoute({
+    id: '11111111-1111-4111-8111-111111111111',
+    name: 'Ruta e-bike editable',
+    track_ids: [],
+    distance_km: 4.2,
+    elevation_gain_m: 120,
+    elevation_loss_m: 90,
+    estimated_time_min: 24,
+    difficulty: 'azul',
+    route_points: controls,
+    control_points: controls,
+    routing_mode: 'ebike',
+    reference: null,
+    warnings: [],
+    created_at: '2026-07-19T00:00:00.000Z',
+    updated_at: '2026-07-19T00:00:00.000Z',
+  });
+
+  assert.equal(route.routingMode, 'ebike');
+  assert.deepEqual(route.controlPoints, controls);
 });
 
 test('rechaza saltos GPS imposibles y puntos con precisión inutilizable', () => {

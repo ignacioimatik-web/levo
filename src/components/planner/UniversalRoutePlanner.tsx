@@ -18,6 +18,7 @@ import {
 import type {
   PlannedRoute, PlannedRoutePoint, RoutePlanningMode,
 } from '@/lib/navigation/types';
+import { plannedRouteFromSavedRoute } from '@/lib/navigation/cloud-route';
 import {
   routerProfileForMode,
   type RoutedPath,
@@ -60,26 +61,16 @@ type RouteLibraryEntry = {
 
 type OfflineMapIdentity = Pick<OfflineMapPackage, 'version' | 'routeFingerprint'>;
 
-function cloudRoute(saved: SavedRouteData): PlannedRoute {
-  return {
-    id: saved.id,
-    name: saved.name,
-    trackIds: saved.track_ids,
-    distanceKm: saved.distance_km,
-    elevationGainM: saved.elevation_gain_m,
-    estimatedTimeMin: saved.estimated_time_min,
-    difficulty: saved.difficulty,
-    warnings: saved.warnings ?? [],
-    points: saved.route_points ?? [],
-    createdAt: saved.created_at,
-  };
-}
-
 function mergeRouteLibrary(local: PlannedRoute[], cloud: SavedRouteData[] = []): RouteLibraryEntry[] {
   const routes = new Map<string, RouteLibraryEntry>(
     local.map((route) => [route.id, { route, cloud: false }]),
   );
-  for (const saved of cloud) routes.set(saved.id, { route: cloudRoute(saved), cloud: true });
+  for (const saved of cloud) {
+    routes.set(saved.id, {
+      route: plannedRouteFromSavedRoute(saved, routes.get(saved.id)?.route),
+      cloud: true,
+    });
+  }
   return [...routes.values()].sort((a, b) => (
     Date.parse(b.route.createdAt) - Date.parse(a.route.createdAt)
   ));
@@ -506,6 +497,9 @@ export default function UniversalRoutePlanner({
       estimated_time_min: route.estimatedTimeMin,
       difficulty: 'azul',
       route_points: route.points,
+      control_points: route.controlPoints,
+      routing_mode: route.routingMode,
+      reference: route.reference ?? null,
       warnings: route.warnings,
     });
     setSaveStatus(result.error

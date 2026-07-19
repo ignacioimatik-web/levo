@@ -1,3 +1,7 @@
+import type {
+  PlannedRoutePoint, RoutePlanningMode,
+} from '@/lib/navigation/types';
+
 export interface SavedRouteData {
   id: string;
   name: string;
@@ -7,7 +11,15 @@ export interface SavedRouteData {
   elevation_loss_m: number;
   estimated_time_min: number;
   difficulty: string;
-  route_points: Array<{ latitude: number; longitude: number; elevation: number | null }>;
+  route_points: PlannedRoutePoint[];
+  control_points: PlannedRoutePoint[];
+  routing_mode: RoutePlanningMode;
+  reference: {
+    activityId: string;
+    title: string;
+    durationSeconds: number;
+    startedAt: string;
+  } | null;
   warnings: string[];
   created_at: string;
   updated_at: string;
@@ -33,7 +45,10 @@ export async function saveRouteToCloud(params: {
   elevation_loss_m: number;
   estimated_time_min: number;
   difficulty: string;
-  route_points: Array<{ latitude: number; longitude: number; elevation: number | null }>;
+  route_points: PlannedRoutePoint[];
+  control_points?: PlannedRoutePoint[];
+  routing_mode?: RoutePlanningMode;
+  reference?: SavedRouteData['reference'];
   warnings: string[];
 }): Promise<{ route?: SavedRouteData; error?: string }> {
   const res = await fetch('/api/forfait/save-route', {
