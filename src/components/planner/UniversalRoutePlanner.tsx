@@ -712,8 +712,18 @@ export default function UniversalRoutePlanner({
     URL.revokeObjectURL(url);
   };
 
+  const navigationLabel = navigationStatus === 'preparing'
+    ? 'Preparando…'
+    : navigationStatus === 'fallback'
+      ? 'Navegar solo con track'
+      : offlineStatus === 'ready'
+        ? 'Navegar offline'
+        : 'Preparar y navegar';
+
   return (
-    <main className="min-h-screen bg-slate-950 pb-28 text-white md:pb-16">
+    <main className={`min-h-screen bg-slate-950 text-white ${
+      points.length >= 2 ? 'pb-44 md:pb-24 xl:pb-16' : 'pb-28 md:pb-16'
+    }`}>
       <div className="mx-auto max-w-[1500px] px-4 py-6 sm:px-6 lg:py-8">
         <header className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
@@ -895,13 +905,7 @@ export default function UniversalRoutePlanner({
                 disabled={points.length < 2 || navigationStatus === 'preparing'}
                 className="flex min-h-12 items-center justify-center gap-1.5 rounded-xl bg-emerald-500 text-[10px] font-black uppercase text-slate-950 disabled:opacity-30">
                 <Navigation className="h-4 w-4" />
-                {navigationStatus === 'preparing'
-                  ? 'Preparando…'
-                  : navigationStatus === 'fallback'
-                    ? 'Navegar solo con track'
-                    : offlineStatus === 'ready'
-                      ? 'Navegar offline'
-                      : 'Preparar y navegar'}
+                {navigationLabel}
               </button>
             </div>
             {saveStatus && (
@@ -981,6 +985,31 @@ export default function UniversalRoutePlanner({
           </div>
         )}
       </div>
+
+      {points.length >= 2 && (
+        <div className="fixed inset-x-3 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-[1800] mx-auto max-w-md md:bottom-[max(.75rem,env(safe-area-inset-bottom))] xl:hidden">
+          <div className="flex min-h-16 items-center gap-3 rounded-2xl border border-white/15 bg-slate-950/95 p-2.5 shadow-2xl shadow-black/60 backdrop-blur-xl">
+            <div className="min-w-0 flex-1 pl-2">
+              <p className="truncate text-[9px] font-black uppercase tracking-widest text-slate-500">
+                {name.trim() || 'Mi ruta'}
+              </p>
+              <p className="mt-1 text-sm font-black tabular-nums text-white">
+                {metrics.distanceKm.toFixed(1)} km
+                <span className="ml-2 text-[10px] text-slate-500">+{Math.round(metrics.gainM)} m</span>
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => { void startNavigation(); }}
+              disabled={navigationStatus === 'preparing'}
+              className="flex min-h-12 max-w-[58%] touch-manipulation items-center justify-center gap-2 rounded-xl bg-emerald-400 px-4 text-[10px] font-black uppercase leading-tight text-slate-950 shadow-lg shadow-emerald-950/30 active:scale-[.98] disabled:cursor-wait disabled:opacity-50"
+            >
+              <Navigation className="h-4 w-4 shrink-0" />
+              {navigationLabel}
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
