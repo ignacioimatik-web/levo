@@ -176,7 +176,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
       con_precaucion: result.filter(r => r.tipo === 'con_precaucion').map(r => r.track.id),
       no_recomendado: result.filter(r => r.tipo === 'no_recomendado').map(r => r.track.id),
     };
-  }, [selectedTrackIds, filteredTracks, conexiones, nivelUsuario]);
+  }, [selectedTrackIds, filteredTracks, conexiones, nivelUsuario, tracks]);
 
   const handleTrackClick = useCallback((track: TrackMTB) => {
     setSelectedTrackId(track.id);
@@ -425,15 +425,20 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
           <div className="flex items-center justify-between gap-1">
             <span className={`text-[11px] font-bold truncate leading-tight ${isClosed ? 'text-slate-500' : 'text-white'}`}>{track.nombre}</span>
             <button
-              onClick={e => { e.stopPropagation(); isInRoute ? removeFromRoute(track.id) : addToRoute(track.id); }}
+              type="button"
+              onClick={e => {
+                e.stopPropagation();
+                if (isInRoute) removeFromRoute(track.id);
+                else addToRoute(track.id);
+              }}
               aria-label={isInRoute ? `Quitar ${track.nombre} de la ruta` : `Añadir ${track.nombre} a la ruta`}
-              className={`flex-shrink-0 p-0.5 rounded-lg transition-colors ${
+              className={`flex min-h-11 min-w-11 flex-shrink-0 touch-manipulation items-center justify-center rounded-lg transition-colors ${
                 isInRoute
                   ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30'
                   : 'bg-slate-800 text-slate-500 hover:bg-orange-500/20 hover:text-orange-400'
               } ${isClosed ? 'opacity-40' : ''}`}
             >
-              {isInRoute ? <Trash2 className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+              {isInRoute ? <Trash2 className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
             </button>
           </div>
           <div className="text-[9px] text-slate-500 leading-tight">
