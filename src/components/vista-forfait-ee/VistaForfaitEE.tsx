@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { Map as MapboxMap, Source, Layer, Popup } from 'react-map-gl/mapbox';
+import { Map as MapboxMap, Source, Layer } from 'react-map-gl/mapbox';
 import type { MapRef, MapMouseEvent } from 'react-map-gl/mapbox';
 import type { LineLayerSpecification } from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -62,30 +62,6 @@ function computeBounds(tracks: TrackMTB[]): Bounds {
   const padLat = (maxLat - minLat) * 0.15 || 0.01;
   const padLng = (maxLng - minLng) * 0.15 || 0.01;
   return { minLat: minLat - padLat, maxLat: maxLat + padLat, minLng: minLng - padLng, maxLng: maxLng + padLng };
-}
-
-function inclineAtPoint(points: TrackPoint[], idx: number): { inclinePct: number; gainM: number; lossM: number } {
-  let gain = 0, loss = 0;
-  for (let i = 1; i <= idx; i++) {
-    const d = (points[i].elevation ?? 0) - (points[i - 1].elevation ?? 0);
-    if (d > 1) gain += d;
-    if (d < -1) loss += Math.abs(d);
-  }
-  const distKm = idx > 0 ? points.slice(0, idx + 1).reduce((sum, p, i) => {
-    if (i === 0) return 0;
-    const prev = points[i - 1];
-    return sum + haversineKm(prev.lat, prev.lng, p.lat, p.lng);
-  }, 0) : 0;
-  const inclinePct = distKm > 0 ? (gain / (distKm * 1000)) * 100 : 0;
-  return { inclinePct, gainM: gain, lossM: loss };
-}
-
-function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLng = (lng2 - lng1) * Math.PI / 180;
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 /* ── Elevation profile mini SVG ── */
@@ -189,8 +165,6 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
   const [expandedTrackId, setExpandedTrackId] = useState<string | null>(null);
   const [pitch, setPitch] = useState(60);
   const [bearing, setBearing] = useState(0);
-  const [zoom, setZoom] = useState(15.3);
-  const [viewState, setViewState] = useState({ latitude: 40.6, longitude: -0.02, zoom: 15.3, pitch: 60, bearing: 0 });
   const mapRef = useRef<MapRef>(null);
   const [mapReady, setMapReady] = useState(false);
   const [cameraView, setCameraView] = useState<CameraView | null>(null);
@@ -233,13 +207,15 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
   /* ── Weather fetch on sector change (AEMET → Open-Meteo fallback) ── */
   useEffect(() => {
     if (!mapReady || !sectorBounds) return;
+    const controller = new AbortController();
+    let active = true;
     const resetFrame = requestAnimationFrame(() => setWeatherData(null));
     const lat = sectorCenter.latitude.toFixed(4);
     const lng = sectorCenter.longitude.toFixed(4);
-    fetch(`/api/forfait/weather?lat=${lat}&lng=${lng}`)
+    fetch(`/api/forfait/weather?lat=${lat}&lng=${lng}`, { signal: controller.signal })
       .then(r => r.json())
       .then(d => {
-        if (d && !d.error) setWeatherData({
+        if (active && d && !d.error) setWeatherData({
           temperatureC: d.temperatureC,
           windKmh: d.windKmh,
           stationName: d.stationName,
@@ -247,10 +223,12 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
         });
       })
       .catch(() => {});
-    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,wind_speed_10m,relative_humidity_2m`)
+    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,wind_speed_10m,relative_humidity_2m`, {
+      signal: controller.signal,
+    })
       .then(r => r.json())
       .then(d => {
-        if (d?.current) {
+        if (active && d?.current) {
           setWeatherData(prev => ({
             temperatureC: prev?.temperatureC ?? d.current.temperature_2m,
             windKmh: prev?.windKmh ?? d.current.wind_speed_10m,
@@ -260,7 +238,11 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
         }
       })
       .catch(() => {});
-    return () => cancelAnimationFrame(resetFrame);
+    return () => {
+      active = false;
+      controller.abort();
+      cancelAnimationFrame(resetFrame);
+    };
   }, [sectorBounds, sectorCenter, mapReady]);
 
   /* ── Sendas ── */
@@ -317,7 +299,7 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
         zoom: 15.3, pitch: 60, bearing: 0, duration: 1500,
       });
     }
-  }, [sectorBounds, mapReady]);
+  }, [sectorBounds, sectorCenter.latitude, sectorCenter.longitude, mapReady]);
 
   /* ── Restore saved senda views ── */
   useEffect(() => {
@@ -347,14 +329,6 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
     setActiveSendaId(senda.id);
     setExpandedTrackId(senda.trackId);
     setActiveTrackId(senda.trackId);
-  }, []);
-
-  /* ── Preset fly ── */
-  const flyPreset = useCallback((z: number, p: number, b: number) => {
-    if (!mapRef.current) return;
-    const c = mapRef.current.getCenter();
-    mapRef.current.flyTo({ center: c, zoom: z, pitch: p, bearing: b, duration: 1000 });
-    setPitch(p); setBearing(b); setZoom(z);
   }, []);
 
   /* ── Camera view tracking ── */
@@ -555,8 +529,6 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
           onError={resilientStyle.handleMapError}
           initialViewState={{ latitude: sectorCenter.latitude, longitude: sectorCenter.longitude, zoom: 15.3, pitch: 60, bearing: 0 }}
           onMove={e => {
-            setViewState(e.viewState);
-            setZoom(e.viewState.zoom);
             setPitch(e.viewState.pitch);
             setBearing(e.viewState.bearing);
           }}
