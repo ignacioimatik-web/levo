@@ -263,10 +263,12 @@ Las migraciones usan permisos explícitos para `anon` y `authenticated`, con RLS
 en todas las tablas expuestas. `npm test` también comprueba que el historial
 local coincide con el aplicado en producción para evitar deriva de esquema.
 
-La comprobación de producción usa una ruta corta en Morella y falla de forma
-explícita si BRouter no devuelve un camino plausible, si no hay muestras
-meteorológicas o si el cálculo solar no es válido. Para probar otro despliegue,
-se puede indicar `LEVO_BASE_URL`.
+La comprobación de producción valida primero que email y Google estén activos,
+que Apple permanezca fuera de esta beta y que Google OAuth genere un flujo PKCE
+con retorno al callback de Supabase. Después usa una ruta corta en Morella y
+falla de forma explícita si BRouter no devuelve un camino plausible, si no hay
+muestras meteorológicas o si el cálculo solar no es válido. Para probar otro
+despliegue, se puede indicar `LEVO_BASE_URL`.
 
 ---
 
