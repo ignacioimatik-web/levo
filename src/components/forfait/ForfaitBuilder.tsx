@@ -41,6 +41,13 @@ const ESTADO_BADGE: Record<string, string> = {
   precaucion: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30',
   revision: 'bg-orange-500/10 text-orange-400 border-orange-500/30',
 };
+const RIDER_LEVEL_OPTIONS: Array<{ value: NivelUsuario; label: string }> = [
+  { value: 'iniciacion', label: 'Iniciación' },
+  { value: 'medio', label: 'Nivel medio' },
+  { value: 'avanzado', label: 'Avanzado' },
+  { value: 'experto', label: 'Experto' },
+  { value: 'ebike', label: 'E-bike' },
+];
 
 const STORAGE_KEY = 'forfait-builder-route';
 
@@ -64,6 +71,34 @@ function saveRoute(trackIds: string[], routeName: string) {
 
 function clearSavedRoute() {
   try { localStorage.removeItem(STORAGE_KEY); } catch { /* empty */ }
+}
+
+function RiderLevelSelect({
+  value,
+  onChange,
+}: {
+  value: NivelUsuario;
+  onChange: (value: NivelUsuario) => void;
+}) {
+  return (
+    <label className="flex min-h-11 flex-1 items-center gap-2 rounded-lg border border-white/5 bg-slate-900 px-2.5">
+      <span className="shrink-0 text-[8px] font-black uppercase tracking-wider text-slate-500">
+        Tu nivel
+      </span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value as NivelUsuario)}
+        className="min-h-11 min-w-0 flex-1 bg-transparent text-[10px] font-bold text-white outline-none"
+        aria-label="Nivel para las recomendaciones de tracks"
+      >
+        {RIDER_LEVEL_OPTIONS.map((option) => (
+          <option key={option.value} value={option.value} className="bg-slate-900">
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
 }
 
 export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
@@ -777,14 +812,14 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
                       placeholder="Buscar track..."
                       value={filters.busqueda}
                       onChange={e => setFilters(f => ({ ...f, busqueda: e.target.value }))}
-                      className="w-full bg-slate-900 border border-white/5 rounded-lg pl-7 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-orange-500/40"
+                      className="min-h-11 w-full rounded-lg border border-white/5 bg-slate-900 pl-7 pr-3 text-xs text-white placeholder-slate-500 focus:border-orange-500/40 focus:outline-none"
                     />
                   </div>
 
                   <div className="flex flex-wrap gap-1">
                     <button
                       onClick={() => setFilters(f => ({ ...f, soloAbiertos: !f.soloAbiertos }))}
-                      className={`px-2 py-1 rounded text-[9px] font-bold transition-colors ${
+                      className={`min-h-11 touch-manipulation rounded px-3 text-[9px] font-bold transition-colors ${
                         filters.soloAbiertos ? 'bg-green-500/20 text-green-400 border border-green-500/40' : 'bg-slate-800/50 text-slate-500 border border-white/5'
                       }`}
                     >
@@ -792,7 +827,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
                     </button>
                     <button
                       onClick={() => setFilters(f => ({ ...f, soloEbike: !f.soloEbike }))}
-                      className={`px-2 py-1 rounded text-[9px] font-bold transition-colors ${
+                      className={`min-h-11 touch-manipulation rounded px-3 text-[9px] font-bold transition-colors ${
                         filters.soloEbike ? 'bg-orange-500/20 text-orange-400 border border-orange-500/40' : 'bg-slate-800/50 text-slate-500 border border-white/5'
                       }`}
                     >
@@ -809,7 +844,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
                             : [...f.dificultad, e.target.value as DificultadMTB],
                         }));
                       }}
-                      className="px-2 py-1 rounded text-[9px] font-bold bg-slate-800/50 text-slate-400 border border-white/5"
+                      className="min-h-11 rounded border border-white/5 bg-slate-800/50 px-3 text-[9px] font-bold text-slate-400"
                     >
                       <option value="">Dificultad</option>
                       <option value="verde">Verde</option>
@@ -818,6 +853,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
                       <option value="negro">Negro</option>
                       <option value="doble-negro">Doble negro</option>
                     </select>
+                    <RiderLevelSelect value={nivelUsuario} onChange={setNivelUsuario} />
                   </div>
                 </div>
               )}
@@ -1004,13 +1040,13 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
                   placeholder="Buscar track..."
                   value={filters.busqueda}
                   onChange={e => setFilters(f => ({ ...f, busqueda: e.target.value }))}
-                  className="w-full bg-slate-900 border border-white/5 rounded-lg pl-7 pr-3 py-1.5 text-[11px] text-white placeholder-slate-500 focus:outline-none focus:border-orange-500/40"
+                  className="min-h-11 w-full rounded-lg border border-white/5 bg-slate-900 pl-7 pr-3 text-[11px] text-white placeholder-slate-500 focus:border-orange-500/40 focus:outline-none"
                 />
               </div>
               <div className="flex flex-wrap gap-1">
                 <button
                   onClick={() => setFilters(f => ({ ...f, soloAbiertos: !f.soloAbiertos }))}
-                  className={`px-2 py-1 rounded text-[8px] font-bold transition-colors ${
+                  className={`min-h-11 touch-manipulation rounded px-3 text-[8px] font-bold transition-colors ${
                     filters.soloAbiertos ? 'bg-green-500/20 text-green-400 border border-green-500/40' : 'bg-slate-800/50 text-slate-500 border border-white/5'
                   }`}
                 >
@@ -1018,7 +1054,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
                 </button>
                 <button
                   onClick={() => setFilters(f => ({ ...f, soloEbike: !f.soloEbike }))}
-                  className={`px-2 py-1 rounded text-[8px] font-bold transition-colors ${
+                  className={`min-h-11 touch-manipulation rounded px-3 text-[8px] font-bold transition-colors ${
                     filters.soloEbike ? 'bg-orange-500/20 text-orange-400 border border-orange-500/40' : 'bg-slate-800/50 text-slate-500 border border-white/5'
                   }`}
                 >
@@ -1035,7 +1071,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
                         : [...f.dificultad, e.target.value as DificultadMTB],
                     }));
                   }}
-                  className="px-2 py-1 rounded text-[8px] font-bold bg-slate-800/50 text-slate-400 border border-white/5"
+                  className="min-h-11 rounded border border-white/5 bg-slate-800/50 px-3 text-[8px] font-bold text-slate-400"
                 >
                   <option value="">Dificultad</option>
                   <option value="verde">Verde</option>
@@ -1044,6 +1080,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
                   <option value="negro">Negro</option>
                   <option value="doble-negro">Doble negro</option>
                 </select>
+                <RiderLevelSelect value={nivelUsuario} onChange={setNivelUsuario} />
               </div>
             </div>
             <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-0.5">

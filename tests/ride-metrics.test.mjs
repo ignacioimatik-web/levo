@@ -101,6 +101,7 @@ import {
   normalizeBRouterResponse,
   routerProfileForMode,
 } from '../src/lib/navigation/routing.ts';
+import { sugerirSiguientesTracks } from '../src/lib/forfait/geo-utils.ts';
 import {
   matchCompetitiveSegments,
   personalSegmentBests,
@@ -1875,4 +1876,52 @@ test('la pantalla de acceso refleja los proveedores realmente activados', () => 
     email: false,
     google: false,
   });
+});
+
+test('el Forfait adapta las recomendaciones al nivel real del rider', () => {
+  const current = {
+    id: 'inicio',
+    dificultad: 'azul',
+    estado: 'abierto',
+    aptoEbike: true,
+  };
+  const redTrail = {
+    id: 'roja',
+    dificultad: 'rojo',
+    estado: 'abierto',
+    aptoEbike: false,
+  };
+  const connection = {
+    id: 'inicio-roja',
+    fromTrackId: current.id,
+    toTrackId: redTrail.id,
+    distanciaMetros: 10,
+    recomendado: true,
+  };
+
+  const initiation = sugerirSiguientesTracks(
+    current,
+    [current, redTrail],
+    [connection],
+    'iniciacion',
+    [current.id],
+  );
+  const advanced = sugerirSiguientesTracks(
+    current,
+    [current, redTrail],
+    [connection],
+    'avanzado',
+    [current.id],
+  );
+  const ebike = sugerirSiguientesTracks(
+    current,
+    [current, redTrail],
+    [connection],
+    'ebike',
+    [current.id],
+  );
+
+  assert.equal(initiation[0]?.tipo, 'no_recomendado');
+  assert.equal(advanced[0]?.tipo, 'recomendado');
+  assert.equal(ebike[0]?.tipo, 'con_precaucion');
 });
