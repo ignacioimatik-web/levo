@@ -130,6 +130,7 @@ export function estimateBattery(
   capacityWh: number,
   assistMode: string,
   customWhPerKm?: number,
+  calibration?: { percent: number; distanceM: number } | null,
 ): { batteryPercent: number; energyUsedWh: number; remainingRangeKm: number } {
   const consumption: Record<string, number> = {
     eco: 7,
@@ -140,12 +141,15 @@ export function estimateBattery(
   const whPerKm = customWhPerKm != null && customWhPerKm > 0
     ? customWhPerKm
     : consumption[assistMode] ?? 10;
-  const energyUsedWh = distanceM / 1000 * whPerKm;
-  const initialWh = capacityWh * batteryStart / 100;
+  const normalizedCapacityWh = Math.max(1, capacityWh);
+  const readingPercent = Math.min(100, Math.max(0, calibration?.percent ?? batteryStart));
+  const distanceSinceReadingM = Math.max(0, distanceM - (calibration?.distanceM ?? 0));
+  const energyUsedWh = distanceSinceReadingM / 1000 * whPerKm;
+  const initialWh = normalizedCapacityWh * readingPercent / 100;
   const remainingWh = Math.max(0, initialWh - energyUsedWh);
 
   return {
-    batteryPercent: Math.round(remainingWh / capacityWh * 100),
+    batteryPercent: Math.round(remainingWh / normalizedCapacityWh * 100),
     energyUsedWh,
     remainingRangeKm: remainingWh / whPerKm,
   };

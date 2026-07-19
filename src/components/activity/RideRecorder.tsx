@@ -26,7 +26,7 @@ import {
 } from '@/lib/activities/storage';
 import { syncActivity } from '@/lib/activities/sync';
 import type {
-  AssistMode, RideActivity, RideDraft, RidePoint, RideSettings, SportType,
+  AssistMode, BatteryCalibration, RideActivity, RideDraft, RidePoint, RideSettings, SportType,
   RideWeatherSample,
 } from '@/lib/activities/types';
 import {
@@ -71,7 +71,12 @@ const DEFAULT_SETTINGS: RideSettings = {
   batteryStart: 100,
   batteryCapacityWh: 700,
   assistMode: 'trail',
+  batteryReservePercent: 15,
 };
+
+function normalizeBatteryReserve(value: number | undefined): number {
+  return Math.min(30, Math.max(5, value ?? 15));
+}
 
 function subscribeRideDisplayMode(onStoreChange: () => void): () => void {
   const notifyFromStorage = (event: StorageEvent) => {
@@ -164,6 +169,9 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
   const [error, setError] = useState('');
   const [title, setTitle] = useState('');
   const [batteryEnd, setBatteryEnd] = useState(100);
+  const [batteryCalibration, setBatteryCalibration] = useState<BatteryCalibration | null>(null);
+  const [batteryReadingInput, setBatteryReadingInput] = useState(100);
+  const [batteryPanelOpen, setBatteryPanelOpen] = useState(false);
   const [liveSession, setLiveSession] = useState<{ id: string; shareToken: string } | null>(null);
   const [liveStatus, setLiveStatus] = useState<'idle' | 'starting' | 'active' | 'error'>('idle');
   const [liveError, setLiveError] = useState('');
@@ -217,6 +225,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
   const lastGpsRestartAtRef = useRef(0);
   const gpsWatchStartedAtRef = useRef(0);
   const lastAnnouncedSplitRef = useRef(0);
+  const lastBatteryAlertStateRef = useRef<'safe' | 'tight' | 'insufficient'>('safe');
   const saveInProgressRef = useRef(false);
   const routeLoadRequestRef = useRef(0);
 
@@ -418,8 +427,9 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
       plannedRouteId: plannedRoute?.id,
       navigationCompletedM: navigationFloorM,
       weatherSamples,
+      batteryCalibration,
     }, forceDurable);
-  }, [durationSeconds, liveSession, navigationFloorM, plannedRoute?.id, points, settings, status, weatherSamples]);
+  }, [batteryCalibration, durationSeconds, liveSession, navigationFloorM, plannedRoute?.id, points, settings, status, weatherSamples]);
 
   useEffect(() => {
     persistCurrentDraft();
@@ -473,7 +483,8 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
     settings.batteryCapacityWh,
     settings.assistMode,
     batteryModel.conservativeWhPerKm,
-  ), [batteryModel.conservativeWhPerKm, metrics.distanceM, settings]);
+    batteryCalibration,
+  ), [batteryCalibration, batteryModel.conservativeWhPerKm, metrics.distanceM, settings]);
   const plannedBattery = useMemo(() => (
     plannedRoute && settings.sportType === 'ebike'
       ? predictBatteryForRoute({
@@ -482,6 +493,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
         elevationGainM: plannedRoute.elevationGainM,
         batteryStart: settings.batteryStart,
         capacityWh: settings.batteryCapacityWh,
+        reservePercent: normalizeBatteryReserve(settings.batteryReservePercent),
       })
       : null
   ), [batteryModel, plannedRoute, settings]);
@@ -547,6 +559,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
         elevationGainM: navigation.remainingGainM,
         batteryStart: battery.batteryPercent,
         capacityWh: settings.batteryCapacityWh,
+        reservePercent: normalizeBatteryReserve(settings.batteryReservePercent),
       })
       : null
   ), [battery.batteryPercent, batteryModel, navigation, securedNavigation.remainingM, settings]);
@@ -576,6 +589,30 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
   }, [gpsAccuracy, gpsRejection, gpsSignalAgeSeconds, status]);
 
   const completedSplitIndex = liveSplit.lastCompleted?.index ?? 0;
+
+  useEffect(() => {
+    if (status !== 'recording' || !remainingBattery) return;
+    const rank = { safe: 0, tight: 1, insufficient: 2 } as const;
+    if (rank[remainingBattery.state] <= rank[lastBatteryAlertStateRef.current]) {
+      if (remainingBattery.state === 'safe') lastBatteryAlertStateRef.current = 'safe';
+      return;
+    }
+    lastBatteryAlertStateRef.current = remainingBattery.state;
+    navigator.vibrate?.(
+      remainingBattery.state === 'insufficient'
+        ? [240, 100, 240, 100, 240]
+        : [160, 90, 160],
+    );
+    if (!voiceGuidance || !('speechSynthesis' in window)) return;
+    const message = remainingBattery.state === 'insufficient'
+      ? `Batería insuficiente para mantener el ${remainingBattery.reservePercent} por ciento de reserva.`
+      : `Aviso. La batería llegará justa, aproximadamente al ${Math.round(remainingBattery.arrivalPercent)} por ciento.`;
+    const utterance = new SpeechSynthesisUtterance(message);
+    utterance.lang = 'es-ES';
+    utterance.rate = 1.05;
+    window.speechSynthesis.speak(utterance);
+  }, [remainingBattery, status, voiceGuidance]);
+
   useEffect(() => {
     if (status !== 'recording' || completedSplitIndex <= lastAnnouncedSplitRef.current) return;
     lastAnnouncedSplitRef.current = completedSplitIndex;
@@ -802,6 +839,9 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
     setError('');
     setTitle('');
     setBatteryEnd(settings.batteryStart);
+    setBatteryCalibration(null);
+    setBatteryReadingInput(settings.batteryStart);
+    setBatteryPanelOpen(false);
     setLiveSession(null);
     setLiveStatus('idle');
     setLiveError('');
@@ -820,6 +860,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
     setSaveError('');
     saveInProgressRef.current = false;
     lastAnnouncedSplitRef.current = 0;
+    lastBatteryAlertStateRef.current = 'safe';
     lastAcceptedPointRef.current = null;
     startedAtRef.current = Date.now();
     draftIdRef.current = crypto.randomUUID();
@@ -990,7 +1031,19 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
     isDemoRef.current = recoverableDraft.isDemo;
     setDemoRide(recoverableDraft.isDemo);
     demoIndexRef.current = recoverableDraft.points.length;
-    setSettings(recoverableDraft.settings);
+    const recoveredSettings = {
+      ...DEFAULT_SETTINGS,
+      ...recoverableDraft.settings,
+      batteryReservePercent: normalizeBatteryReserve(
+        recoverableDraft.settings.batteryReservePercent,
+      ),
+    };
+    setSettings(recoveredSettings);
+    setBatteryCalibration(recoverableDraft.batteryCalibration ?? null);
+    setBatteryReadingInput(
+      recoverableDraft.batteryCalibration?.percent ?? recoveredSettings.batteryStart,
+    );
+    setBatteryPanelOpen(false);
     setPoints(recoverableDraft.points);
     lastAcceptedPointRef.current = recoverableDraft.points.at(-1) ?? null;
     setDurationSeconds(recoverableDraft.durationSeconds);
@@ -1134,6 +1187,30 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
   const changeDisplayMode = (mode: RideDisplayMode) => {
     window.localStorage.setItem(RIDE_DISPLAY_MODE_STORAGE_KEY, mode);
     window.dispatchEvent(new Event(RIDE_DISPLAY_MODE_EVENT));
+  };
+
+  const confirmBatteryReading = () => {
+    const percent = Math.min(100, Math.max(0, batteryReadingInput));
+    setBatteryCalibration({
+      percent,
+      distanceM: metrics.distanceM,
+      recordedAt: currentPosition?.timestamp ?? 0,
+    });
+    setBatteryReadingInput(percent);
+    setBatteryEnd(percent);
+    setBatteryPanelOpen(false);
+    navigator.vibrate?.(120);
+  };
+
+  const changeLiveAssistMode = (assistMode: AssistMode) => {
+    if (assistMode === settings.assistMode) return;
+    setBatteryCalibration({
+      percent: battery.batteryPercent,
+      distanceM: metrics.distanceM,
+      recordedAt: currentPosition?.timestamp ?? 0,
+    });
+    setBatteryReadingInput(battery.batteryPercent);
+    setSettings((current) => ({ ...current, assistMode }));
   };
 
   return (
@@ -1352,7 +1429,12 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
                 <Metric icon={Zap} label="Máxima" value={metrics.maxSpeedKmh.toFixed(1)} unit="km/h" />
               )}
               {settings.sportType === 'ebike' && (
-                <Metric icon={BatteryCharging} label="Batería est." value={`${battery.batteryPercent}`} unit="%" />
+                <Metric
+                  icon={BatteryCharging}
+                  label={batteryCalibration ? 'Batería ajust.' : 'Batería est.'}
+                  value={`${battery.batteryPercent}`}
+                  unit="%"
+                />
               )}
             </div>
             {active && points.length > 1 && (
@@ -1381,16 +1463,82 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
               onAlert={announceConditionAlert}
             />
 
-            {settings.sportType === 'ebike' && active && (activeDisplayMode === 'pro' || !plannedRoute) && (
+            {settings.sportType === 'ebike' && active && (
               <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4">
-                <div className="flex items-center justify-between gap-4">
+                <div className="flex flex-wrap items-center justify-between gap-4">
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Autonomía estimada</p>
-                    <p className="mt-1 text-2xl font-black">{battery.remainingRangeKm.toFixed(0)} km</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">
+                      {batteryCalibration ? 'Autonomía ajustada' : 'Autonomía estimada'}
+                    </p>
+                    <p className="mt-1 text-2xl font-black">
+                      {battery.batteryPercent}% · {battery.remainingRangeKm.toFixed(0)} km
+                    </p>
                   </div>
-                  <p className="max-w-48 text-right text-xs text-slate-400">
-                    Cálculo provisional en modo {settings.assistMode}. Mejorará con tus salidas.
-                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBatteryReadingInput(battery.batteryPercent);
+                      setBatteryPanelOpen((open) => !open);
+                    }}
+                    aria-expanded={batteryPanelOpen}
+                    className="min-h-11 rounded-xl border border-emerald-400/25 bg-slate-950/60 px-4 text-xs font-black text-emerald-200"
+                  >
+                    Leer batería real
+                  </button>
+                </div>
+                <p className="mt-2 text-xs text-slate-400">
+                  Modo {settings.assistMode} · reserva {normalizeBatteryReserve(settings.batteryReservePercent)}%
+                  {batteryCalibration ? ' · corregida con la lectura de la bici' : ' · cálculo provisional'}
+                </p>
+                {batteryPanelOpen && (
+                  <div className="mt-4 rounded-xl border border-white/10 bg-slate-950/70 p-3">
+                    <label className="flex items-center justify-between gap-3 text-xs font-bold text-slate-300">
+                      Porcentaje que marca la bici
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min="0"
+                        max="100"
+                        value={batteryReadingInput}
+                        onChange={(event) => setBatteryReadingInput(Number(event.target.value))}
+                        className="h-11 w-20 rounded-xl border border-white/10 bg-slate-950 px-3 text-center text-lg font-black"
+                      />
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      step="1"
+                      value={batteryReadingInput}
+                      onChange={(event) => setBatteryReadingInput(Number(event.target.value))}
+                      aria-label="Porcentaje real de batería"
+                      className="mt-3 w-full accent-emerald-400"
+                    />
+                    <button
+                      type="button"
+                      onClick={confirmBatteryReading}
+                      className="mt-3 min-h-11 w-full rounded-xl bg-emerald-400 px-4 text-xs font-black text-slate-950"
+                    >
+                      Usar lectura del {Math.min(100, Math.max(0, batteryReadingInput))}%
+                    </button>
+                  </div>
+                )}
+                <div className="mt-3 grid grid-cols-4 gap-2" aria-label="Asistencia actual">
+                  {(['eco', 'trail', 'turbo', 'smart'] as AssistMode[]).map((mode) => (
+                    <button
+                      type="button"
+                      key={mode}
+                      onClick={() => changeLiveAssistMode(mode)}
+                      aria-pressed={settings.assistMode === mode}
+                      className={`min-h-11 rounded-xl text-[10px] font-black uppercase ${
+                        settings.assistMode === mode
+                          ? 'bg-emerald-400 text-slate-950'
+                          : 'border border-white/10 bg-slate-950/60 text-slate-400'
+                      }`}
+                    >
+                      {mode}
+                    </button>
+                  ))}
                 </div>
               </div>
             )}
@@ -1592,6 +1740,24 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
                         ))}
                       </div>
                     </div>
+                    <label className="block text-xs font-bold text-slate-300">
+                      Reserva de seguridad: <span className="text-orange-400">{normalizeBatteryReserve(settings.batteryReservePercent)}%</span>
+                      <input
+                        type="range"
+                        min="5"
+                        max="30"
+                        step="5"
+                        value={normalizeBatteryReserve(settings.batteryReservePercent)}
+                        onChange={(event) => setSettings({
+                          ...settings,
+                          batteryReservePercent: Number(event.target.value),
+                        })}
+                        className="mt-3 w-full accent-orange-500"
+                      />
+                      <span className="mt-2 block text-[10px] font-normal leading-relaxed text-slate-500">
+                        La app avisará si la ruta puede consumir este margen.
+                      </span>
+                    </label>
                   </>
                 )}
                 {error && <p role="alert" className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-300">{error}</p>}

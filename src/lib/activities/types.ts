@@ -81,6 +81,13 @@ export interface RideSettings {
   batteryStart: number;
   batteryCapacityWh: number;
   assistMode: AssistMode;
+  batteryReservePercent?: number;
+}
+
+export interface BatteryCalibration {
+  percent: number;
+  distanceM: number;
+  recordedAt: number;
 }
 
 export interface RideDraft {
@@ -98,4 +105,5 @@ export interface RideDraft {
   plannedRouteId?: string;
   navigationCompletedM?: number;
   weatherSamples?: RideWeatherSample[];
+  batteryCalibration?: BatteryCalibration | null;
 }

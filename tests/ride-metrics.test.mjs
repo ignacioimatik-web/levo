@@ -462,6 +462,21 @@ test('la estimación e-bike respeta batería inicial, capacidad y asistencia', (
   assert.ok(estimate.remainingRangeKm > 40 && estimate.remainingRangeKm < 42);
 });
 
+test('una lectura real de la bici recalibra la autonomía desde ese punto', () => {
+  const estimate = estimateBattery(
+    25_000,
+    100,
+    700,
+    'trail',
+    11,
+    { percent: 62, distanceM: 20_000 },
+  );
+
+  assert.equal(estimate.energyUsedWh, 55);
+  assert.equal(estimate.batteryPercent, 54);
+  assert.ok(estimate.remainingRangeKm > 34 && estimate.remainingRangeKm < 35);
+});
+
 function activity(id, startedAt, sportType, points) {
   return {
     id,
@@ -558,6 +573,34 @@ test('la recuperación une el track duradero completo con la cola local más rec
   assert.equal(recovered?.points.length, 10_200);
   assert.deepEqual(recovered?.points, fullPoints);
   assert.equal(recovered?.durationSeconds, 10_200);
+});
+
+test('la recuperación conserva la última lectura real de batería', () => {
+  const draft = {
+    id: 'battery-reading-draft',
+    startedAt: 0,
+    updatedAt: 20_000,
+    durationSeconds: 1_200,
+    points: [point({ timestamp: 0 }), point({ longitude: -0.09, timestamp: 20_000 })],
+    settings: {
+      sportType: 'ebike',
+      batteryStart: 100,
+      batteryCapacityWh: 700,
+      assistMode: 'trail',
+      batteryReservePercent: 20,
+    },
+    batteryCalibration: {
+      percent: 63,
+      distanceM: 18_400,
+      recordedAt: 19_000,
+    },
+    isDemo: false,
+  };
+
+  const recovered = mergeRideDraftVersions(draft, compactRideDraftForLocalStorage(draft));
+
+  assert.deepEqual(recovered?.batteryCalibration, draft.batteryCalibration);
+  assert.equal(recovered?.settings.batteryReservePercent, 20);
 });
 
 test('una actualización de estado nunca sustituye el track completo por el índice reducido', () => {
