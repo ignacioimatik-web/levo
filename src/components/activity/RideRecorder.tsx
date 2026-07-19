@@ -46,6 +46,7 @@ import {
   shouldRestartGpsWatch,
 } from '@/lib/activities/gps-watchdog';
 import { calculateNavigationProgress, cardinalForBearing } from '@/lib/navigation/progress';
+import { assessRouteDirection } from '@/lib/navigation/direction';
 import type { LiveRideConditionAlert } from '@/lib/navigation/live-ride-conditions';
 import {
   calculateGhostComparison, calculateSecuredNavigation,
@@ -246,6 +247,8 @@ export default function RideRecorder({
   const gpsWatchStartedAtRef = useRef(0);
   const lastAnnouncedSplitRef = useRef(0);
   const lastBatteryAlertStateRef = useRef<'safe' | 'tight' | 'insufficient'>('safe');
+  const wrongWayStartedAtRef = useRef(0);
+  const lastWrongWayAlertRef = useRef(0);
   const saveInProgressRef = useRef(false);
   const routeLoadRequestRef = useRef(0);
 
@@ -586,6 +589,9 @@ export default function RideRecorder({
   const upcomingTurn = useMemo(() => (
     plannedRoute ? calculateUpcomingTurn(plannedRoute.points, navigation) : null
   ), [navigation, plannedRoute]);
+  const routeDirection = useMemo(() => (
+    plannedRoute ? assessRouteDirection(plannedRoute.points, points, navigation) : null
+  ), [navigation, plannedRoute, points]);
   const gpsQuality = useMemo(() => {
     if (gpsAccuracy == null) return null;
     if (status === 'recording' && gpsSignalAgeSeconds > 30) {
@@ -700,6 +706,7 @@ export default function RideRecorder({
       }
       return;
     }
+    if (routeDirection?.state === 'wrong-way') return;
     const alertStage = upcomingTurn ? turnAlertStage(upcomingTurn.distanceM) : null;
     const previousAlert = announcedTurnRef.current;
     const stageRank: Record<TurnAlertStage, number> = { prepare: 1, near: 2, now: 3 };
@@ -728,10 +735,37 @@ export default function RideRecorder({
     rejoinRemainingM,
     rejoinRoute.path,
     rejoinTurn,
+    routeDirection,
     status,
     upcomingTurn,
     voiceGuidance,
   ]);
+
+  useEffect(() => {
+    if (status !== 'recording' || routeDirection?.state !== 'wrong-way') {
+      wrongWayStartedAtRef.current = 0;
+      return;
+    }
+    const now = Date.now();
+    if (wrongWayStartedAtRef.current === 0) {
+      wrongWayStartedAtRef.current = now;
+      return;
+    }
+    if (
+      now - wrongWayStartedAtRef.current < 6_000
+      || now - lastWrongWayAlertRef.current < 45_000
+    ) return;
+    lastWrongWayAlertRef.current = now;
+    navigator.vibrate?.([260, 100, 260, 100, 260]);
+    if (!voiceGuidance || !('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(
+      'Atención. Vas en sentido contrario. Da la vuelta para continuar la ruta.',
+    );
+    utterance.lang = 'es-ES';
+    utterance.rate = 1.05;
+    window.speechSynthesis.speak(utterance);
+  }, [routeDirection, status, voiceGuidance]);
 
   useEffect(() => {
     announcedRecoveryTurnRef.current = null;
@@ -881,6 +915,8 @@ export default function RideRecorder({
     saveInProgressRef.current = false;
     lastAnnouncedSplitRef.current = 0;
     lastBatteryAlertStateRef.current = 'safe';
+    wrongWayStartedAtRef.current = 0;
+    lastWrongWayAlertRef.current = 0;
     lastAcceptedPointRef.current = null;
     startedAtRef.current = Date.now();
     draftIdRef.current = crypto.randomUUID();
@@ -1369,7 +1405,10 @@ export default function RideRecorder({
                         routed: Boolean(rejoinRoute.path),
                         distanceM: rejoinRemainingM,
                         instruction: rejoinTurn,
-                      }
+                    }
+                    : null}
+                  wrongWay={routeDirection?.state === 'wrong-way'
+                    ? { differenceDeg: routeDirection.differenceDeg }
                     : null}
                   voiceEnabled={voiceGuidance}
                   onVoiceChange={setVoiceGuidance}

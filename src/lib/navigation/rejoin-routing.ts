@@ -11,6 +11,7 @@ export interface RejoinRouteAnchor {
 export const REJOIN_ROUTE_THRESHOLD_M = 100;
 export const REJOIN_ORIGIN_REFRESH_M = 80;
 export const REJOIN_TARGET_REFRESH_M = 50;
+export const REJOIN_MIN_REFRESH_MS = 20_000;
 export const REJOIN_MAX_AGE_MS = 45_000;
 export const REJOIN_RETRY_BASE_MS = 15_000;
 export const REJOIN_RETRY_MAX_MS = 120_000;
@@ -58,7 +59,9 @@ export function shouldRequestRejoinRoute({
   now: number;
 }): boolean {
   if (!previous) return true;
-  if (now - previous.requestedAt >= REJOIN_MAX_AGE_MS) return true;
+  const ageMs = now - previous.requestedAt;
+  if (ageMs >= REJOIN_MAX_AGE_MS) return true;
+  if (ageMs < REJOIN_MIN_REFRESH_MS) return false;
   const originMovedM = distanceM(
     previous.originLatitude,
     previous.originLongitude,

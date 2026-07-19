@@ -24,6 +24,7 @@ import {
   calculateNavigationProgress,
   cardinalForBearing,
 } from '../src/lib/navigation/progress.ts';
+import { assessRouteDirection } from '../src/lib/navigation/direction.ts';
 import {
   activityEditNotice,
   normalizeActivityTitle,
@@ -73,6 +74,7 @@ import {
 } from '../src/lib/activities/gps-watchdog.ts';
 import {
   REJOIN_MAX_AGE_MS,
+  REJOIN_MIN_REFRESH_MS,
   REJOIN_RETRY_MAX_MS,
   rejoinRetryDelayMs,
   shouldRequestRejoinRoute,
@@ -873,6 +875,14 @@ test('el reenganche online no recalcula por cada punto GPS pequeño', () => {
     targetLatitude: 40,
     targetLongitude: -0.09,
     now: 10_000,
+  }), false);
+  assert.equal(shouldRequestRejoinRoute({
+    previous,
+    originLatitude: 40.001,
+    originLongitude: -0.1,
+    targetLatitude: 40,
+    targetLongitude: -0.09,
+    now: 1_000 + REJOIN_MIN_REFRESH_MS,
   }), true);
 });
 
@@ -891,7 +901,7 @@ test('el reenganche online se renueva por cambio de objetivo o antigüedad', () 
     originLongitude: -0.1,
     targetLatitude: 40,
     targetLongitude: -0.089,
-    now: 10_000,
+    now: 1_000 + REJOIN_MIN_REFRESH_MS,
   }), true);
   assert.equal(shouldRequestRejoinRoute({
     previous,
@@ -901,6 +911,32 @@ test('el reenganche online se renueva por cambio de objetivo o antigüedad', () 
     targetLongitude: -0.09,
     now: 1_000 + REJOIN_MAX_AGE_MS,
   }), true);
+});
+
+test('un desvío rápido no satura el enrutador con cada posición GPS', () => {
+  let previous = null;
+  let requests = 0;
+  for (let second = 0; second <= 45; second += 1) {
+    const input = {
+      previous,
+      originLatitude: 40 + second * 0.001,
+      originLongitude: -0.1,
+      targetLatitude: 40 + second * 0.0006,
+      targetLongitude: -0.09,
+      now: 1_000 + second * 1_000,
+    };
+    if (!shouldRequestRejoinRoute(input)) continue;
+    requests += 1;
+    previous = {
+      originLatitude: input.originLatitude,
+      originLongitude: input.originLongitude,
+      targetLatitude: input.targetLatitude,
+      targetLongitude: input.targetLongitude,
+      requestedAt: input.now,
+    };
+  }
+
+  assert.equal(requests, 3);
 });
 
 test('el reenganche aplica espera progresiva y respeta el límite del servidor', () => {
@@ -1590,6 +1626,61 @@ test('los avisos de giro se escalonan para preparar, acercar y ejecutar', () => 
   assert.equal(turnAlertStage(25), 'now');
   assert.equal(turnAlertMessage({ label: 'Gira a la derecha', distanceM: 117 }, 'near'), 'Gira a la derecha en 120 metros.');
   assert.equal(turnAlertMessage({ label: 'Gira a la derecha', distanceM: 20 }, 'now'), 'Gira a la derecha, ahora.');
+});
+
+test('la navegación avisa al recorrer el track en sentido contrario', () => {
+  const route = [
+    { latitude: 40, longitude: -0.1, elevation: 100 },
+    { latitude: 40, longitude: -0.0995, elevation: 100 },
+    { latitude: 40, longitude: -0.099, elevation: 100 },
+  ];
+  const ridePoints = [
+    point({ longitude: -0.09935, speed: 3, timestamp: 0 }),
+    point({ longitude: -0.09965, speed: 3, timestamp: 10_000 }),
+  ];
+  const navigation = calculateNavigationProgress(route, ridePoints.at(-1));
+  const direction = assessRouteDirection(route, ridePoints, navigation);
+
+  assert.equal(direction?.state, 'wrong-way');
+  assert.ok((direction?.differenceDeg ?? 0) > 170);
+});
+
+test('la dirección correcta no dispara el aviso de sentido contrario', () => {
+  const route = [
+    { latitude: 40, longitude: -0.1, elevation: 100 },
+    { latitude: 40, longitude: -0.0995, elevation: 100 },
+    { latitude: 40, longitude: -0.099, elevation: 100 },
+  ];
+  const ridePoints = [
+    point({ longitude: -0.09975, speed: 3, timestamp: 0 }),
+    point({ longitude: -0.09945, speed: 3, timestamp: 10_000 }),
+  ];
+  const navigation = calculateNavigationProgress(route, ridePoints.at(-1));
+
+  assert.equal(assessRouteDirection(route, ridePoints, navigation)?.state, 'aligned');
+});
+
+test('la dirección no se infiere parado, con GPS débil o sin recorrido suficiente', () => {
+  const route = [
+    { latitude: 40, longitude: -0.1, elevation: 100 },
+    { latitude: 40, longitude: -0.099, elevation: 100 },
+  ];
+  const slow = [
+    point({ longitude: -0.0993, speed: 0.5, timestamp: 0 }),
+    point({ longitude: -0.0996, speed: 0.5, timestamp: 60_000 }),
+  ];
+  const noisy = [
+    point({ longitude: -0.0993, accuracy: 60, speed: 3, timestamp: 0 }),
+    point({ longitude: -0.0996, accuracy: 60, speed: 3, timestamp: 10_000 }),
+  ];
+  const tooShort = [
+    point({ longitude: -0.0995, speed: 3, timestamp: 0 }),
+    point({ longitude: -0.09951, speed: 3, timestamp: 1_000 }),
+  ];
+
+  assert.equal(assessRouteDirection(route, slow, calculateNavigationProgress(route, slow.at(-1))), null);
+  assert.equal(assessRouteDirection(route, noisy, calculateNavigationProgress(route, noisy.at(-1))), null);
+  assert.equal(assessRouteDirection(route, tooShort, calculateNavigationProgress(route, tooShort.at(-1))), null);
 });
 
 test('el paquete offline muestrea una ruta larga sin perder inicio ni final', () => {
