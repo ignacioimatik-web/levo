@@ -50,6 +50,7 @@ const RIDER_LEVEL_OPTIONS: Array<{ value: NivelUsuario; label: string }> = [
 ];
 
 const STORAGE_KEY = 'forfait-builder-route';
+const RIDER_LEVEL_STORAGE_KEY = 'forfait-rider-level';
 
 interface SavedRoute {
   trackIds: string[];
@@ -145,6 +146,21 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
     return () => window.clearTimeout(restoreTimer);
   }, [tracks]);
 
+  useEffect(() => {
+    let restoreTimer: number | undefined;
+    try {
+      const savedLevel = localStorage.getItem(RIDER_LEVEL_STORAGE_KEY);
+      if (RIDER_LEVEL_OPTIONS.some((option) => option.value === savedLevel)) {
+        restoreTimer = window.setTimeout(() => {
+          setNivelUsuario(savedLevel as NivelUsuario);
+        }, 0);
+      }
+    } catch { /* storage unavailable */ }
+    return () => {
+      if (restoreTimer !== undefined) window.clearTimeout(restoreTimer);
+    };
+  }, []);
+
   // Auto-save route
   useEffect(() => {
     if (selectedTrackIds.length > 0) {
@@ -217,6 +233,13 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
     setSelectedTrackId(track.id);
     setPreviewTrackIds(prev => prev.includes(track.id) ? prev.filter(id => id !== track.id) : [...prev, track.id]);
     setFitToTrackId(track.id);
+  }, []);
+
+  const handleRiderLevelChange = useCallback((level: NivelUsuario) => {
+    setNivelUsuario(level);
+    try {
+      localStorage.setItem(RIDER_LEVEL_STORAGE_KEY, level);
+    } catch { /* storage unavailable */ }
   }, []);
 
   const addToRoute = useCallback((trackId: string) => {
@@ -514,7 +537,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
                   <div key={sector} className="border border-white/[0.04] rounded-lg overflow-hidden">
                     <button
                       onClick={() => toggleSector(sector)}
-                      className="w-full flex items-center justify-between px-2.5 py-1.5 bg-slate-900/60 hover:bg-slate-900 transition-colors text-left"
+                      className="flex min-h-11 w-full items-center justify-between bg-slate-900/60 px-2.5 text-left transition-colors hover:bg-slate-900"
                     >
                       <div className="flex items-center gap-1.5">
                         <ChevronUp className={`w-3 h-3 text-slate-500 transition-transform duration-150 ${isExpanded ? '' : '-rotate-90'}`} />
@@ -853,7 +876,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
                       <option value="negro">Negro</option>
                       <option value="doble-negro">Doble negro</option>
                     </select>
-                    <RiderLevelSelect value={nivelUsuario} onChange={setNivelUsuario} />
+                    <RiderLevelSelect value={nivelUsuario} onChange={handleRiderLevelChange} />
                   </div>
                 </div>
               )}
@@ -983,10 +1006,11 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
 
       {/* FAB TRACKS — visible en móvil, abre el bottom sheet */}
       {!sidebarOpen && (
-        <div className="sm:hidden absolute bottom-20 left-1/2 -translate-x-1/2 z-[1500]">
+        <div className="absolute bottom-20 left-1/2 z-[1500] -translate-x-1/2 lg:hidden">
           <button
+            type="button"
             onClick={() => setSidebarOpen(true)}
-            className="px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-full shadow-lg transition-all active:scale-95 flex items-center gap-2 text-xs font-bold"
+            className="flex min-h-11 touch-manipulation items-center gap-2 rounded-full bg-orange-500 px-5 text-xs font-bold text-white shadow-lg transition-all hover:bg-orange-600 active:scale-95"
             aria-label="Abrir tracks"
           >
             <Bike className="w-4 h-4" />
@@ -1004,11 +1028,11 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
           <div className="hidden md:flex absolute top-0 left-0 h-full w-[340px] bg-slate-950 border-r border-white/5 flex-col pointer-events-auto shadow-2xl">
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
               <div className="flex gap-1">
-                <button onClick={() => setActiveTab('tracks')} className={`px-2 py-1 rounded text-[9px] font-bold uppercase tracking-widest ${activeTab === 'tracks' ? 'bg-orange-500/15 text-orange-400' : 'text-slate-500 hover:text-slate-300'}`}>Explorar</button>
-                <button onClick={() => setActiveTab('ruta')} className={`px-2 py-1 rounded text-[9px] font-bold uppercase tracking-widest ${activeTab === 'ruta' ? 'bg-orange-500/15 text-orange-400' : 'text-slate-500 hover:text-slate-300'}`}>Ruta</button>
-                <button onClick={() => setActiveTab('status')} className={`px-2 py-1 rounded text-[9px] font-bold uppercase tracking-widest ${activeTab === 'status' ? 'bg-orange-500/15 text-orange-400' : 'text-slate-500 hover:text-slate-300'}`}>Estado</button>
+                <button onClick={() => setActiveTab('tracks')} className={`min-h-11 rounded px-3 text-[9px] font-bold uppercase tracking-widest ${activeTab === 'tracks' ? 'bg-orange-500/15 text-orange-400' : 'text-slate-500 hover:text-slate-300'}`}>Explorar</button>
+                <button onClick={() => setActiveTab('ruta')} className={`min-h-11 rounded px-3 text-[9px] font-bold uppercase tracking-widest ${activeTab === 'ruta' ? 'bg-orange-500/15 text-orange-400' : 'text-slate-500 hover:text-slate-300'}`}>Ruta</button>
+                <button onClick={() => setActiveTab('status')} className={`min-h-11 rounded px-3 text-[9px] font-bold uppercase tracking-widest ${activeTab === 'status' ? 'bg-orange-500/15 text-orange-400' : 'text-slate-500 hover:text-slate-300'}`}>Estado</button>
               </div>
-              <button onClick={() => setSidebarOpen(false)} className="text-slate-400 p-1 hover:text-white transition-colors"><X className="w-4 h-4" /></button>
+              <button onClick={() => setSidebarOpen(false)} className="grid h-11 w-11 place-items-center text-slate-400 transition-colors hover:text-white" aria-label="Cerrar panel"><X className="w-4 h-4" /></button>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {sidebarContent}
@@ -1027,7 +1051,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
                   <span className="text-[11px] font-bold text-white">Tracks</span>
                   <span className="text-[9px] text-slate-500">{filteredTracks.length}</span>
                 </div>
-                <button onClick={() => setSidebarOpen(false)} className="text-slate-400 p-1 hover:text-white transition-colors" aria-label="Cerrar">
+                <button onClick={() => setSidebarOpen(false)} className="grid h-11 w-11 place-items-center text-slate-400 transition-colors hover:text-white" aria-label="Cerrar">
                   <ChevronDown className="w-4 h-4" />
                 </button>
               </div>
@@ -1080,7 +1104,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
                   <option value="negro">Negro</option>
                   <option value="doble-negro">Doble negro</option>
                 </select>
-                <RiderLevelSelect value={nivelUsuario} onChange={setNivelUsuario} />
+                <RiderLevelSelect value={nivelUsuario} onChange={handleRiderLevelChange} />
               </div>
             </div>
             <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-0.5">
@@ -1091,7 +1115,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
                   <div key={sector} className="border border-white/[0.04] rounded-lg overflow-hidden">
                     <button
                       onClick={() => toggleSector(sector)}
-                      className="w-full flex items-center justify-between px-2.5 py-1.5 bg-slate-900/60 hover:bg-slate-900 transition-colors text-left"
+                      className="flex min-h-11 w-full items-center justify-between bg-slate-900/60 px-2.5 text-left transition-colors hover:bg-slate-900"
                     >
                       <div className="flex items-center gap-1.5">
                         <ChevronDown className={`w-3 h-3 text-slate-500 transition-transform duration-150 ${isExpanded ? '' : '-rotate-90'}`} />
