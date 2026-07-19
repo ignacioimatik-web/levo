@@ -17,6 +17,7 @@ import useRejoinRoute from '@/components/activity/useRejoinRoute';
 import {
   assessRidePoint, calculateRideMetrics, estimateBattery, pointFromPosition,
 } from '@/lib/activities/geo';
+import { completeRidePointsForSave } from '@/lib/activities/finalize';
 import type { RidePointRejection } from '@/lib/activities/geo';
 import { buildBatteryModel, predictBatteryForRoute } from '@/lib/activities/battery';
 import {
@@ -191,6 +192,8 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
   const [demoRide, setDemoRide] = useState(false);
   const [weatherSamples, setWeatherSamples] = useState<RideWeatherSample[]>([]);
   const [announcedSplitIndex, setAnnouncedSplitIndex] = useState<number | null>(null);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'error'>('idle');
+  const [saveError, setSaveError] = useState('');
   const startedAtRef = useRef<number | null>(null);
   const draftIdRef = useRef<string | null>(null);
   const durationBaseRef = useRef(0);
@@ -208,6 +211,7 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
   const lastGpsRestartAtRef = useRef(0);
   const gpsWatchStartedAtRef = useRef(0);
   const lastAnnouncedSplitRef = useRef(0);
+  const saveInProgressRef = useRef(false);
 
   const requestWakeLock = useCallback(async () => {
     try {
@@ -780,6 +784,9 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
     setFinishArmed(false);
     setWeatherSamples([]);
     setAnnouncedSplitIndex(null);
+    setSaveStatus('idle');
+    setSaveError('');
+    saveInProgressRef.current = false;
     lastAnnouncedSplitRef.current = 0;
     lastAcceptedPointRef.current = null;
     startedAtRef.current = Date.now();
@@ -1002,8 +1009,14 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
   };
 
   const save = async () => {
+    if (saveInProgressRef.current) return;
+    saveInProgressRef.current = true;
+    setSaveStatus('saving');
+    setSaveError('');
     const now = Date.now();
     const id = draftIdRef.current ?? crypto.randomUUID();
+    const finalPoints = completeRidePointsForSave(points, lastAcceptedPointRef.current);
+    const finalMetrics = calculateRideMetrics(finalPoints);
     const actualEnergyUsedWh = settings.sportType === 'ebike'
       ? settings.batteryCapacityWh * Math.max(0, settings.batteryStart - batteryEnd) / 100
       : null;
@@ -1014,23 +1027,29 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
       startedAt: new Date(startedAtRef.current ?? now).toISOString(),
       endedAt: new Date(now).toISOString(),
       durationSeconds,
-      ...metrics,
+      ...finalMetrics,
       batteryStart: settings.sportType === 'ebike' ? settings.batteryStart : null,
       batteryEnd: settings.sportType === 'ebike' ? batteryEnd : null,
       batteryCapacityWh: settings.sportType === 'ebike' ? settings.batteryCapacityWh : null,
       assistMode: settings.sportType === 'ebike' ? settings.assistMode : null,
       energyUsedWh: actualEnergyUsedWh,
-      points,
+      points: finalPoints,
       weatherSamples,
-      segmentEfforts: matchCompetitiveSegments(points),
+      segmentEfforts: matchCompetitiveSegments(finalPoints),
       privacy: 'private',
       syncStatus: 'local',
     };
-    await saveActivity(activity);
-    clearRideDraft();
-    await stopLiveTracking();
-    await syncActivity(activity);
-    router.push('/actividades');
+    try {
+      await saveActivity(activity);
+      clearRideDraft();
+      void stopLiveTracking();
+      void syncActivity(activity).catch(() => undefined);
+      router.push('/actividades');
+    } catch {
+      saveInProgressRef.current = false;
+      setSaveStatus('error');
+      setSaveError('No se ha podido confirmar el guardado local. Mantendremos la salida recuperable para que puedas intentarlo de nuevo.');
+    }
   };
 
   const recordWeatherSample = useCallback((sample: RideWeatherSample) => {
@@ -1578,11 +1597,16 @@ export default function RideRecorder({ plannedRouteId }: { plannedRouteId?: stri
                     Solo tú podrás verla. Se sincroniza de forma segura entre tus dispositivos.
                   </p>
                 </div>
-                <button onClick={save}
-                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-500 py-4 text-sm font-black uppercase text-slate-950 hover:bg-emerald-400">
-                  <Save className="h-5 w-5" /> Guardar actividad
+                {saveError && (
+                  <p role="alert" className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-200">
+                    {saveError}
+                  </p>
+                )}
+                <button onClick={save} disabled={saveStatus === 'saving'}
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-500 py-4 text-sm font-black uppercase text-slate-950 hover:bg-emerald-400 disabled:cursor-wait disabled:opacity-60">
+                  <Save className="h-5 w-5" /> {saveStatus === 'saving' ? 'Guardando…' : saveStatus === 'error' ? 'Reintentar guardado' : 'Guardar actividad'}
                 </button>
-                <button onClick={() => { clearRideDraft(); setStatus('idle'); }} className="w-full text-xs font-bold text-slate-500 hover:text-white">Descartar</button>
+                <button disabled={saveStatus === 'saving'} onClick={() => { clearRideDraft(); setStatus('idle'); }} className="w-full text-xs font-bold text-slate-500 hover:text-white disabled:opacity-40">Descartar</button>
               </div>
             ) : (
               <div className="flex min-h-72 flex-col items-center justify-center text-center">

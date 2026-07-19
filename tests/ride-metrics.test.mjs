@@ -128,6 +128,7 @@ import {
   mergeActivityVersions,
   mergeRideDraftVersions,
 } from '../src/lib/activities/durable-storage.ts';
+import { completeRidePointsForSave } from '../src/lib/activities/finalize.ts';
 import {
   externalGpxFileName,
   isPublicNetworkAddress,
@@ -191,6 +192,15 @@ test('rechaza deriva estacionaria e incorpora movimiento acumulado real', () => 
   const afterDrift = appendRidePoint([origin], drift);
   assert.equal(afterDrift.length, 1);
   assert.equal(appendRidePoint(afterDrift, moved).length, 2);
+});
+
+test('el guardado incorpora una última posición GPS aceptada sin duplicarla', () => {
+  const first = point({ timestamp: 1_000 });
+  const final = point({ longitude: -0.0998, timestamp: 5_000 });
+
+  assert.deepEqual(completeRidePointsForSave([first], final), [first, final]);
+  assert.deepEqual(completeRidePointsForSave([first, final], final), [first, final]);
+  assert.deepEqual(completeRidePointsForSave([first, final], first), [first, final]);
 });
 
 test('rechaza saltos GPS imposibles y puntos con precisión inutilizable', () => {

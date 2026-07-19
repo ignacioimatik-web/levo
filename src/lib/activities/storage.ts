@@ -51,10 +51,12 @@ export function getActivities(): RideActivity[] {
   }
 }
 
-function persist(activities: RideActivity[], notify = true): void {
+function persist(activities: RideActivity[], notify = true): boolean {
   const compact = activities.map((activity) => compactActivityForLocalStorage(activity));
+  let persisted = false;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(compact));
+    persisted = true;
   } catch {
     const summaries = compact.slice(0, 100).map((activity) => ({
       ...activity,
@@ -66,11 +68,13 @@ function persist(activities: RideActivity[], notify = true): void {
     }));
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(summaries));
+      persisted = true;
     } catch {
       // IndexedDB remains the authoritative local copy when storage quota is exhausted.
     }
   }
   if (notify) window.dispatchEvent(new Event(ACTIVITIES_CHANGED_EVENT));
+  return persisted;
 }
 
 export async function saveActivity(activity: RideActivity): Promise<void> {
@@ -79,11 +83,18 @@ export async function saveActivity(activity: RideActivity): Promise<void> {
   const index = activities.findIndex((item) => item.id === activity.id);
   if (index >= 0) activities[index] = activity;
   else activities.unshift(activity);
-  persist(activities);
+  const localSaved = persist(activities);
+  let durableSaved = false;
   try {
-    await saveDurableActivity(activity);
+    if (typeof indexedDB !== 'undefined') {
+      await saveDurableActivity(activity);
+      durableSaved = true;
+    }
   } catch {
     // The synchronous local copy still makes the activity immediately available.
+  }
+  if (!localSaved && !durableSaved) {
+    throw new Error('No se pudo guardar la actividad en el dispositivo.');
   }
 }
 
