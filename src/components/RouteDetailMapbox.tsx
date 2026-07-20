@@ -11,8 +11,10 @@ import { useTheme } from '@/components/theme/ThemeProvider';
 import useResilientMapStyle from '@/components/map/useResilientMapStyle';
 import { MapProviderBadge } from '@/components/map/MapProviderBadge';
 import { MAPBOX_ACCESS_TOKEN, OPEN_MAP_STYLES } from '@/lib/open-map-styles';
+import { buildRouteDistanceIndex, pointAtRouteDistance } from '@/lib/route-sampling';
 
 type RoutePoint = { lat: number; lng: number };
+type SegmentOverlay = { startKm: number; endKm: number; type: 'climb' | 'descent' | 'flat' };
 
 function routeFeature(points: RoutePoint[]) {
   return {
@@ -25,12 +27,35 @@ function routeFeature(points: RoutePoint[]) {
   };
 }
 
+function segmentFeature(points: RoutePoint[], segment: SegmentOverlay) {
+  const distanceIndex = buildRouteDistanceIndex(points);
+  const start = Math.max(0, Math.min(distanceIndex.totalKm, segment.startKm));
+  const end = Math.max(start, Math.min(distanceIndex.totalKm, segment.endKm));
+  const coordinates: Array<[number, number]> = [[
+    pointAtRouteDistance(points, distanceIndex, start).lng,
+    pointAtRouteDistance(points, distanceIndex, start).lat,
+  ]];
+  points.forEach((point, index) => {
+    const distance = distanceIndex.cumulativeKm[index];
+    if (distance > start && distance < end) coordinates.push([point.lng, point.lat]);
+  });
+  const finish = pointAtRouteDistance(points, distanceIndex, end);
+  coordinates.push([finish.lng, finish.lat]);
+  return {
+    type: 'Feature' as const,
+    properties: { type: segment.type },
+    geometry: { type: 'LineString' as const, coordinates },
+  };
+}
+
 export default function RouteDetailMapbox({
   points,
   title,
+  segmentOverlays = [],
 }: {
   points: RoutePoint[];
   title: string;
+  segmentOverlays?: SegmentOverlay[];
 }) {
   const mapRef = useRef<MapRef>(null);
   const { theme } = useTheme();
@@ -38,6 +63,12 @@ export default function RouteDetailMapbox({
   const styleIndex = selectedStyleIndex ?? (theme === 'dark' ? 2 : 0);
   const resilientStyle = useResilientMapStyle(styleIndex);
   const route = useMemo(() => routeFeature(points), [points]);
+  const segmentRoutes = useMemo(() => ({
+    type: 'FeatureCollection' as const,
+    features: segmentOverlays
+      .filter((segment) => segment.endKm > segment.startKm)
+      .map((segment) => segmentFeature(points, segment)),
+  }), [points, segmentOverlays]);
   const first = points[0];
 
   const fitRoute = useCallback(() => {
@@ -100,6 +131,26 @@ export default function RouteDetailMapbox({
           <Layer id="route-detail-shadow" type="line" paint={{ 'line-color': '#020617', 'line-width': 10, 'line-opacity': 0.75 }} layout={{ 'line-cap': 'round', 'line-join': 'round' }} />
           <Layer id="route-detail-color" type="line" paint={{ 'line-color': '#fb923c', 'line-width': 5 }} layout={{ 'line-cap': 'round', 'line-join': 'round' }} />
         </Source>
+        {segmentRoutes.features.length > 0 && (
+          <Source id="route-detail-segments" type="geojson" data={segmentRoutes}>
+            <Layer
+              id="route-detail-segment-colors"
+              type="line"
+              paint={{
+                'line-color': [
+                  'match',
+                  ['get', 'type'],
+                  'climb', '#22c55e',
+                  'descent', '#ef4444',
+                  '#f59e0b',
+                ],
+                'line-width': 6,
+                'line-opacity': 0.94,
+              }}
+              layout={{ 'line-cap': 'round', 'line-join': 'round' }}
+            />
+          </Source>
+        )}
         <Marker longitude={first.lng} latitude={first.lat} anchor="center">
           <span className="grid h-7 w-7 place-items-center rounded-full border-[3px] border-white bg-emerald-500 text-[9px] font-black text-slate-950 shadow-xl" aria-label={`Inicio de ${title}`}>A</span>
         </Marker>

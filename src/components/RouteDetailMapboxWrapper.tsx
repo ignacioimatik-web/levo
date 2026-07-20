@@ -14,9 +14,11 @@ const RouteDetailMapbox = dynamic(() => import('./RouteDetailMapbox'), {
 export default function RouteDetailMapboxWrapper({
   points,
   title,
+  segmentOverlays,
 }: {
   points: Array<{ lat: number; lng: number }>;
   title: string;
+  segmentOverlays?: Array<{ startKm: number; endKm: number; type: 'climb' | 'descent' | 'flat' }>;
 }) {
-  return <RouteDetailMapbox points={points} title={title} />;
+  return <RouteDetailMapbox points={points} title={title} segmentOverlays={segmentOverlays} />;
 }

@@ -106,6 +106,11 @@ export default async function RouteDetailPage({ params, searchParams }: PageProp
 
   const trail = realTrails.find(t => t.slug === slug);
   const statusData = await buildRouteStatus(slug);
+  const segmentOverlays = statusData.ok && statusData.profile
+    ? statusData.profile.segments
+        .filter((segment) => showSet.has(segment.type))
+        .map((segment) => ({ startKm: segment.startKm, endKm: segment.endKm, type: segment.type }))
+    : [];
 
   const isClosed = route.status === 'cerrada-temporalmente';
   const isPending = route.status === 'pendiente-datos';
@@ -235,7 +240,11 @@ export default async function RouteDetailPage({ params, searchParams }: PageProp
                 </div>
               ) : null}
               {statusData.ok && statusData.points?.length ? (
-                <RouteDetailMapboxWrapper points={statusData.points} title={route.name} />
+                <RouteDetailMapboxWrapper
+                  points={statusData.points}
+                  title={route.name}
+                  segmentOverlays={segmentOverlays}
+                />
               ) : (
                 <div className="w-full h-[300px] bg-slate-900/80 border border-white/5 rounded-2xl flex items-center justify-center">
                   <Map className="w-8 h-8 text-slate-600 mr-2" />
