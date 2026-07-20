@@ -27,7 +27,6 @@ const Footer = () => {
             <li><Link href="/rutas" className="hover:text-orange-500 transition-colors">Biblioteca de Rutas</Link></li>
             <li><Link href="/sectores" className="hover:text-orange-500 transition-colors">Sectores</Link></li>
             <li><Link href="/top-tracks" className="hover:text-orange-500 transition-colors">Top Tracks</Link></li>
-            <li><Link href="/travesias" className="hover:text-orange-500 transition-colors">Travesías</Link></li>
             <li><Link href="/forfait" className="hover:text-orange-500 transition-colors">Forfait MTB</Link></li>
           </ul>
         </div>
@@ -36,7 +35,6 @@ const Footer = () => {
           <h4 className="text-white font-bold text-sm uppercase tracking-widest mb-6">Información</h4>
           <ul className="space-y-4 text-sm">
             <li><Link href="/quienes-somos" className="hover:text-orange-500 transition-colors">Quiénes Somos</Link></li>
-            <li><Link href="/planifica" className="hover:text-orange-500 transition-colors">Planifica tu viaje</Link></li>
             <li><Link href="/morella" className="hover:text-orange-500 transition-colors">Turismo Morella</Link></li>
             <li><Link href="/seguridad" className="hover:text-orange-500 transition-colors">Seguridad</Link></li>
             <li><Link href="/contacto" className="hover:text-orange-500 transition-colors">Contacto</Link></li>
