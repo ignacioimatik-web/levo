@@ -242,8 +242,11 @@ export default function RideNavigationMap({
           zoom: currentPoint ? 15.5 : 12,
         }}
         mapStyle={offlineActive ? OFFLINE_MAP_STYLE : resilientStyle.mapStyle}
-        onError={() => {
-          if (!offlineActive) resilientStyle.handleMapError();
+        terrain={!offlineActive && MAPBOX_ACCESS_TOKEN
+          ? { source: 'levo-nav-terrain-dem', exaggeration: 1.2 }
+          : undefined}
+        onError={event => {
+          if (!offlineActive) resilientStyle.handleMapError(event);
         }}
         dragRotate
         touchPitch
@@ -251,6 +254,34 @@ export default function RideNavigationMap({
         onDragStart={() => setFollowing(false)}
         reuseMaps
       >
+        {!offlineActive && MAPBOX_ACCESS_TOKEN && (
+          <>
+            <Source
+              id="levo-nav-terrain-dem"
+              type="raster-dem"
+              url="mapbox://mapbox.mapbox-terrain-dem-v1"
+              tileSize={512}
+              maxzoom={14}
+            />
+            <Source id="levo-nav-buildings" type="vector" url="mapbox://mapbox.mapbox-streets-v8">
+              <Layer
+                id="levo-nav-3d-buildings"
+                type="fill-extrusion"
+                source="levo-nav-buildings"
+                source-layer="building"
+                minzoom={14}
+                filter={['!', ['has', 'underground']]}
+                paint={{
+                  'fill-extrusion-color': '#7c8799',
+                  'fill-extrusion-height': ['coalesce', ['get', 'height'], 8],
+                  'fill-extrusion-base': ['coalesce', ['get', 'min_height'], 0],
+                  'fill-extrusion-opacity': 0.5,
+                }}
+              />
+            </Source>
+          </>
+        )}
+
         {offlineMap && (
           <Source id="offline-trail-context" type="geojson" data={offlineMap.trails}>
             <Layer

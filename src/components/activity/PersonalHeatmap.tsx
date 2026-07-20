@@ -114,12 +114,12 @@ function PersonalRoutesMap({ activities, mode }: { activities: RideActivity[]; m
       mapboxAccessToken={MAPBOX_ACCESS_TOKEN}
       initialViewState={{ longitude: -0.1, latitude: 40.62, zoom: 10 }}
       mapStyle={resilientStyle.mapStyle}
-      onError={() => {
+      onError={event => {
         if (resilientStyle.usingFallback) {
           setMapFailed(true);
           return;
         }
-        resilientStyle.handleMapError();
+        resilientStyle.handleMapError(event);
       }}
     >
       <Source id="personal-heat-points" type="geojson" data={pointCollection}>

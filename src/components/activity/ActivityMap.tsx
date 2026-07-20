@@ -81,12 +81,12 @@ export default function ActivityMap({ points }: { points: RidePoint[] }) {
         zoom: 12,
       }}
       mapStyle={resilientStyle.mapStyle}
-      onError={() => {
+      onError={event => {
         if (resilientStyle.usingFallback) {
           setMapFailed(true);
           return;
         }
-        resilientStyle.handleMapError();
+        resilientStyle.handleMapError(event);
       }}
     >
       <Source id="activity-route" type="geojson" data={route}>

@@ -101,6 +101,7 @@ export default function UniversalRouteMap({
       mapboxAccessToken={MAPBOX_ACCESS_TOKEN}
       initialViewState={{ longitude: -3.7, latitude: 40.25, zoom: 5.4 }}
       mapStyle={resilientStyle.mapStyle}
+      terrain={MAPBOX_ACCESS_TOKEN ? { source: 'levo-planner-terrain-dem', exaggeration: 1.25 } : undefined}
       onError={resilientStyle.handleMapError}
       cursor={drawing ? 'crosshair' : 'grab'}
       onClick={(event) => {
@@ -117,6 +118,34 @@ export default function UniversalRouteMap({
       reuseMaps
       onLoad={fitRoute}
     >
+      {MAPBOX_ACCESS_TOKEN && (
+        <>
+          <Source
+            id="levo-planner-terrain-dem"
+            type="raster-dem"
+            url="mapbox://mapbox.mapbox-terrain-dem-v1"
+            tileSize={512}
+            maxzoom={14}
+          />
+          <Source id="levo-planner-buildings" type="vector" url="mapbox://mapbox.mapbox-streets-v8">
+            <Layer
+              id="levo-planner-3d-buildings"
+              type="fill-extrusion"
+              source="levo-planner-buildings"
+              source-layer="building"
+              minzoom={14}
+              filter={['!', ['has', 'underground']]}
+              paint={{
+                'fill-extrusion-color': '#8995a6',
+                'fill-extrusion-height': ['coalesce', ['get', 'height'], 8],
+                'fill-extrusion-base': ['coalesce', ['get', 'min_height'], 0],
+                'fill-extrusion-opacity': 0.52,
+              }}
+            />
+          </Source>
+        </>
+      )}
+
       {points.length > 1 && (
         <Source id="custom-route-line" type="geojson" data={route}>
           <Layer

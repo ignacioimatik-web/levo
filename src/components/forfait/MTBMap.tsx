@@ -335,18 +335,47 @@ export default function MTBMap({
     <Map
       mapboxAccessToken={MAPBOX_ACCESS_TOKEN}
       mapStyle={resilientStyle.mapStyle}
+      terrain={MAPBOX_ACCESS_TOKEN ? { source: 'levo-forfait-terrain-dem', exaggeration: 1.3 } : undefined}
       initialViewState={{ latitude: 40.6, longitude: -0.02, zoom: 13, pitch: 40 }}
       interactiveLayerIds={lineLayerIds}
       onClick={onClick}
-      onError={() => {
+      onError={event => {
         if (resilientStyle.usingFallback) {
           setMapFailed(true);
           return;
         }
-        resilientStyle.handleMapError();
+        resilientStyle.handleMapError(event);
       }}
       style={{ width: '100%', height: '100%', borderRadius: '12px', overflow: 'hidden' }}
     >
+      {MAPBOX_ACCESS_TOKEN && (
+        <>
+          <Source
+            id="levo-forfait-terrain-dem"
+            type="raster-dem"
+            url="mapbox://mapbox.mapbox-terrain-dem-v1"
+            tileSize={512}
+            maxzoom={14}
+          />
+          <Source id="levo-forfait-buildings" type="vector" url="mapbox://mapbox.mapbox-streets-v8">
+            <Layer
+              id="levo-forfait-3d-buildings"
+              type="fill-extrusion"
+              source="levo-forfait-buildings"
+              source-layer="building"
+              minzoom={14}
+              filter={['!', ['has', 'underground']]}
+              paint={{
+                'fill-extrusion-color': '#8995a6',
+                'fill-extrusion-height': ['coalesce', ['get', 'height'], 8],
+                'fill-extrusion-base': ['coalesce', ['get', 'min_height'], 0],
+                'fill-extrusion-opacity': 0.5,
+              }}
+            />
+          </Source>
+        </>
+      )}
+
       <NavigationControl visualizePitch={true} position="top-right" />
       <FullscreenControl position="top-right" />
       <PitchToggle />
