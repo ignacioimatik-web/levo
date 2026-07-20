@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/browser';
 import { recommendTirePressure, type PressureDifficulty } from '@/lib/tire-pressure';
 
 type Profile = {
-  userId: string;
+  userId: string | null;
   riderWeightKg: number | null;
   bikeWeightKg: number | null;
   bikeName: string;
@@ -44,6 +44,10 @@ export default function PressureAlertClient({ initialProfile }: { initialProfile
 
   const saveProfile = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (!profile.userId) {
+      setStatus('error');
+      return;
+    }
     const supabase = createClient();
     if (!supabase) return setStatus('error');
     setStatus('saving');
@@ -100,7 +104,7 @@ export default function PressureAlertClient({ initialProfile }: { initialProfile
               <label className="text-xs font-bold text-slate-400">Presión inicial trasera (bar)<input className={inputClass} type="number" min="0.5" max="5" step="0.05" value={profile.rearTirePressureBar ?? ''} onChange={e => update('rearTirePressureBar', e.target.value ? Number(e.target.value) : null)} required /></label>
               <label className="text-xs font-bold text-slate-400 sm:col-span-2">Neumático trasero<input className={inputClass} value={profile.rearTireModel} onChange={e => update('rearTireModel', e.target.value)} placeholder="Modelo y carcasa" /></label>
             </div>
-            {status === 'error' && <p role="alert" className="mt-4 text-xs text-red-400">No hemos podido guardar la configuración.</p>}
+            {status === 'error' && <p role="alert" className="mt-4 text-xs text-amber-300">{profile.userId ? 'No hemos podido guardar la configuración.' : 'Inicia sesión para guardar tu perfil. Puedes probar el cálculo con estos valores de referencia.'}</p>}
             <button disabled={status === 'saving'} className="mt-6 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 py-3 text-xs font-black uppercase text-white disabled:opacity-50">{status === 'saving' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}{status === 'saved' ? 'Configuración guardada' : 'Guardar configuración'}</button>
           </form>
 
