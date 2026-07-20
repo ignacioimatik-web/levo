@@ -4,6 +4,7 @@ import { realTrails } from '@/data/trails';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import TrailDetailMapWrapper from '@/components/TrailDetailMapWrapper';
+import RouteDetailMapboxWrapper from '@/components/RouteDetailMapboxWrapper';
 import TrailNowInsights from '@/components/TrailNowInsights';
 import TrailSidebarControls from '@/components/TrailSidebarControls';
 import { buildRouteStatus } from '@/lib/route-status';
@@ -248,11 +249,8 @@ export default async function RouteDetailPage({ params, searchParams }: PageProp
                   segmentOverlays={segmentOverlays}
                   routePoints={statusData.ok ? statusData.points : undefined}
                 />
-              ) : route.trackUrl?.endsWith('.gpx') ? (
-                <div className="w-full h-[400px] bg-slate-900/80 border border-white/5 rounded-2xl flex items-center justify-center">
-                  <Map className="w-8 h-8 text-slate-600 mr-2" />
-                  <p className="text-slate-500 text-sm font-bold">Mapa disponible vía forfait</p>
-                </div>
+              ) : statusData.ok && statusData.points?.length ? (
+                <RouteDetailMapboxWrapper points={statusData.points} title={route.name} />
               ) : (
                 <div className="w-full h-[300px] bg-slate-900/80 border border-white/5 rounded-2xl flex items-center justify-center">
                   <Map className="w-8 h-8 text-slate-600 mr-2" />
