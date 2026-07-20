@@ -1,6 +1,6 @@
 const CACHE_PREFIX = 'e-nduro-';
-const SHELL_CACHE = 'e-nduro-shell-v5';
-const RUNTIME_CACHE = 'e-nduro-runtime-v5';
+const SHELL_CACHE = 'e-nduro-shell-v6';
+const RUNTIME_CACHE = 'e-nduro-runtime-v6';
 const NAVIGATION_TIMEOUT_MS = 4_500;
 const APP_SHELL = [
   '/',
@@ -11,6 +11,9 @@ const APP_SHELL = [
   '/progreso',
   '/mapa-personal',
   '/taller',
+  '/forfait',
+  '/vista-forfait',
+  '/alerta-presion',
   '/favicon.ico',
   '/manifest.webmanifest',
   '/images/logo-enduro-ebiketracks.png',
@@ -24,6 +27,9 @@ const OFFLINE_NAVIGATION_PATHS = new Set([
   '/progreso',
   '/mapa-personal',
   '/taller',
+  '/forfait',
+  '/vista-forfait',
+  '/alerta-presion',
 ]);
 const FIELD_SHELL_PATHS = new Set(['/offline', '/grabar', '/planifica']);
 const STATIC_ASSET_PATTERN = /(?:src|href)=["'](\/_next\/static\/[^"'#]+)["']/g;
