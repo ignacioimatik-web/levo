@@ -37,7 +37,7 @@ function NavDropdown({ label, items }: { label: string; items: DropdownItem[] })
         <ChevronDown className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
-        <div className="absolute top-full left-1/2 -translate-x-1/2 pt-2">
+        <div className="absolute top-full left-1/2 -translate-x-1/2 pt-2 z-[100]">
           <div className="w-48 bg-slate-900 border border-white/10 rounded-xl shadow-2xl py-2 space-y-1">
             {items.map(item => (
               <Link
