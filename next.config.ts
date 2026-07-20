@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  async rewrites() {
+  async redirects() {
     return [
       // Redirect removed pages to home
       { source: '/quienes-somos', destination: '/', permanent: false },
