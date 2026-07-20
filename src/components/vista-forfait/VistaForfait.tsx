@@ -427,6 +427,7 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
             <MapboxMap ref={mapRef}
               mapboxAccessToken={MAPBOX_ACCESS_TOKEN}
               mapStyle={resilientStyle.mapStyle}
+              terrain={MAPBOX_ACCESS_TOKEN ? { source: 'levo-panorama-terrain-dem', exaggeration: 1.35 } : undefined}
               onError={resilientStyle.handleMapError}
               initialViewState={{ latitude: sectorCenter.lat, longitude: sectorCenter.lng, zoom: sectorCenter.zoom, pitch: 78, bearing: 170 }}
               interactiveLayerIds={trackLineIds}
@@ -438,6 +439,34 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
               style={{ width: '100%', height: '100%' }}
             >
               <NavigationControl visualizePitch={true} position="top-right" />
+
+              {MAPBOX_ACCESS_TOKEN && (
+                <>
+                  <Source
+                    id="levo-panorama-terrain-dem"
+                    type="raster-dem"
+                    url="mapbox://mapbox.mapbox-terrain-dem-v1"
+                    tileSize={512}
+                    maxzoom={14}
+                  />
+                  <Source id="levo-panorama-buildings" type="vector" url="mapbox://mapbox.mapbox-streets-v8">
+                    <Layer
+                      id="levo-panorama-3d-buildings"
+                      type="fill-extrusion"
+                      source="levo-panorama-buildings"
+                      source-layer="building"
+                      minzoom={14}
+                      filter={['!', ['has', 'underground']]}
+                      paint={{
+                        'fill-extrusion-color': '#8b97a8',
+                        'fill-extrusion-height': ['coalesce', ['get', 'height'], 8],
+                        'fill-extrusion-base': ['coalesce', ['get', 'min_height'], 0],
+                        'fill-extrusion-opacity': 0.55,
+                      }}
+                    />
+                  </Source>
+                </>
+              )}
 
               {/* Track layers */}
               {sectorTracks.filter(t => !difFilter || t.dificultad === difFilter).map(track => {
