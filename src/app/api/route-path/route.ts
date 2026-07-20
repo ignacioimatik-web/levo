@@ -28,6 +28,10 @@ async function runInRouterSlot<T>(operation: () => Promise<T>): Promise<T> {
   }
 }
 
+async function waitBeforeRouterRetry(): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, 350));
+}
+
 function withinRateLimit(request: NextRequest): boolean {
   const client = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   const now = Date.now();
@@ -128,22 +132,37 @@ export async function POST(request: NextRequest) {
 
   try {
     const route = await runInRouterSlot(async () => {
-      const response = await fetch(providerUrl(points, profile), {
-        headers: {
-          Accept: 'application/geo+json, application/json',
-          'User-Agent': 'E-nduro-Ebiketracks/1.0 (+https://levo-eta.vercel.app)',
-        },
-        next: { revalidate: 604_800 },
-        signal: AbortSignal.timeout(18_000),
-      });
-      const payload = await response.json();
-      if (!response.ok) {
-        const message = typeof payload?.error === 'string' ? payload.error : 'El motor no encontró una ruta.';
-        throw new Error(message);
+      let lastError: Error | null = null;
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        try {
+          const response = await fetch(providerUrl(points, profile), {
+            headers: {
+              Accept: 'application/geo+json, application/json',
+              'User-Agent': 'E-nduro-Ebiketracks/1.0 (+https://levo-eta.vercel.app)',
+            },
+            next: { revalidate: 604_800 },
+            signal: AbortSignal.timeout(18_000),
+          });
+          const payload = await response.json();
+          if (!response.ok) {
+            const message = typeof payload?.error === 'string' ? payload.error : 'El motor no encontró una ruta.';
+            lastError = new Error(message);
+            // BRouter occasionally returns a transient 503/429 while its
+            // queue is busy. A single short retry is enough to absorb that
+            // blip without multiplying provider traffic.
+            if (response.status < 500 && response.status !== 429) throw lastError;
+          } else {
+            const normalized = normalizeBRouterResponse(payload, profile);
+            if (!normalized) throw new Error('El motor devolvió un trazado vacío.');
+            return normalized;
+          }
+        } catch (error) {
+          lastError = error instanceof Error ? error : new Error('No se pudo consultar el motor de rutas.');
+          if (attempt === 1) throw lastError;
+        }
+        await waitBeforeRouterRetry();
       }
-      const normalized = normalizeBRouterResponse(payload, profile);
-      if (!normalized) throw new Error('El motor devolvió un trazado vacío.');
-      return normalized;
+      throw lastError ?? new Error('No se pudo calcular la ruta.');
     });
     return NextResponse.json(
       { route, attribution: 'Enrutado BRouter · datos © OpenStreetMap contributors' },
