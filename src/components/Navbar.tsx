@@ -200,7 +200,7 @@ const Navbar = () => {
   const closeMobile = () => setMobileOpen(false);
 
   return (
-    <nav className="bg-slate-950/80 backdrop-blur-md border-b border-white/5 sticky top-0 z-50">
+    <nav className="bg-slate-950/80 backdrop-blur-md border-b border-white/5 sticky top-0 z-[60]">
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 group">
           <img
