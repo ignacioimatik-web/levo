@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import {
   List, AlertTriangle, Download, Plus, Trash2, ArrowUp, ArrowDown,
-  Search, X, MapIcon, Bike, Route, Save, Copy, ChevronUp, ChevronDown,
+  Search, X, MapIcon, Bike, Route, Save, Copy, ChevronUp, ChevronDown, Navigation,
 } from 'lucide-react';
 import type { TrackMTB, FiltrosForfait, NivelUsuario, DificultadMTB } from '@/lib/forfait/types';
 import type { RouteHoverData } from '@/components/forfait/ContinuousProfile';
@@ -14,10 +14,12 @@ import {
   defaultFilters,
 } from '@/lib/forfait/geo-utils';
 import { exportarRutaGPX, descargarGPX } from '@/lib/forfait/gpx-export';
-import { createClient } from '@/lib/supabase/browser';
+import { createClient, isSupabaseConfigured } from '@/lib/supabase/browser';
 import { fetchSavedRoutes, saveRouteToCloud, deleteSavedRoute } from '@/lib/forfait/save-route';
 import type { SavedRouteData } from '@/lib/forfait/save-route';
 import type { User } from '@supabase/supabase-js';
+import { savePlannedRoute } from '@/lib/navigation/storage';
+import type { PlannedRoute } from '@/lib/navigation/types';
 
 const MTBMap = dynamic(() => import('@/components/forfait/MTBMap'), { ssr: false });
 const ElevationProfile = dynamic(() => import('@/components/forfait/ContinuousProfile'), { ssr: false });
@@ -39,8 +41,16 @@ const ESTADO_BADGE: Record<string, string> = {
   precaucion: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30',
   revision: 'bg-orange-500/10 text-orange-400 border-orange-500/30',
 };
+const RIDER_LEVEL_OPTIONS: Array<{ value: NivelUsuario; label: string }> = [
+  { value: 'iniciacion', label: 'Iniciación' },
+  { value: 'medio', label: 'Nivel medio' },
+  { value: 'avanzado', label: 'Avanzado' },
+  { value: 'experto', label: 'Experto' },
+  { value: 'ebike', label: 'E-bike' },
+];
 
 const STORAGE_KEY = 'forfait-builder-route';
+const RIDER_LEVEL_STORAGE_KEY = 'forfait-rider-level';
 
 interface SavedRoute {
   trackIds: string[];
@@ -64,6 +74,34 @@ function clearSavedRoute() {
   try { localStorage.removeItem(STORAGE_KEY); } catch { /* empty */ }
 }
 
+function RiderLevelSelect({
+  value,
+  onChange,
+}: {
+  value: NivelUsuario;
+  onChange: (value: NivelUsuario) => void;
+}) {
+  return (
+    <label className="flex min-h-11 flex-1 items-center gap-2 rounded-lg border border-white/5 bg-slate-900 px-2.5">
+      <span className="shrink-0 text-[8px] font-black uppercase tracking-wider text-slate-500">
+        Tu nivel
+      </span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value as NivelUsuario)}
+        className="min-h-11 min-w-0 flex-1 bg-transparent text-[10px] font-bold text-white outline-none"
+        aria-label="Nivel para las recomendaciones de tracks"
+      >
+        {RIDER_LEVEL_OPTIONS.map((option) => (
+          <option key={option.value} value={option.value} className="bg-slate-900">
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
   const [filters, setFilters] = useState<FiltrosForfait>(defaultFilters());
   const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
@@ -72,14 +110,13 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
   const [routeName, setRouteName] = useState('Mi ruta Forfait');
   const [nivelUsuario, setNivelUsuario] = useState<NivelUsuario>('avanzado');
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [saved, setSaved] = useState(false);
   const [expandedSectors, setExpandedSectors] = useState<Set<string>>(new Set());
   const [previewTrackIds, setPreviewTrackIds] = useState<string[]>([]);
   const [hoveredTrackId, setHoveredTrackId] = useState<string | null>(null);
   const [fitToTrackId, setFitToTrackId] = useState<string | null>(null);
   const [hoveredRouteKm, setHoveredRouteKm] = useState<RouteHoverData | null>(null);
   const [user, setUser] = useState<User | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(isSupabaseConfigured);
   const [savedRoutes, setSavedRoutes] = useState<SavedRouteData[]>([]);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [loadingSaved, setLoadingSaved] = useState(false);
@@ -96,30 +133,47 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
   // Restore saved route from localStorage
   useEffect(() => {
     const savedData = loadSavedRoute();
-    if (savedData && savedData.trackIds.length > 0) {
-      const valid = savedData.trackIds.filter(id => tracks.some(t => t.id === id));
-      if (valid.length > 0) {
-        setSelectedTrackIds(valid);
-        setRouteName(savedData.routeName || 'Mi ruta Forfait');
-        setActiveTab('ruta');
-      }
-    }
+    if (!savedData || savedData.trackIds.length === 0) return;
+    const valid = savedData.trackIds.filter(id => tracks.some(t => t.id === id));
+    if (valid.length === 0) return;
+
+    const restoreTimer = window.setTimeout(() => {
+      setSelectedTrackIds(valid);
+      setRouteName(savedData.routeName || 'Mi ruta Forfait');
+      setActiveTab('ruta');
+    }, 0);
+
+    return () => window.clearTimeout(restoreTimer);
   }, [tracks]);
+
+  useEffect(() => {
+    let restoreTimer: number | undefined;
+    try {
+      const savedLevel = localStorage.getItem(RIDER_LEVEL_STORAGE_KEY);
+      if (RIDER_LEVEL_OPTIONS.some((option) => option.value === savedLevel)) {
+        restoreTimer = window.setTimeout(() => {
+          setNivelUsuario(savedLevel as NivelUsuario);
+        }, 0);
+      }
+    } catch { /* storage unavailable */ }
+    return () => {
+      if (restoreTimer !== undefined) window.clearTimeout(restoreTimer);
+    };
+  }, []);
 
   // Auto-save route
   useEffect(() => {
     if (selectedTrackIds.length > 0) {
       saveRoute(selectedTrackIds, routeName);
-      setSaved(true);
     } else {
       clearSavedRoute();
-      setSaved(false);
     }
   }, [selectedTrackIds, routeName]);
 
   // Auth state
   useEffect(() => {
     const supabase = createClient();
+    if (!supabase) return;
     supabase.auth.getUser().then(({ data }) => {
       setUser(data.user);
       setAuthLoading(false);
@@ -137,6 +191,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
   }, []);
 
   const conexiones = useMemo(() => detectAllConnections(tracks), [tracks]);
+  const saved = selectedTrackIds.length > 0;
 
   const filteredTracks = useMemo(() => {
     return tracks.filter(t => {
@@ -172,12 +227,19 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
       con_precaucion: result.filter(r => r.tipo === 'con_precaucion').map(r => r.track.id),
       no_recomendado: result.filter(r => r.tipo === 'no_recomendado').map(r => r.track.id),
     };
-  }, [selectedTrackIds, filteredTracks, conexiones, nivelUsuario]);
+  }, [selectedTrackIds, filteredTracks, conexiones, nivelUsuario, tracks]);
 
   const handleTrackClick = useCallback((track: TrackMTB) => {
     setSelectedTrackId(track.id);
     setPreviewTrackIds(prev => prev.includes(track.id) ? prev.filter(id => id !== track.id) : [...prev, track.id]);
     setFitToTrackId(track.id);
+  }, []);
+
+  const handleRiderLevelChange = useCallback((level: NivelUsuario) => {
+    setNivelUsuario(level);
+    try {
+      localStorage.setItem(RIDER_LEVEL_STORAGE_KEY, level);
+    } catch { /* storage unavailable */ }
   }, []);
 
   const addToRoute = useCallback((trackId: string) => {
@@ -211,6 +273,31 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
     descargarGPX(gpx, `morella-ebiketracks-${builtRoute.nombre.toLowerCase().replace(/\s+/g, '-')}.gpx`);
   }, [builtRoute]);
 
+  const startNavigation = useCallback((route: PlannedRoute) => {
+    savePlannedRoute(route);
+    window.location.assign(`/grabar?ruta=${encodeURIComponent(route.id)}`);
+  }, []);
+
+  const handleStartNavigation = useCallback(() => {
+    if (!builtRoute) return;
+    startNavigation({
+      id: builtRoute.id || crypto.randomUUID(),
+      name: builtRoute.nombre,
+      trackIds: selectedTrackIds,
+      distanceKm: builtRoute.distanciaTotalKm,
+      elevationGainM: builtRoute.desnivelPositivoTotal,
+      estimatedTimeMin: builtRoute.tiempoEstimadoTotalMin,
+      difficulty: builtRoute.dificultadGlobal,
+      warnings: builtRoute.advertencias,
+      points: builtRoute.pointsCombinados.map((point) => ({
+        latitude: point.lat,
+        longitude: point.lng,
+        elevation: point.elevation ?? null,
+      })),
+      createdAt: new Date().toISOString(),
+    });
+  }, [builtRoute, selectedTrackIds, startNavigation]);
+
   const handleCopySummary = useCallback(() => {
     if (!builtRoute) return;
     const summary = [
@@ -236,6 +323,12 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
       elevation_loss_m: builtRoute.desnivelNegativoTotal,
       estimated_time_min: builtRoute.tiempoEstimadoTotalMin,
       difficulty: builtRoute.dificultadGlobal,
+      route_points: builtRoute.pointsCombinados.map((point) => ({
+        latitude: point.lat,
+        longitude: point.lng,
+        elevation: point.elevation ?? null,
+      })),
+      warnings: builtRoute.advertencias,
     });
     setSaveStatus(error ? 'error' : 'saved');
     if (error) {
@@ -271,6 +364,21 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
       setActiveTab('ruta');
     }
   }, [tracks]);
+
+  const handleNavigateSavedRoute = useCallback((saved: SavedRouteData) => {
+    startNavigation({
+      id: saved.id,
+      name: saved.name,
+      trackIds: saved.track_ids,
+      distanceKm: saved.distance_km,
+      elevationGainM: saved.elevation_gain_m,
+      estimatedTimeMin: saved.estimated_time_min,
+      difficulty: saved.difficulty,
+      warnings: saved.warnings ?? [],
+      points: saved.route_points ?? [],
+      createdAt: saved.created_at,
+    });
+  }, [startNavigation]);
 
   const selectedTrack = selectedTrackId ? tracks.find(t => t.id === selectedTrackId) : null;
   const selectedTracks = useMemo(() => tracks.filter(t => selectedTrackIds.includes(t.id)), [tracks, selectedTrackIds]);
@@ -317,6 +425,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
         <button
           onClick={() => { addToRoute(track.id); }}
           className="flex-shrink-0 p-1.5 bg-orange-500/20 text-orange-400 rounded-lg hover:bg-orange-500/30 transition-colors"
+          aria-label={`Añadir ${track.nombre} a la ruta`}
         >
           <Plus className="w-4 h-4" />
         </button>
@@ -374,14 +483,20 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
           <div className="flex items-center justify-between gap-1">
             <span className={`text-[11px] font-bold truncate leading-tight ${isClosed ? 'text-slate-500' : 'text-white'}`}>{track.nombre}</span>
             <button
-              onClick={e => { e.stopPropagation(); isInRoute ? removeFromRoute(track.id) : addToRoute(track.id); }}
-              className={`flex-shrink-0 p-0.5 rounded-lg transition-colors ${
+              type="button"
+              onClick={e => {
+                e.stopPropagation();
+                if (isInRoute) removeFromRoute(track.id);
+                else addToRoute(track.id);
+              }}
+              aria-label={isInRoute ? `Quitar ${track.nombre} de la ruta` : `Añadir ${track.nombre} a la ruta`}
+              className={`flex min-h-11 min-w-11 flex-shrink-0 touch-manipulation items-center justify-center rounded-lg transition-colors ${
                 isInRoute
                   ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30'
                   : 'bg-slate-800 text-slate-500 hover:bg-orange-500/20 hover:text-orange-400'
               } ${isClosed ? 'opacity-40' : ''}`}
             >
-              {isInRoute ? <Trash2 className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+              {isInRoute ? <Trash2 className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
             </button>
           </div>
           <div className="text-[9px] text-slate-500 leading-tight">
@@ -422,7 +537,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
                   <div key={sector} className="border border-white/[0.04] rounded-lg overflow-hidden">
                     <button
                       onClick={() => toggleSector(sector)}
-                      className="w-full flex items-center justify-between px-2.5 py-1.5 bg-slate-900/60 hover:bg-slate-900 transition-colors text-left"
+                      className="flex min-h-11 w-full items-center justify-between bg-slate-900/60 px-2.5 text-left transition-colors hover:bg-slate-900"
                     >
                       <div className="flex items-center gap-1.5">
                         <ChevronUp className={`w-3 h-3 text-slate-500 transition-transform duration-150 ${isExpanded ? '' : '-rotate-90'}`} />
@@ -533,6 +648,10 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
             {selectedTrackIds.length > 0 && (
               <>
                 <div className="flex gap-2">
+                  <button onClick={handleStartNavigation} className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-lg text-xs font-black transition-colors">
+                    <Navigation className="w-4 h-4 fill-current" />
+                    Navegar
+                  </button>
                   <button onClick={handleExportGPX} className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-xs font-bold transition-colors">
                     <Download className="w-4 h-4" />
                     GPX
@@ -645,6 +764,15 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
                   >
                     <Trash2 className="w-3 h-3" />
                   </button>
+                  {r.route_points?.length > 1 && (
+                    <button
+                      onClick={() => handleNavigateSavedRoute(r)}
+                      className="p-1 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 rounded transition-colors"
+                      title="Navegar esta ruta"
+                    >
+                      <Navigation className="w-3 h-3" />
+                    </button>
+                  )}
                 </div>
               ))
             )}
@@ -664,7 +792,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
   );
 
   return (
-    <section className="relative h-[calc(100vh-64px)]">
+    <section className="relative h-[calc(100dvh-128px)] md:h-[calc(100vh-64px)]">
       {/* TOP TOOLBAR */}
       <div className="h-12 flex items-center justify-between px-4 bg-slate-950 border-b border-white/[0.04]">
         <div className="flex items-center gap-3">
@@ -707,14 +835,14 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
                       placeholder="Buscar track..."
                       value={filters.busqueda}
                       onChange={e => setFilters(f => ({ ...f, busqueda: e.target.value }))}
-                      className="w-full bg-slate-900 border border-white/5 rounded-lg pl-7 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-orange-500/40"
+                      className="min-h-11 w-full rounded-lg border border-white/5 bg-slate-900 pl-7 pr-3 text-xs text-white placeholder-slate-500 focus:border-orange-500/40 focus:outline-none"
                     />
                   </div>
 
                   <div className="flex flex-wrap gap-1">
                     <button
                       onClick={() => setFilters(f => ({ ...f, soloAbiertos: !f.soloAbiertos }))}
-                      className={`px-2 py-1 rounded text-[9px] font-bold transition-colors ${
+                      className={`min-h-11 touch-manipulation rounded px-3 text-[9px] font-bold transition-colors ${
                         filters.soloAbiertos ? 'bg-green-500/20 text-green-400 border border-green-500/40' : 'bg-slate-800/50 text-slate-500 border border-white/5'
                       }`}
                     >
@@ -722,7 +850,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
                     </button>
                     <button
                       onClick={() => setFilters(f => ({ ...f, soloEbike: !f.soloEbike }))}
-                      className={`px-2 py-1 rounded text-[9px] font-bold transition-colors ${
+                      className={`min-h-11 touch-manipulation rounded px-3 text-[9px] font-bold transition-colors ${
                         filters.soloEbike ? 'bg-orange-500/20 text-orange-400 border border-orange-500/40' : 'bg-slate-800/50 text-slate-500 border border-white/5'
                       }`}
                     >
@@ -739,7 +867,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
                             : [...f.dificultad, e.target.value as DificultadMTB],
                         }));
                       }}
-                      className="px-2 py-1 rounded text-[9px] font-bold bg-slate-800/50 text-slate-400 border border-white/5"
+                      className="min-h-11 rounded border border-white/5 bg-slate-800/50 px-3 text-[9px] font-bold text-slate-400"
                     >
                       <option value="">Dificultad</option>
                       <option value="verde">Verde</option>
@@ -748,6 +876,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
                       <option value="negro">Negro</option>
                       <option value="doble-negro">Doble negro</option>
                     </select>
+                    <RiderLevelSelect value={nivelUsuario} onChange={handleRiderLevelChange} />
                   </div>
                 </div>
               )}
@@ -834,6 +963,15 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
                 </div>
                 <div className="flex items-center gap-1.5 flex-shrink-0 pointer-events-auto">
                   <button
+                    onClick={handleStartNavigation}
+                    aria-label="Navegar esta ruta"
+                    className="flex px-2.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-lg text-[9px] font-black transition-colors items-center gap-1 shadow-lg shadow-emerald-950/30"
+                    title="Navegar esta ruta"
+                  >
+                    <Navigation className="w-3 h-3 fill-current" />
+                    <span className="hidden sm:inline">Navegar</span>
+                  </button>
+                  <button
                     onClick={() => setActiveTab('ruta')}
                     className="hidden sm:flex px-2.5 py-1.5 bg-slate-900/80 hover:bg-slate-800 text-slate-300 rounded-lg text-[9px] font-bold transition-colors items-center gap-1 backdrop-blur-sm"
                     title="Ver perfil"
@@ -868,10 +1006,11 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
 
       {/* FAB TRACKS — visible en móvil, abre el bottom sheet */}
       {!sidebarOpen && (
-        <div className="sm:hidden absolute bottom-20 left-1/2 -translate-x-1/2 z-[1500]">
+        <div className="absolute bottom-20 left-1/2 z-[1500] -translate-x-1/2 lg:hidden">
           <button
+            type="button"
             onClick={() => setSidebarOpen(true)}
-            className="px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-full shadow-lg transition-all active:scale-95 flex items-center gap-2 text-xs font-bold"
+            className="flex min-h-11 touch-manipulation items-center gap-2 rounded-full bg-orange-500 px-5 text-xs font-bold text-white shadow-lg transition-all hover:bg-orange-600 active:scale-95"
             aria-label="Abrir tracks"
           >
             <Bike className="w-4 h-4" />
@@ -889,11 +1028,11 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
           <div className="hidden md:flex absolute top-0 left-0 h-full w-[340px] bg-slate-950 border-r border-white/5 flex-col pointer-events-auto shadow-2xl">
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
               <div className="flex gap-1">
-                <button onClick={() => setActiveTab('tracks')} className={`px-2 py-1 rounded text-[9px] font-bold uppercase tracking-widest ${activeTab === 'tracks' ? 'bg-orange-500/15 text-orange-400' : 'text-slate-500 hover:text-slate-300'}`}>Explorar</button>
-                <button onClick={() => setActiveTab('ruta')} className={`px-2 py-1 rounded text-[9px] font-bold uppercase tracking-widest ${activeTab === 'ruta' ? 'bg-orange-500/15 text-orange-400' : 'text-slate-500 hover:text-slate-300'}`}>Ruta</button>
-                <button onClick={() => setActiveTab('status')} className={`px-2 py-1 rounded text-[9px] font-bold uppercase tracking-widest ${activeTab === 'status' ? 'bg-orange-500/15 text-orange-400' : 'text-slate-500 hover:text-slate-300'}`}>Estado</button>
+                <button onClick={() => setActiveTab('tracks')} className={`min-h-11 rounded px-3 text-[9px] font-bold uppercase tracking-widest ${activeTab === 'tracks' ? 'bg-orange-500/15 text-orange-400' : 'text-slate-500 hover:text-slate-300'}`}>Explorar</button>
+                <button onClick={() => setActiveTab('ruta')} className={`min-h-11 rounded px-3 text-[9px] font-bold uppercase tracking-widest ${activeTab === 'ruta' ? 'bg-orange-500/15 text-orange-400' : 'text-slate-500 hover:text-slate-300'}`}>Ruta</button>
+                <button onClick={() => setActiveTab('status')} className={`min-h-11 rounded px-3 text-[9px] font-bold uppercase tracking-widest ${activeTab === 'status' ? 'bg-orange-500/15 text-orange-400' : 'text-slate-500 hover:text-slate-300'}`}>Estado</button>
               </div>
-              <button onClick={() => setSidebarOpen(false)} className="text-slate-400 p-1 hover:text-white transition-colors"><X className="w-4 h-4" /></button>
+              <button onClick={() => setSidebarOpen(false)} className="grid h-11 w-11 place-items-center text-slate-400 transition-colors hover:text-white" aria-label="Cerrar panel"><X className="w-4 h-4" /></button>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {sidebarContent}
@@ -912,7 +1051,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
                   <span className="text-[11px] font-bold text-white">Tracks</span>
                   <span className="text-[9px] text-slate-500">{filteredTracks.length}</span>
                 </div>
-                <button onClick={() => setSidebarOpen(false)} className="text-slate-400 p-1 hover:text-white transition-colors" aria-label="Cerrar">
+                <button onClick={() => setSidebarOpen(false)} className="grid h-11 w-11 place-items-center text-slate-400 transition-colors hover:text-white" aria-label="Cerrar">
                   <ChevronDown className="w-4 h-4" />
                 </button>
               </div>
@@ -925,13 +1064,13 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
                   placeholder="Buscar track..."
                   value={filters.busqueda}
                   onChange={e => setFilters(f => ({ ...f, busqueda: e.target.value }))}
-                  className="w-full bg-slate-900 border border-white/5 rounded-lg pl-7 pr-3 py-1.5 text-[11px] text-white placeholder-slate-500 focus:outline-none focus:border-orange-500/40"
+                  className="min-h-11 w-full rounded-lg border border-white/5 bg-slate-900 pl-7 pr-3 text-[11px] text-white placeholder-slate-500 focus:border-orange-500/40 focus:outline-none"
                 />
               </div>
               <div className="flex flex-wrap gap-1">
                 <button
                   onClick={() => setFilters(f => ({ ...f, soloAbiertos: !f.soloAbiertos }))}
-                  className={`px-2 py-1 rounded text-[8px] font-bold transition-colors ${
+                  className={`min-h-11 touch-manipulation rounded px-3 text-[8px] font-bold transition-colors ${
                     filters.soloAbiertos ? 'bg-green-500/20 text-green-400 border border-green-500/40' : 'bg-slate-800/50 text-slate-500 border border-white/5'
                   }`}
                 >
@@ -939,7 +1078,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
                 </button>
                 <button
                   onClick={() => setFilters(f => ({ ...f, soloEbike: !f.soloEbike }))}
-                  className={`px-2 py-1 rounded text-[8px] font-bold transition-colors ${
+                  className={`min-h-11 touch-manipulation rounded px-3 text-[8px] font-bold transition-colors ${
                     filters.soloEbike ? 'bg-orange-500/20 text-orange-400 border border-orange-500/40' : 'bg-slate-800/50 text-slate-500 border border-white/5'
                   }`}
                 >
@@ -956,7 +1095,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
                         : [...f.dificultad, e.target.value as DificultadMTB],
                     }));
                   }}
-                  className="px-2 py-1 rounded text-[8px] font-bold bg-slate-800/50 text-slate-400 border border-white/5"
+                  className="min-h-11 rounded border border-white/5 bg-slate-800/50 px-3 text-[8px] font-bold text-slate-400"
                 >
                   <option value="">Dificultad</option>
                   <option value="verde">Verde</option>
@@ -965,6 +1104,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
                   <option value="negro">Negro</option>
                   <option value="doble-negro">Doble negro</option>
                 </select>
+                <RiderLevelSelect value={nivelUsuario} onChange={handleRiderLevelChange} />
               </div>
             </div>
             <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-0.5">
@@ -975,7 +1115,7 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
                   <div key={sector} className="border border-white/[0.04] rounded-lg overflow-hidden">
                     <button
                       onClick={() => toggleSector(sector)}
-                      className="w-full flex items-center justify-between px-2.5 py-1.5 bg-slate-900/60 hover:bg-slate-900 transition-colors text-left"
+                      className="flex min-h-11 w-full items-center justify-between bg-slate-900/60 px-2.5 text-left transition-colors hover:bg-slate-900"
                     >
                       <div className="flex items-center gap-1.5">
                         <ChevronDown className={`w-3 h-3 text-slate-500 transition-transform duration-150 ${isExpanded ? '' : '-rotate-90'}`} />

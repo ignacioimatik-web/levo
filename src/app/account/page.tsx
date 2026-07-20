@@ -1,11 +1,13 @@
 import { requireAuth } from '@/lib/auth/guards';
 import { createClient } from '@/lib/supabase/server';
-import { Mail, Globe, Calendar, Shield } from 'lucide-react';
+import { Mail, Globe, Calendar, Shield, Sparkles } from 'lucide-react';
+import Image from 'next/image';
 import SignOutButton from './SignOutButton';
+import ProfileSettings from './ProfileSettings';
+import Link from 'next/link';
 
 const PROVIDER_LABELS: Record<string, { label: string; color: string }> = {
   google: { label: 'Google', color: 'text-orange-400' },
-  apple: { label: 'Apple', color: 'text-slate-300' },
 };
 
 function formatDate(dateString: string): string {
@@ -29,9 +31,12 @@ function AvatarSection({ avatarUrl, displayName, email }: { avatarUrl?: string |
   return (
     <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 mb-10">
       {avatarUrl ? (
-        <img
+        <Image
           src={avatarUrl}
           alt={displayName}
+          width={80}
+          height={80}
+          unoptimized
           className="w-20 h-20 rounded-full object-cover border-2 border-white/10"
         />
       ) : (
@@ -50,18 +55,18 @@ function AvatarSection({ avatarUrl, displayName, email }: { avatarUrl?: string |
 }
 
 export default async function AccountPage() {
-  const user = await requireAuth();
+  const user = await requireAuth('/account');
   const supabase = await createClient();
 
   const { data: profile } = await supabase
     .from('profiles')
     .select('*')
-    .eq('id', user.id)
+    .eq('user_id', user.id)
     .single();
 
   const provider = user.app_metadata?.provider || user.identities?.[0]?.provider || 'email';
   const avatarUrl = profile?.avatar_url || user.user_metadata?.avatar_url;
-  const displayName = profile?.full_name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuario';
+  const displayName = profile?.display_name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuario';
 
   return (
     <div className="py-12 px-6 max-w-2xl mx-auto min-h-screen">
@@ -74,6 +79,23 @@ export default async function AccountPage() {
 
       <div className="glass-card rounded-2xl p-8 space-y-8">
         <AvatarSection avatarUrl={avatarUrl} displayName={displayName} email={user.email} />
+
+        {!profile?.onboarding_completed_at && (
+          <div className="rounded-2xl border border-orange-500/25 bg-orange-500/10 p-4">
+            <div className="flex items-start gap-3">
+              <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-orange-400" />
+              <div>
+                <p className="text-sm font-black text-white">Personaliza LEVO para tus salidas</p>
+                <p className="mt-1 text-xs leading-relaxed text-slate-400">
+                  Configura modalidad, bici y batería para mejorar autonomía, ritmo y recomendaciones.
+                </p>
+                <Link href="/onboarding" className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-orange-500 px-4 text-xs font-black uppercase text-white">
+                  Completar configuración
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="space-y-4">
           <div className="flex items-center gap-3 text-sm">
@@ -96,19 +118,23 @@ export default async function AccountPage() {
             </div>
           )}
 
-          {profile?.last_login_at && (
-            <div className="flex items-center gap-3 text-sm">
-              <Calendar className="w-4 h-4 text-orange-500 shrink-0" />
-              <span className="text-slate-400">Último acceso:</span>
-              <span className="text-slate-200 font-medium">{formatDate(profile.last_login_at)}</span>
-            </div>
-          )}
-
           <div className="flex items-center gap-3 text-sm">
             <Shield className="w-4 h-4 text-orange-500 shrink-0" />
             <span className="text-slate-400">Rol:</span>
-            <span className="text-slate-200 font-medium capitalize">{profile?.role || 'user'}</span>
+            <span className="text-slate-200 font-medium capitalize">rider</span>
           </div>
+        </div>
+
+        <div className="pt-4 border-t border-white/10">
+          <ProfileSettings
+            userId={user.id}
+            initialDisplayName={displayName}
+            initialBikeName={profile?.bike_name ?? ''}
+            initialBatteryCapacityWh={profile?.battery_capacity_wh ?? 700}
+            initialBio={profile?.bio ?? ''}
+            initialHomeRegion={profile?.home_region ?? ''}
+            initialRiderType={profile?.rider_type ?? 'both'}
+          />
         </div>
 
         <div className="pt-4 border-t border-white/10">

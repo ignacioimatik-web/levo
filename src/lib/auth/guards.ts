@@ -1,8 +1,10 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { normalizeAuthNextPath } from '@/lib/auth/redirect';
 
 export const PROTECTED_ROUTES = [
   '/account',
+  '/onboarding',
 ] as const;
 
 export function isProtectedRoute(pathname: string): boolean {
@@ -11,11 +13,12 @@ export function isProtectedRoute(pathname: string): boolean {
   );
 }
 
-export async function requireAuth() {
+export async function requireAuth(nextPath = '/account') {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
-    redirect('/auth');
+    const next = normalizeAuthNextPath(nextPath);
+    redirect(`/auth?next=${encodeURIComponent(next)}`);
   }
   return user;
 }

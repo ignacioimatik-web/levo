@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -9,9 +9,27 @@ export async function GET() {
     return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
   }
 
+  const id = request.nextUrl.searchParams.get('id');
+  if (id) {
+    const validId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+    if (!validId) {
+      return NextResponse.json({ error: 'El identificador de ruta no es válido.' }, { status: 400 });
+    }
+    const { data, error } = await supabase
+      .from('saved_routes')
+      .select('id, name, track_ids, distance_km, elevation_gain_m, elevation_loss_m, estimated_time_min, difficulty, route_points, control_points, routing_mode, reference, warnings, created_at, updated_at')
+      .eq('user_id', user.id)
+      .eq('id', id)
+      .maybeSingle();
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    return NextResponse.json({ route: data ?? null });
+  }
+
   const { data, error } = await supabase
     .from('saved_routes')
-    .select('id, name, track_ids, distance_km, elevation_gain_m, elevation_loss_m, estimated_time_min, difficulty, created_at, updated_at')
+    .select('id, name, track_ids, distance_km, elevation_gain_m, elevation_loss_m, estimated_time_min, difficulty, route_points, control_points, routing_mode, reference, warnings, created_at, updated_at')
     .eq('user_id', user.id)
     .order('updated_at', { ascending: false });
 
@@ -31,25 +49,83 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { name, track_ids, distance_km, elevation_gain_m, elevation_loss_m, estimated_time_min, difficulty } = body;
+  const {
+    id, name, track_ids, distance_km, elevation_gain_m, elevation_loss_m,
+    estimated_time_min, difficulty, route_points, control_points, routing_mode,
+    reference, warnings,
+  } = body;
+  const validId = typeof id === 'string'
+    && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
 
-  if (!Array.isArray(track_ids) || track_ids.length === 0) {
-    return NextResponse.json({ error: 'track_ids debe ser un array no vacío' }, { status: 400 });
+  const validTrackIds = Array.isArray(track_ids)
+    && track_ids.length <= 200
+    && track_ids.every((id) => typeof id === 'string' && id.length <= 120);
+  const validRoutePoints = Array.isArray(route_points)
+    && route_points.length >= 2
+    && route_points.length <= 20_000
+    && route_points.every((point) => (
+      point
+      && Number.isFinite(Number(point.latitude))
+      && Number.isFinite(Number(point.longitude))
+      && Number(point.latitude) >= -90
+      && Number(point.latitude) <= 90
+      && Number(point.longitude) >= -180
+      && Number(point.longitude) <= 180
+    ));
+  const validControlPoints = Array.isArray(control_points)
+    && control_points.length <= 2_000
+    && control_points.every((point) => (
+      point
+      && Number.isFinite(Number(point.latitude))
+      && Number.isFinite(Number(point.longitude))
+      && Number(point.latitude) >= -90
+      && Number(point.latitude) <= 90
+      && Number(point.longitude) >= -180
+      && Number(point.longitude) <= 180
+    ));
+  const validRoutingMode = routing_mode === 'mtb'
+    || routing_mode === 'ebike'
+    || routing_mode === 'manual';
+  const validReference = reference == null || (
+    typeof reference === 'object'
+    && typeof reference.activityId === 'string'
+    && reference.activityId.length <= 120
+    && typeof reference.title === 'string'
+    && reference.title.length <= 120
+    && Number.isFinite(Number(reference.durationSeconds))
+    && Number(reference.durationSeconds) >= 0
+    && typeof reference.startedAt === 'string'
+    && Number.isFinite(Date.parse(reference.startedAt))
+  );
+  if (!validTrackIds || (!track_ids.length && !validRoutePoints)) {
+    return NextResponse.json({ error: 'La ruta necesita tracks conocidos o un trazado válido.' }, { status: 400 });
+  }
+  if (!validReference) {
+    return NextResponse.json({ error: 'La referencia personal de la ruta no es válida.' }, { status: 400 });
   }
 
-  const { data, error } = await supabase
-    .from('saved_routes')
-    .insert({
-      user_id: user.id,
-      name: name || 'Mi ruta',
-      track_ids,
-      distance_km: distance_km ?? 0,
-      elevation_gain_m: elevation_gain_m ?? 0,
-      elevation_loss_m: elevation_loss_m ?? 0,
-      estimated_time_min: estimated_time_min ?? 0,
-      difficulty: difficulty ?? 'verde',
-    })
-    .select('id, name, track_ids, distance_km, elevation_gain_m, elevation_loss_m, estimated_time_min, difficulty, created_at, updated_at')
+  const routeRecord = {
+    ...(validId ? { id } : {}),
+    user_id: user.id,
+    name: name || 'Mi ruta',
+    track_ids,
+    distance_km: distance_km ?? 0,
+    elevation_gain_m: elevation_gain_m ?? 0,
+    elevation_loss_m: elevation_loss_m ?? 0,
+    estimated_time_min: estimated_time_min ?? 0,
+    difficulty: difficulty ?? 'verde',
+    route_points: validRoutePoints ? route_points : [],
+    control_points: validControlPoints ? control_points : [],
+    routing_mode: validRoutingMode ? routing_mode : 'manual',
+    reference: reference ?? null,
+    warnings: Array.isArray(warnings) ? warnings : [],
+    updated_at: new Date().toISOString(),
+  };
+  const query = validId
+    ? supabase.from('saved_routes').upsert(routeRecord, { onConflict: 'id' })
+    : supabase.from('saved_routes').insert(routeRecord);
+  const { data, error } = await query
+    .select('id, name, track_ids, distance_km, elevation_gain_m, elevation_loss_m, estimated_time_min, difficulty, route_points, control_points, routing_mode, reference, warnings, created_at, updated_at')
     .single();
 
   if (error) {

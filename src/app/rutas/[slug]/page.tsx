@@ -1,9 +1,9 @@
 import { Metadata } from 'next';
 import { routes } from '@/data/routes';
-import { demoTrails } from '@/data/trails';
+import { realTrails } from '@/data/trails';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import TrailDetailMapWrapper from '@/components/TrailDetailMapWrapper';
+import RouteDetailMapboxWrapper from '@/components/RouteDetailMapboxWrapper';
 import TrailNowInsights from '@/components/TrailNowInsights';
 import TrailSidebarControls from '@/components/TrailSidebarControls';
 import { buildRouteStatus } from '@/lib/route-status';
@@ -104,13 +104,13 @@ export default async function RouteDetailPage({ params, searchParams }: PageProp
   const route = routes.find((r) => r.slug === slug);
   if (!route) notFound();
 
-  const trail = demoTrails.find(t => t.slug === slug);
+  const trail = realTrails.find(t => t.slug === slug);
   const statusData = await buildRouteStatus(slug);
   const segmentOverlays = statusData.ok && statusData.profile
     ? statusData.profile.segments
-        .filter((s) => showSet.has(s.type))
-        .map((s) => ({ startKm: s.startKm, endKm: s.endKm, type: s.type }))
-    : undefined;
+        .filter((segment) => showSet.has(segment.type))
+        .map((segment) => ({ startKm: segment.startKm, endKm: segment.endKm, type: segment.type }))
+    : [];
 
   const isClosed = route.status === 'cerrada-temporalmente';
   const isPending = route.status === 'pendiente-datos';
@@ -226,7 +226,7 @@ export default async function RouteDetailPage({ params, searchParams }: PageProp
                 <span className="w-1.5 h-8 bg-orange-500 rounded-full inline-block" />
                 Plano
               </h2>
-              {trail && (
+              {statusData.ok && statusData.points?.length ? (
                 <div className="absolute right-3 top-16 z-[500] bg-slate-950/85 backdrop-blur-sm border border-white/10 rounded-lg p-2 flex gap-1.5">
                   <Link href={toggleHref('climb')} className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border ${showSet.has('climb') ? 'bg-green-500/20 border-green-400/40 text-green-300' : 'bg-slate-800 border-white/10 text-slate-500'}`}>
                     Subidas
@@ -238,21 +238,13 @@ export default async function RouteDetailPage({ params, searchParams }: PageProp
                     Tramos
                   </Link>
                 </div>
-              )}
-              {trail ? (
-                <TrailDetailMapWrapper
-                  trail={trail}
-                  focusStartKm={focusStartKm}
-                  focusEndKm={focusEndKm}
-                  focusPointKm={focusPointKm}
+              ) : null}
+              {statusData.ok && statusData.points?.length ? (
+                <RouteDetailMapboxWrapper
+                  points={statusData.points}
+                  title={route.name}
                   segmentOverlays={segmentOverlays}
-                  routePoints={statusData.ok ? statusData.points : undefined}
                 />
-              ) : route.trackUrl?.endsWith('.gpx') ? (
-                <div className="w-full h-[400px] bg-slate-900/80 border border-white/5 rounded-2xl flex items-center justify-center">
-                  <Map className="w-8 h-8 text-slate-600 mr-2" />
-                  <p className="text-slate-500 text-sm font-bold">Mapa disponible vía forfait</p>
-                </div>
               ) : (
                 <div className="w-full h-[300px] bg-slate-900/80 border border-white/5 rounded-2xl flex items-center justify-center">
                   <Map className="w-8 h-8 text-slate-600 mr-2" />
@@ -475,6 +467,15 @@ export default async function RouteDetailPage({ params, searchParams }: PageProp
                 Descarga los archivos GPX para usarlos en tu dispositivo GPS o smartphone.
               </p>
               <div className="space-y-3">
+                {hasGpx && (
+                  <Link
+                    href={`/planifica?gpx=${encodeURIComponent(route.trackUrl || trail?.gpxFile || '')}&name=${encodeURIComponent(route.name)}`}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white text-slate-950 rounded-xl font-bold text-sm hover:bg-orange-500 hover:text-white transition-all"
+                  >
+                    <Map className="w-4 h-4" />
+                    Preparar meteo y navegar
+                  </Link>
+                )}
                 <a
                   href={route.trackUrl || trail?.gpxFile || '#'}
                   download

@@ -1,8 +1,8 @@
 # LEVO — E-nduro Ebiketracks
 
-**LEVO** es una aplicación web profesional para la planificación, exploración y construcción de rutas de MTB y enduro en la comarca de **Els Ports (Morella, Castellón)**. Combina un catálogo exhaustivo de tracks reales con un constructor de rutas interactivo sobre mapa 3D, perfiles altimétricos, datos meteorológicos en tiempo real (AEMET), y guardado en la nube con autenticación OAuth.
+**LEVO** es una aplicación web profesional para la planificación, exploración y construcción de rutas de MTB y enduro en la comarca de **Els Ports (Morella, Castellón)**. Combina un catálogo exhaustivo de tracks reales con un constructor de rutas interactivo sobre mapa 3D, perfiles altimétricos, datos meteorológicos por tramos (observaciones AEMET con respaldo mundial Open-Meteo), y guardado en la nube con autenticación.
 
-**Desplegada en:** [levo-seven.vercel.app](https://levo-seven.vercel.app)
+**Desplegada en:** [levo-eta.vercel.app](https://levo-eta.vercel.app)
 
 ---
 
@@ -14,13 +14,13 @@
 | **Lenguaje** | TypeScript 5 |
 | **Mapas** | Mapbox GL JS (`outdoors-v12`) con terreno 3D (`mapbox-terrain-dem-v1`) |
 | **Mapa React** | `react-map-gl/mapbox` v8 |
-| **Autenticación** | Supabase Auth (OAuth: Google + Apple) con `@supabase/ssr` |
+| **Autenticación** | Supabase Auth (Google OAuth + enlace seguro por email) con `@supabase/ssr` |
 | **Base de datos** | Supabase PostgreSQL (RLS por usuario) |
 | **Estilos** | Tailwind CSS v4 |
 | **Iconos** | Lucide React |
 | **Geometría** | Turf.js (conexiones, intersecciones, nearest-point-on-line) |
 | **GPX** | Parseo nativo de tracks reales; exportación GPX 1.1 |
-| **Clima** | API AEMET (Agencia Estatal de Meteorología) |
+| **Clima** | AEMET OpenData + respaldo mundial Open-Meteo |
 | **Despliegue** | Vercel (Edge + Serverless) |
 
 ---
@@ -31,6 +31,14 @@
 - Catálogo de **29 tracks reales** en GPX, distribuidos en 5 sectores
 - Filtros combinados: dificultad, estado, tipo de track, exigencia técnica/física, distancia, apto e-bike, apto lluvia
 - Vistas de detalle por track: perfil de elevación, segmentos (subida/bajada/llano), mapa topográfico, descarga GPX
+
+### 🧭 Planificador universal (`/planifica`)
+- Búsqueda manual de localidades, puertos y senderos desde cualquier lugar
+- Trazado automático sobre caminos con perfiles MTB y e-bike, más modo manual
+- Dibujo táctil o con ratón, controles deshacer/rehacer e importación de cualquier GPX
+- Análisis meteorológico por distancia real, luz restante, ritmo y autonomía e-bike
+- Guardado local y en Supabase, exportación GPX y preparación de caminos offline
+- Inicio directo de navegación GPS guiada desde la ruta preparada
 
 ### 🏔️ Forfait MTB — Constructor de rutas (`/forfait`)
 Constructor drag-free que permite al usuario **combinar tracks secuencialmente** para crear una ruta personalizada:
@@ -46,12 +54,15 @@ Constructor drag-free que permite al usuario **combinar tracks secuencialmente**
 
 ### ☁️ Guardado en la nube
 - Rutas guardadas en Supabase (`saved_routes`) con RLS por usuario
+- Actividades, perfiles y tiempos de segmento privados y accesibles solo por su propietario
+- Beta cerrada para un grupo inicial de cinco riders; comunidad y rankings públicos pausados
 - Auto-nombrado incremental ("Mi ruta Forfait", "Mi ruta Forfait 2", …)
 - Listado persistente en el panel lateral; carga instantánea al hacer clic
 - Copia local en localStorage como respaldo sin conexión
 
 ### 🔐 Autenticación
-- OAuth exclusivo: Google y Apple (sin email/contraseña)
+- Google OAuth y acceso sin contraseña mediante enlace seguro por email
+- Apple no se ofrece en esta beta porque requiere una cuenta Apple Developer
 - Flujo PKCE con `@supabase/ssr` y cookies
 - Perfiles auto-creados al registrarse vía trigger de base de datos
 - Doble capa de protección: proxy en edge + guard server-side
@@ -104,7 +115,7 @@ src/
 │   │   ├── MTBMap.tsx          # Mapa Mapbox con tracks, rutas, marcadores
 │   │   ├── ContinuousProfile.tsx # Perfil altimétrico interactivo
 │   │   └── ElevationProfile.tsx  # Perfil estático (legacy)
-│   ├── Navbar.tsx              # Navegación principal con auth + redes sociales
+│   ├── Navbar.tsx              # Navegación principal con auth y tema
 │   ├── RouteFilter.tsx         # Filtros y ordenación del catálogo
 │   ├── RouteCard.tsx           # Tarjeta de ruta en catálogo
 │   ├── TrailCard.tsx           # Tarjeta de trail
@@ -159,7 +170,9 @@ public/
 
 ```
 supabase/                       # Configuración CLI de Supabase
-└── .temp/                      # Metadatos del proyecto vinculado
+├── config.toml                 # Stack local reproducible (sin secretos)
+├── migrations/                 # Historial completo aplicado en producción
+└── .temp/                      # Metadatos locales ignorados por Git
 ```
 
 ---
@@ -197,7 +210,9 @@ Conexión detectada entre dos tracks:
 - `estimated_time_min`, `difficulty`, `created_at`, `updated_at`
 
 ### profiles (Supabase)
-- `id` (UUID, PK = auth.users.id), `avatar_url`, `full_name`, `last_login_at`, `role`
+- `user_id` (UUID, PK = auth.users.id), `display_name`, `avatar_url`
+- `bike_name`, `battery_capacity_wh`, `bio`, `home_region`, `rider_type`
+- `onboarding_completed_at`, `created_at`, `updated_at`
 
 ---
 
@@ -208,7 +223,9 @@ Conexión detectada entre dos tracks:
 | `NEXT_PUBLIC_MAPBOX_TOKEN` | Token público de Mapbox GL JS |
 | `NEXT_PUBLIC_SUPABASE_URL` | URL del proyecto Supabase |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Clave anónima de Supabase |
-| `AEMET_API_KEY` | API key de la AEMET (meteorología) |
+| `AEMET_API_KEY` | API key de AEMET para observaciones de estaciones; si falta o falla, se usa Open-Meteo |
+| `GEOCODER_BASE_URL` | Proveedor Nominatim intercambiable; por defecto usa el servicio público de OSM con caché y límite de uso |
+| `ROUTER_BASE_URL` | Motor BRouter intercambiable para calcular caminos MTB/e-bike; por defecto usa `https://brouter.de/brouter` |
 
 ---
 
@@ -229,20 +246,41 @@ npm start
 
 # Lint
 npm run lint
+
+# Comprobar en producción: ruta MTB, meteo por fases y luz solar
+npm run smoke:production
+
+# Levantar Supabase local (requiere Docker)
+npx supabase start
+
+# Reconstruir la base desde las migraciones versionadas
+npx supabase db reset
 ```
 
 Abre [http://localhost:3000](http://localhost:3000) en tu navegador.
+
+Las migraciones usan permisos explícitos para `anon` y `authenticated`, con RLS
+en todas las tablas expuestas. `npm test` también comprueba que el historial
+local coincide con el aplicado en producción para evitar deriva de esquema.
+
+La comprobación de producción valida primero que email y Google estén activos,
+que Apple permanezca fuera de esta beta y que Google OAuth genere un flujo PKCE
+con retorno al callback de Supabase. Después usa una ruta corta en Morella y
+falla de forma explícita si BRouter no devuelve un camino plausible, si la
+fuente principal no son observaciones AEMET, si no hay muestras meteorológicas
+o si el cálculo solar no es válido. Para probar otro despliegue, se puede
+indicar `LEVO_BASE_URL`.
 
 ---
 
 ## Autenticación
 
-El sistema usa **Supabase Auth** con OAuth exclusivo (Google + Apple). No hay registro por email/contraseña.
+El sistema usa **Supabase Auth** con Google OAuth y enlaces seguros por email. El acceso con Apple queda fuera de esta beta.
 
 Flujo:
-1. El usuario hace clic en "Iniciar sesión con Google" o "Apple" en `/auth`
-2. Supabase redirige al proveedor OAuth
-3. El callback (`/auth/callback`) intercambia el código PKCE por una sesión
+1. El usuario elige Google o solicita un enlace seguro en `/auth`
+2. Google redirige mediante OAuth PKCE; el email devuelve un enlace de un solo uso
+3. El callback (`/auth/callback`) intercambia el código por una sesión
 4. El perfil se crea automáticamente mediante un trigger de base de datos
 5. La sesión se persiste mediante cookies gestionadas por `@supabase/ssr`
 6. Las rutas protegidas (p.ej. `/account`) verifican la sesión en edge (proxy) y server

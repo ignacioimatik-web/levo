@@ -4,23 +4,26 @@ import { demoTrails } from '@/data/trails';
 import { routes } from '@/data/routes';
 import { parseGPX } from '@/lib/gpx-utils';
 import { analyzeRoute } from '@/lib/route-analysis';
-import { getAemetNowForLocation } from '@/lib/aemet';
+import { getAemetNowForRoute } from '@/lib/aemet';
 import { assessSegmentRisk } from '@/lib/segment-risk';
 import { calcSunriseSunset, type DaylightInfo } from '@/lib/daylight';
+import { buildRouteRidePlan, type RouteRidePlan } from '@/lib/route-ride-plan';
 
 export interface RouteStatusPayload {
   ok: boolean;
   slug: string;
-  source?: 'trail-coordinates' | 'route-gpx' | 'trail-gpx';
+  source?: 'trail-coordinates' | 'route-gpx' | 'trail-gpx' | 'custom-route';
   title?: string;
   viewerNow?: string;
   viewerTimeZone?: string;
   points?: Array<{ lat: number; lng: number }>;
   profile?: ReturnType<typeof analyzeRoute>;
-  weatherNow?: Awaited<ReturnType<typeof getAemetNowForLocation>> | { error: string; detail?: string } | null;
+  weatherNow?: Awaited<ReturnType<typeof getAemetNowForRoute>> | { error: string; detail?: string } | null;
   daylight?: DaylightInfo;
   safeDeadline?: string; // latest safe departure time HH:MM
+  ridePlan?: RouteRidePlan;
   notes?: string[];
+  /** Legacy shape kept for older route pages. Current observations never generate future windows. */
   recommendedWindows?: Array<{
     slot: 'manana' | 'tarde' | 'noche';
     timeRange: string;
@@ -82,73 +85,6 @@ function estimateSegmentTimeMin(distanceKm: number, avgSlopePct: number, mode: B
   }
   speed = Math.max(5, speed);
   return Math.round((distanceKm / speed) * 60);
-}
-
-const SLOT_INFO: Record<string, { timeRange: string; label: string }> = {
-  manana: { timeRange: '06:00–12:00', label: 'Mañana' },
-  tarde: { timeRange: '12:00–18:00', label: 'Tarde' },
-  noche: { timeRange: '18:00–00:00', label: 'Noche' },
-};
-
-function slotAdjust(baseTemp: number | undefined, baseWind: number | undefined, slot: 'manana' | 'tarde' | 'noche') {
-  const t = baseTemp ?? 18;
-  const w = baseWind ?? 12;
-  if (slot === 'manana') return { temp: t - 2, wind: Math.max(0, w - 2) };
-  if (slot === 'tarde') return { temp: t + 3, wind: w + 2 };
-  return { temp: t - 5, wind: w + 1 };
-}
-
-function evaluateWindow(
-  slot: 'manana' | 'tarde' | 'noche',
-  params: { precipitationMm?: number; windKmh?: number; temperatureC?: number; humidityPct?: number }
-) {
-  const adjusted = slotAdjust(params.temperatureC, params.windKmh, slot);
-  const rain = params.precipitationMm ?? 0;
-  const humidity = params.humidityPct ?? 70;
-  const info = SLOT_INFO[slot];
-
-  const red = rain >= 3 || adjusted.wind >= 45 || adjusted.temp <= 0;
-  const yellow = rain > 0 || adjusted.wind >= 28 || adjusted.temp >= 33 || humidity >= 92;
-
-  const factors: string[] = [];
-  if (rain > 0) factors.push(`lluvia ${rain.toFixed(1)} mm`);
-  if (adjusted.wind >= 28) factors.push(`viento ${adjusted.wind} km/h`);
-  if (adjusted.temp >= 33) factors.push(`calor ${adjusted.temp} C`);
-  if (adjusted.temp <= 5) factors.push(`frio ${adjusted.temp} C`);
-  if (humidity >= 85) factors.push(`humedad ${humidity}%`);
-
-  const reason = factors.length
-    ? factors.join(', ')
-    : `Estable: ${adjusted.temp} C, viento ${adjusted.wind} km/h`;
-
-  if (red) {
-    return {
-      slot,
-      timeRange: info.timeRange,
-      riskLevel: 'red' as const,
-      label: 'No recomendada',
-      reason: `Desaconsejado. ${factors.length ? factors.join(', ') + '.' : 'Condiciones adversas.'}`,
-      data: { temperatureC: adjusted.temp, windKmh: adjusted.wind, precipitationMm: rain, humidityPct: humidity },
-    };
-  }
-  if (yellow) {
-    return {
-      slot,
-      timeRange: info.timeRange,
-      riskLevel: 'yellow' as const,
-      label: 'Con precaución',
-      reason,
-      data: { temperatureC: adjusted.temp, windKmh: adjusted.wind, precipitationMm: rain, humidityPct: humidity },
-    };
-  }
-  return {
-    slot,
-    timeRange: info.timeRange,
-    riskLevel: 'green' as const,
-    label: 'Ventana óptima',
-    reason,
-    data: { temperatureC: adjusted.temp, windKmh: adjusted.wind, precipitationMm: rain, humidityPct: humidity },
-  };
 }
 
 function buildThirdRecommendations(payload: {
@@ -330,7 +266,7 @@ export async function buildRouteStatus(slug: string, tz = 'Europe/Madrid'): Prom
 
     let weatherNow = null;
     try {
-      weatherNow = await getAemetNowForLocation(center.lat, center.lng);
+      weatherNow = await getAemetNowForRoute(data.points);
     } catch (err) {
       weatherNow = {
         error: 'No se pudo consultar AEMET en este momento.',
@@ -397,6 +333,11 @@ const daylight = calcSunriseSunset(center.lat, center.lng, _localNow, _tzOffset)
       viewerTimeZone: tz,
       daylight,
       safeDeadline,
+      ridePlan: buildRouteRidePlan({
+        points: data.points,
+        distanceKm: profile.distanceKm,
+        weather: weatherNow && 'riskLevel' in weatherNow ? weatherNow : null,
+      }),
       points: data.points,
       profile: {
         ...profile,
@@ -405,27 +346,9 @@ const daylight = calcSunriseSunset(center.lat, center.lng, _localNow, _tzOffset)
       weatherNow,
       notes: [
         'Perfil y segmentos derivados del GPX/coordenadas disponibles.',
-        'Estado "ahora" combina observacion de estacion AEMET mas cercana y reglas de riesgo MTB.',
-      ],
-      recommendedWindows: [
-        evaluateWindow('manana', {
-          precipitationMm: weatherNow && 'precipitationMm' in weatherNow ? weatherNow.precipitationMm : undefined,
-          windKmh: weatherNow && 'maxWindKmh' in weatherNow ? weatherNow.maxWindKmh ?? weatherNow.windKmh : undefined,
-          temperatureC: weatherNow && 'temperatureC' in weatherNow ? weatherNow.temperatureC : undefined,
-          humidityPct: weatherNow && 'humidityPct' in weatherNow ? weatherNow.humidityPct : undefined,
-        }),
-        evaluateWindow('tarde', {
-          precipitationMm: weatherNow && 'precipitationMm' in weatherNow ? weatherNow.precipitationMm : undefined,
-          windKmh: weatherNow && 'maxWindKmh' in weatherNow ? weatherNow.maxWindKmh ?? weatherNow.windKmh : undefined,
-          temperatureC: weatherNow && 'temperatureC' in weatherNow ? weatherNow.temperatureC : undefined,
-          humidityPct: weatherNow && 'humidityPct' in weatherNow ? weatherNow.humidityPct : undefined,
-        }),
-        evaluateWindow('noche', {
-          precipitationMm: weatherNow && 'precipitationMm' in weatherNow ? weatherNow.precipitationMm : undefined,
-          windKmh: weatherNow && 'maxWindKmh' in weatherNow ? weatherNow.maxWindKmh ?? weatherNow.windKmh : undefined,
-          temperatureC: weatherNow && 'temperatureC' in weatherNow ? weatherNow.temperatureC : undefined,
-          humidityPct: weatherNow && 'humidityPct' in weatherNow ? weatherNow.humidityPct : undefined,
-        }),
+        weatherNow && 'sourceLabel' in weatherNow
+          ? `${weatherNow.sourceLabel} combinada con reglas de riesgo MTB.`
+          : 'Estado actual combinado con reglas de riesgo MTB.',
       ],
       routeNowRecommendation: {
         generatedAt: new Date().toISOString(),

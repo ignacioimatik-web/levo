@@ -1,9 +1,12 @@
 import TopoBackground from '@/components/TopoBackground';
-import SectionHeading from '@/components/SectionHeading';
-import { Calendar, MountainIcon, Clock, ArrowRight } from 'lucide-react';
+import { Calendar, Route as RouteIcon, ArrowRight, MapPinned } from 'lucide-react';
 import Link from 'next/link';
+import RouteCard from '@/components/RouteCard';
+import { routes } from '@/data/routes';
 
 export default function TravesiasPage() {
+  const traverses = routes.filter((route) => route.type === 'travesia' && route.status === 'publicada');
+
   return (
     <div className="relative min-h-screen overflow-x-hidden">
       {/* Hero */}
@@ -19,36 +22,51 @@ export default function TravesiasPage() {
             Expediciones
           </div>
           <h1 className="text-5xl md:text-7xl font-black tracking-tighter text-white mb-6 leading-none">
-            Travesías de <span className="text-orange-500">Varios Días</span>
+            Travesías y <span className="text-orange-500">Grandes Etapas</span>
           </h1>
           <p className="text-xl text-slate-300 max-w-3xl mx-auto leading-relaxed">
-            Itinerarios diseñados para una inmersión total en la naturaleza de Els Ports.
+            Tracks lineales reales para cruzar Els Ports, con navegación, meteo por tramos y preparación logística.
           </p>
         </div>
       </section>
 
       {/* Content */}
       <section className="py-20 px-6">
-        <div className="max-w-4xl mx-auto">
-          <div className="bg-slate-900 border border-white/5 rounded-3xl p-16 text-center">
-            <MountainIcon className="w-16 h-16 text-orange-500 mx-auto mb-6" />
-            <h2 className="text-3xl font-bold text-white mb-4">Próximamente</h2>
-            <p className="text-slate-400 text-lg max-w-2xl mx-auto leading-relaxed mb-8">
-              Estamos preparando rutas de varios días con logística detallada, puntos de avituallamiento y alojamientos recomendados. 
-              Itinerarios que abarcan varios sectores para vivir la experiencia completa de E-nduro Ebiketracks.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link 
-                href="/rutas" 
-                className="inline-flex items-center gap-2 px-8 py-3 bg-orange-500 text-white rounded-xl font-bold hover:bg-orange-600 transition-all"
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
+            <div>
+              <div className="mb-8 flex items-end justify-between gap-4">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.22em] text-orange-500">Tracks disponibles</p>
+                  <h2 className="mt-2 text-3xl font-black text-white">Etapas listas para preparar</h2>
+                </div>
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-bold text-slate-300">
+                  {traverses.length} {traverses.length === 1 ? 'etapa real' : 'etapas reales'}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+                {traverses.map((route) => <RouteCard key={route.id} route={route} />)}
+              </div>
+            </div>
+
+            <div className="h-fit rounded-3xl border border-orange-500/20 bg-orange-500/5 p-7 lg:sticky lg:top-24">
+              <MapPinned className="h-10 w-10 text-orange-500" />
+              <h2 className="mt-5 text-2xl font-black text-white">Convierte cualquier GPX en una salida guiada</h2>
+              <p className="mt-3 text-sm leading-relaxed text-slate-400">
+                Importa una etapa propia, analiza viento, temperatura, humedad, autonomía y luz restante; después guarda el mapa para navegar sin cobertura.
+              </p>
+              <Link
+                href="/planifica"
+                className="mt-6 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-orange-600"
               >
-                Explorar rutas de un día <ArrowRight className="w-4 h-4" />
+                <RouteIcon className="h-4 w-4" />
+                Crear o importar etapa
               </Link>
-              <Link 
-                href="/contacto" 
-                className="inline-flex items-center gap-2 px-8 py-3 bg-white/5 text-white border border-white/10 rounded-xl font-bold hover:bg-white/10 transition-all"
+              <Link
+                href="/rutas"
+                className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-white/10"
               >
-                Sugerir una travesía
+                Ver todas las rutas <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
           </div>

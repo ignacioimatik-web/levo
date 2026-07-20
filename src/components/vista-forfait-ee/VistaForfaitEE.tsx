@@ -2,15 +2,19 @@
 
 import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { Map as MapboxMap, Source, Layer, Popup } from 'react-map-gl/mapbox';
+import { Map as MapboxMap, Source, Layer } from 'react-map-gl/mapbox';
 import type { MapRef, MapMouseEvent } from 'react-map-gl/mapbox';
+import type { LineLayerSpecification } from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import type { TrackMTB, DificultadMTB, TrackPoint } from '@/lib/forfait/types';
 import type { SendaSegment, CameraView } from '@/lib/forfait/senda-utils';
 import { splitIntoSendas } from '@/lib/forfait/senda-utils';
 import { buildProfileSeries } from '@/lib/forfait/geo-utils';
+import { MAPBOX_ACCESS_TOKEN } from '@/lib/open-map-styles';
+import useResilientMapStyle from '@/components/map/useResilientMapStyle';
 
 const SENDA_VIEWS_KEY = 'vista-forfait-senda-views';
+type LinePaint = NonNullable<LineLayerSpecification['paint']>;
 
 /* ─── Types ─── */
 interface Bounds {
@@ -43,15 +47,6 @@ const DIF_CONFIG: Record<string, VisualConfig> = {
 
 const ALL_DIFICULTADES = ['verde', 'azul', 'rojo', 'negro', 'doble-negro'] as const;
 
-const MINIMAL_STYLE = {
-  version: 8 as const,
-  sources: {},
-  layers: [],
-};
-
-const FALLBACK_SATELLITE_URL = 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-const GOOGLE_LABELS_URL = 'https://mt1.google.com/vt/lyrs=h&x={x}&y={y}&z={z}';
-
 function getVisualCfg(track: TrackMTB): VisualConfig {
   if (track.estado === 'cerrado') return DIF_CONFIG.gris;
   if (track.dificultad === 'doble-negro') return DIF_CONFIG.naranja;
@@ -67,30 +62,6 @@ function computeBounds(tracks: TrackMTB[]): Bounds {
   const padLat = (maxLat - minLat) * 0.15 || 0.01;
   const padLng = (maxLng - minLng) * 0.15 || 0.01;
   return { minLat: minLat - padLat, maxLat: maxLat + padLat, minLng: minLng - padLng, maxLng: maxLng + padLng };
-}
-
-function inclineAtPoint(points: TrackPoint[], idx: number): { inclinePct: number; gainM: number; lossM: number } {
-  let gain = 0, loss = 0;
-  for (let i = 1; i <= idx; i++) {
-    const d = (points[i].elevation ?? 0) - (points[i - 1].elevation ?? 0);
-    if (d > 1) gain += d;
-    if (d < -1) loss += Math.abs(d);
-  }
-  const distKm = idx > 0 ? points.slice(0, idx + 1).reduce((sum, p, i) => {
-    if (i === 0) return 0;
-    const prev = points[i - 1];
-    return sum + haversineKm(prev.lat, prev.lng, p.lat, p.lng);
-  }, 0) : 0;
-  const inclinePct = distKm > 0 ? (gain / (distKm * 1000)) * 100 : 0;
-  return { inclinePct, gainM: gain, lossM: loss };
-}
-
-function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLng = (lng2 - lng1) * Math.PI / 180;
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 /* ── Elevation profile mini SVG ── */
@@ -194,37 +165,13 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
   const [expandedTrackId, setExpandedTrackId] = useState<string | null>(null);
   const [pitch, setPitch] = useState(60);
   const [bearing, setBearing] = useState(0);
-  const [zoom, setZoom] = useState(15.3);
-  const [viewState, setViewState] = useState({ latitude: 40.6, longitude: -0.02, zoom: 15.3, pitch: 60, bearing: 0 });
   const mapRef = useRef<MapRef>(null);
   const [mapReady, setMapReady] = useState(false);
-  const [eeTileUrl, setEeTileUrl] = useState<string | null>(null);
-  const [eeStatus, setEeStatus] = useState<'loading' | 'ok' | 'error'>('loading');
   const [cameraView, setCameraView] = useState<CameraView | null>(null);
   const [showPanel, setShowPanel] = useState(true);
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
-  const [cursorPos, setCursorPos] = useState<{ x: number; y: number } | null>(null);
-  const mapContainerRef = useRef<HTMLDivElement>(null);
-
-  /* ── Fetch EE satellite layer on mount ── */
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      try {
-        const res = await fetch('/api/ee/map');
-        if (!res.ok) throw new Error('EE API error');
-        const data = await res.json();
-        if (!cancelled && data.tileUrlTemplate) {
-          setEeTileUrl(data.tileUrlTemplate);
-          setEeStatus('ok');
-        }
-      } catch {
-        if (!cancelled) setEeStatus('error');
-      }
-    }
-    load();
-    return () => { cancelled = true; };
-  }, []);
+  const [cursorPos, setCursorPos] = useState<{ x: number; y: number; containerWidth: number } | null>(null);
+  const resilientStyle = useResilientMapStyle(1);
 
   /* ── Sector data ── */
   const sectorsData = useMemo(() => {
@@ -260,13 +207,15 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
   /* ── Weather fetch on sector change (AEMET → Open-Meteo fallback) ── */
   useEffect(() => {
     if (!mapReady || !sectorBounds) return;
-    setWeatherData(null);
+    const controller = new AbortController();
+    let active = true;
+    const resetFrame = requestAnimationFrame(() => setWeatherData(null));
     const lat = sectorCenter.latitude.toFixed(4);
     const lng = sectorCenter.longitude.toFixed(4);
-    fetch(`/api/forfait/weather?lat=${lat}&lng=${lng}`)
+    fetch(`/api/forfait/weather?lat=${lat}&lng=${lng}`, { signal: controller.signal })
       .then(r => r.json())
       .then(d => {
-        if (d && !d.error) setWeatherData({
+        if (active && d && !d.error) setWeatherData({
           temperatureC: d.temperatureC,
           windKmh: d.windKmh,
           stationName: d.stationName,
@@ -274,10 +223,12 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
         });
       })
       .catch(() => {});
-    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,wind_speed_10m,relative_humidity_2m`)
+    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,wind_speed_10m,relative_humidity_2m`, {
+      signal: controller.signal,
+    })
       .then(r => r.json())
       .then(d => {
-        if (d?.current) {
+        if (active && d?.current) {
           setWeatherData(prev => ({
             temperatureC: prev?.temperatureC ?? d.current.temperature_2m,
             windKmh: prev?.windKmh ?? d.current.wind_speed_10m,
@@ -287,7 +238,12 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
         }
       })
       .catch(() => {});
-  }, [sectorCenter, mapReady]);
+    return () => {
+      active = false;
+      controller.abort();
+      cancelAnimationFrame(resetFrame);
+    };
+  }, [sectorBounds, sectorCenter, mapReady]);
 
   /* ── Sendas ── */
   const allSendas = useMemo(() => {
@@ -317,18 +273,23 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
 
   /* ── Auto-select first sector ── */
   useEffect(() => {
-    if (!activeSector && sectorsData.length > 0) setActiveSector(sectorsData[0].name);
+    if (activeSector || sectorsData.length === 0) return;
+    const timer = window.setTimeout(() => setActiveSector(sectorsData[0].name), 0);
+    return () => window.clearTimeout(timer);
   }, [sectorsData, activeSector]);
 
   /* ── Auto-expand first track + senda ── */
   useEffect(() => {
     if (sectorTracks.length > 0) {
-      setExpandedTrackId(sectorTracks[0].id);
-      setActiveTrackId(sectorTracks[0].id);
-      const sendas = allSendas.get(sectorTracks[0].id);
-      if (sendas && sendas.length > 0) setActiveSendaId(sendas[0].id);
+      const timer = window.setTimeout(() => {
+        setExpandedTrackId(sectorTracks[0].id);
+        setActiveTrackId(sectorTracks[0].id);
+        const sendas = allSendas.get(sectorTracks[0].id);
+        if (sendas && sendas.length > 0) setActiveSendaId(sendas[0].id);
+      }, 0);
+      return () => window.clearTimeout(timer);
     }
-  }, [activeSector]);
+  }, [activeSector, allSendas, sectorTracks]);
 
   /* ── Fly to sector bounds ── */
   useEffect(() => {
@@ -338,7 +299,7 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
         zoom: 15.3, pitch: 60, bearing: 0, duration: 1500,
       });
     }
-  }, [sectorBounds, mapReady]);
+  }, [sectorBounds, sectorCenter.latitude, sectorCenter.longitude, mapReady]);
 
   /* ── Restore saved senda views ── */
   useEffect(() => {
@@ -368,14 +329,6 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
     setActiveSendaId(senda.id);
     setExpandedTrackId(senda.trackId);
     setActiveTrackId(senda.trackId);
-  }, []);
-
-  /* ── Preset fly ── */
-  const flyPreset = useCallback((z: number, p: number, b: number) => {
-    if (!mapRef.current) return;
-    const c = mapRef.current.getCenter();
-    mapRef.current.flyTo({ center: c, zoom: z, pitch: p, bearing: b, duration: 1000 });
-    setPitch(p); setBearing(b); setZoom(z);
   }, []);
 
   /* ── Camera view tracking ── */
@@ -427,7 +380,7 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
   } : null, [activeSenda]);
 
   /* ── Layer paint/layout helpers ── */
-  const trackPaint = useCallback((track: TrackMTB) => {
+  const trackPaint = useCallback((track: TrackMTB): LinePaint => {
     const isClosed = track.estado === 'cerrado';
     const isHov = hoveredTrackId === track.id;
     const isAct = activeTrackId === track.id;
@@ -441,25 +394,29 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
       'line-color': color,
       'line-width': weight,
       'line-opacity': opacity,
-      'line-dasharray': isClosed ? [5, 5] as [number, number] : isSel ? [6, 4] as [number, number] : undefined,
+      ...(isClosed
+        ? { 'line-dasharray': [5, 5] as [number, number] }
+        : isSel
+          ? { 'line-dasharray': [6, 4] as [number, number] }
+          : {}),
     };
   }, [hoveredTrackId, activeTrackId, selectedTrackIds, activeSendaId, activeSenda]);
 
-  const sendaPaint = {
+  const sendaPaint: LinePaint = {
     'line-color': '#f97316',
     'line-width': 4,
     'line-opacity': 0.9,
     'line-dasharray': [6, 4] as [number, number],
   };
 
-  const selectedGlowPaint = {
+  const selectedGlowPaint: LinePaint = {
     'line-color': '#3b82f6',
     'line-width': 8,
     'line-opacity': 0.2,
     'line-blur': 4,
   };
 
-  const selectedLinePaint = {
+  const selectedLinePaint: LinePaint = {
     'line-color': '#ffffff',
     'line-width': 3,
     'line-opacity': 0.85,
@@ -507,7 +464,11 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
 
   /* ── Cursor tracking for hover tooltip ── */
   const handleMapMouseMove = useCallback((e: MapMouseEvent) => {
-    setCursorPos({ x: e.point.x, y: e.point.y });
+    setCursorPos({
+      x: e.point.x,
+      y: e.point.y,
+      containerWidth: e.target.getCanvas().clientWidth,
+    });
     if (!e.features || e.features.length === 0) { setHoveredTrackId(null); return; }
     const trackId = e.features[0].properties?.trackId as string;
     if (trackId) setHoveredTrackId(trackId);
@@ -560,16 +521,15 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
       </nav>
 
       {/* MAP */}
-      <section ref={mapContainerRef} className="relative mx-3 sm:mx-6 lg:mx-8 2xl:mx-16 overflow-hidden rounded-xl bg-slate-900 flex-1 min-h-[300px]">
+      <section className="relative mx-3 sm:mx-6 lg:mx-8 2xl:mx-16 overflow-hidden rounded-xl bg-slate-900 flex-1 min-h-[300px]">
         <MapboxMap
           ref={mapRef}
-          mapStyle={MINIMAL_STYLE}
-          mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
+          mapboxAccessToken={MAPBOX_ACCESS_TOKEN}
+          mapStyle={resilientStyle.mapStyle}
+          terrain={MAPBOX_ACCESS_TOKEN ? { source: 'levo-terrain-dem', exaggeration: 1.35 } : undefined}
+          onError={resilientStyle.handleMapError}
           initialViewState={{ latitude: sectorCenter.latitude, longitude: sectorCenter.longitude, zoom: 15.3, pitch: 60, bearing: 0 }}
-          terrain={{ source: 'mapbox-dem', exaggeration: 1.5 }}
           onMove={e => {
-            setViewState(e.viewState);
-            setZoom(e.viewState.zoom);
             setPitch(e.viewState.pitch);
             setBearing(e.viewState.bearing);
           }}
@@ -586,7 +546,6 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
           }}
           onLoad={() => setMapReady(true)}
           style={{ width: '100%', height: '100%', position: 'absolute', inset: 0 }}
-          attributionControl={false}
           scrollZoom={{ around: 'center' }}
           dragRotate={true}
           touchPitch={true}
@@ -594,45 +553,44 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
           doubleClickZoom={true}
           keyboard={true}
         >
-          {/* 3D terrain */}
-          <Source id="mapbox-dem" type="raster-dem" url="mapbox://mapbox.mapbox-terrain-dem-v1" />
-
-          {/* Base satellite layer (Earth Engine or Google fallback) */}
-          <Source id="satellite" type="raster"
-            tiles={[eeTileUrl || FALLBACK_SATELLITE_URL]}
-            tileSize={256}
-          >
-            <Layer id="satellite-layer" type="raster" />
-          </Source>
-
-          {/* Labels overlay (transparent Google hybrid labels) */}
-          <Source id="labels" type="raster"
-            tiles={[GOOGLE_LABELS_URL]}
-            tileSize={256}
-          >
-            <Layer id="labels-layer" type="raster" />
-          </Source>
-
-          {/* 3D Buildings */}
-          <Source id="3d-buildings" type="vector" url="mapbox://mapbox.3d-buildings">
-            <Layer id="buildings-3d" type="fill-extrusion" source-layer="building"
-              paint={{
-                'fill-extrusion-color': '#94a3b8',
-                'fill-extrusion-height': ['get', 'height'],
-                'fill-extrusion-base': ['get', 'min_height'],
-                'fill-extrusion-opacity': 0.5,
-              } as any}
-            />
-          </Source>
+          {MAPBOX_ACCESS_TOKEN && (
+            <>
+              {/* Mapbox DEM gives the satellite view real relief at trail scale. */}
+              <Source
+                id="levo-terrain-dem"
+                type="raster-dem"
+                url="mapbox://mapbox.mapbox-terrain-dem-v1"
+                tileSize={512}
+                maxzoom={14}
+              />
+              {/* Native Mapbox building footprints, extruded only when zoomed in. */}
+              <Source id="levo-buildings" type="vector" url="mapbox://mapbox.mapbox-streets-v8">
+                <Layer
+                  id="levo-3d-buildings"
+                  type="fill-extrusion"
+                  source="levo-buildings"
+                  source-layer="building"
+                  minzoom={11}
+                  filter={['!', ['has', 'underground']]}
+                  paint={{
+                    'fill-extrusion-color': '#8b97a8',
+                    'fill-extrusion-height': ['coalesce', ['get', 'height'], 8],
+                    'fill-extrusion-base': ['coalesce', ['get', 'min_height'], 0],
+                    'fill-extrusion-opacity': 0.58,
+                  }}
+                />
+              </Source>
+            </>
+          )}
 
           {/* Track layers */}
           {trackGeoJsons.map(t => (
             <Source key={t.id} id={t.id} type="geojson" data={t.data}>
               <Layer id={`${t.id}-hit`} type="line" source={t.id}
-                paint={{ 'line-color': 'transparent', 'line-width': 22, 'line-opacity': 0 } as any}
+                paint={{ 'line-color': 'transparent', 'line-width': 22, 'line-opacity': 0 } as LinePaint}
               />
               <Layer id={`${t.id}-line`} type="line" source={t.id}
-                paint={trackPaint(trackMap.get(t.id)!) as any}
+                paint={trackPaint(trackMap.get(t.id)!)}
               />
             </Source>
           ))}
@@ -641,10 +599,10 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
           {selectedGeoJsons.map(t => (
             <Source key={`sel-glow-${t.id}`} id={`sel-glow-${t.id}`} type="geojson" data={t.data}>
               <Layer id={`sel-${t.id}-glow`} type="line" source={`sel-glow-${t.id}`}
-                paint={selectedGlowPaint as any}
+                paint={selectedGlowPaint}
               />
               <Layer id={`sel-${t.id}-line`} type="line" source={`sel-glow-${t.id}`}
-                paint={selectedLinePaint as any}
+                paint={selectedLinePaint}
               />
             </Source>
           ))}
@@ -653,7 +611,7 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
           {activeSendaGeoJson && (
             <Source id="active-senda" type="geojson" data={activeSendaGeoJson.data}>
               <Layer id="active-senda-line" type="line" source="active-senda"
-                paint={sendaPaint as any}
+                paint={sendaPaint}
               />
             </Source>
           )}
@@ -664,13 +622,13 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
               type: 'Feature' as const, geometry: { type: 'LineString' as const, coordinates: routeOverview }, properties: {},
             }}>
               <Layer id="route-blue-glow" type="line" source="route-overview"
-                paint={{ 'line-color': '#3b82f6', 'line-width': 10, 'line-opacity': 0.25, 'line-blur': 8 } as any}
+                paint={{ 'line-color': '#3b82f6', 'line-width': 10, 'line-opacity': 0.25, 'line-blur': 8 } as LinePaint}
               />
               <Layer id="route-white" type="line" source="route-overview"
-                paint={{ 'line-color': '#ffffff', 'line-width': 5, 'line-opacity': 0.85 } as any}
+                paint={{ 'line-color': '#ffffff', 'line-width': 5, 'line-opacity': 0.85 } as LinePaint}
               />
               <Layer id="route-black-dash" type="line" source="route-overview"
-                paint={{ 'line-color': '#1e293b', 'line-width': 5, 'line-opacity': 0.9, 'line-dasharray': [6, 6] } as any}
+                paint={{ 'line-color': '#1e293b', 'line-width': 5, 'line-opacity': 0.9, 'line-dasharray': [6, 6] } as LinePaint}
               />
             </Source>
           )}
@@ -681,7 +639,7 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
           <div
             className="absolute z-[2000] pointer-events-none bg-slate-950/85 backdrop-blur-md border border-white/10 rounded-lg px-2.5 py-1.5 text-[10px] leading-tight shadow-xl"
             style={{
-              left: Math.min(cursorPos.x + 14, (mapContainerRef.current?.clientWidth ?? 800) - 180),
+              left: Math.min(cursorPos.x + 14, cursorPos.containerWidth - 180),
               top: Math.max(cursorPos.y - 10, 4),
             }}
           >
@@ -709,12 +667,8 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
           <span className="px-2.5 py-1 rounded-full bg-slate-950/70 backdrop-blur-sm text-[11px] font-bold text-orange-400 border border-orange-500/30">
             {activeSector}
           </span>
-          <span className={`px-2 py-0.5 rounded-full backdrop-blur-sm text-[9px] font-mono border ${
-            eeStatus === 'ok' ? 'bg-emerald-950/60 text-emerald-400 border-emerald-500/30' :
-            eeStatus === 'loading' ? 'bg-slate-950/60 text-slate-500 border-white/5' :
-            'bg-amber-950/60 text-amber-400 border-amber-500/30'
-          }`}>
-            {eeStatus === 'ok' ? 'EE ✓' : eeStatus === 'loading' ? 'EE …' : 'ESRI'}
+          <span className="rounded-full border border-emerald-500/30 bg-emerald-950/60 px-2 py-0.5 font-mono text-[9px] text-emerald-400 backdrop-blur-sm">
+            MAPBOX
           </span>
         </div>
 

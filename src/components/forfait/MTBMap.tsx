@@ -6,6 +6,10 @@ import type { MapMouseEvent } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import type { TrackMTB, TrackPoint, RutaConstruida } from '@/lib/forfait/types';
 import type { RouteHoverData } from '@/components/forfait/ContinuousProfile';
+import { MapPinned } from 'lucide-react';
+import { MAPBOX_ACCESS_TOKEN, OPEN_MAP_STYLES } from '@/lib/open-map-styles';
+import useResilientMapStyle from '@/components/map/useResilientMapStyle';
+import { MapProviderBadge } from '@/components/map/MapProviderBadge';
 
 function distM(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
   const R = 6371000;
@@ -68,11 +72,16 @@ function FitBounds({ tracks, routePoints }: { tracks: TrackMTB[]; routePoints: T
     if (!allPoints.length) return;
     const lats = allPoints.map(p => p.lat);
     const lngs = allPoints.map(p => p.lng);
-    mapRef.fitBounds(
-      [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
-      { padding: 40 },
-    );
-    fitted.current = true;
+    const fit = () => {
+      mapRef.fitBounds(
+        [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
+        { padding: 40 },
+      );
+      fitted.current = true;
+    };
+    if (mapRef.isStyleLoaded()) fit();
+    else mapRef.once('load', fit);
+    return () => { mapRef.off('load', fit); };
   }, [tracks, routePoints, mapRef]);
 
   return null;
@@ -85,10 +94,13 @@ function FlyToTrack({ track }: { track: TrackMTB | null }) {
     if (!track || !track.points.length || !mapRef) return;
     const lats = track.points.map(p => p.lat);
     const lngs = track.points.map(p => p.lng);
-    mapRef.fitBounds(
-      [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
-      { padding: 50 },
-    );
+    const fit = () => mapRef.fitBounds(
+        [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
+        { padding: 50 },
+      );
+    if (mapRef.isStyleLoaded()) fit();
+    else mapRef.once('load', fit);
+    return () => { mapRef.off('load', fit); };
   }, [track, mapRef]);
 
   return null;
@@ -130,13 +142,7 @@ function PitchToggle() {
   return null;
 }
 
-const MAP_STYLES = [
-  { id: 'satellite', label: 'Satélite', url: 'mapbox://styles/mapbox/satellite-streets-v12' },
-  { id: 'outdoors', label: 'Topo', url: 'mapbox://styles/mapbox/outdoors-v12' },
-  { id: 'dark', label: 'Oscuro', url: 'mapbox://styles/mapbox/dark-v11' },
-];
-
-function StyleSwitcherControl({ current, onChange }: { current: string; onChange: (url: string) => void }) {
+function StyleSwitcherControl({ current, onChange }: { current: number; onChange: (styleIndex: number) => void }) {
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -156,13 +162,13 @@ function StyleSwitcherControl({ current, onChange }: { current: string; onChange
 
       const panel = document.createElement('div');
       panel.style.cssText = 'position:absolute;top:0;right:34px;display:none;flex-direction:column;background:#0f172a;border:1px solid rgba(255,255,255,0.1);border-radius:4px;overflow:hidden';
-      MAP_STYLES.forEach(s => {
+      OPEN_MAP_STYLES.forEach((s, styleIndex) => {
         const b = document.createElement('button');
         b.textContent = s.label;
         b.style.cssText = 'padding:6px 10px;font-size:10px;font-weight:700;cursor:pointer;border:none;border-bottom:1px solid rgba(255,255,255,0.06);color:#94a3b8;background:transparent;text-align:left;white-space:nowrap';
         b.onmouseenter = () => { b.style.background = '#1e293b'; };
         b.onmouseleave = () => { b.style.background = 'transparent'; };
-        b.onclick = () => { onChange(s.url); setOpen(false); };
+        b.onclick = () => { onChange(styleIndex); setOpen(false); };
         panel.appendChild(b);
       });
       div.appendChild(panel);
@@ -182,13 +188,95 @@ function StyleSwitcherControl({ current, onChange }: { current: string; onChange
     panelRef.current.style.display = open ? 'flex' : 'none';
     if (open) {
       const btns = panelRef.current.querySelectorAll('button');
-      MAP_STYLES.forEach((s, i) => {
-        (btns[i] as HTMLButtonElement).style.color = s.url === current ? '#f97316' : '#94a3b8';
+      OPEN_MAP_STYLES.forEach((_, i) => {
+        (btns[i] as HTMLButtonElement).style.color = i === current ? '#f97316' : '#94a3b8';
       });
     }
   }, [open, current]);
 
   return null;
+}
+
+function BasicTrackMap({
+  tracks,
+  selectedTrackIds,
+  builtRoute,
+}: {
+  tracks: TrackMTB[];
+  selectedTrackIds: string[];
+  builtRoute: RutaConstruida | null;
+}) {
+  const allPoints = tracks.flatMap(track => track.points);
+  if (allPoints.length === 0) {
+    return (
+      <div className="flex h-full items-center justify-center bg-slate-950 text-sm text-slate-500">
+        No hay geometría disponible.
+      </div>
+    );
+  }
+
+  const minLat = Math.min(...allPoints.map(point => point.lat));
+  const maxLat = Math.max(...allPoints.map(point => point.lat));
+  const minLng = Math.min(...allPoints.map(point => point.lng));
+  const maxLng = Math.max(...allPoints.map(point => point.lng));
+  const latRange = Math.max(maxLat - minLat, 0.001);
+  const lngRange = Math.max(maxLng - minLng, 0.001);
+  const project = (point: TrackPoint) => {
+    const x = 40 + ((point.lng - minLng) / lngRange) * 920;
+    const y = 30 + ((maxLat - point.lat) / latRange) * 640;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  };
+  const toPolyline = (points: TrackPoint[]) => {
+    const step = Math.max(1, Math.ceil(points.length / 220));
+    return points.filter((_, index) => index % step === 0 || index === points.length - 1)
+      .map(project)
+      .join(' ');
+  };
+
+  return (
+    <div className="relative h-full overflow-hidden rounded-xl bg-slate-950 topo-pattern-subtle">
+      <svg
+        viewBox="0 0 1000 700"
+        className="h-full w-full"
+        role="img"
+        aria-label="Mapa básico de tracks"
+        preserveAspectRatio="xMidYMid meet"
+      >
+        {tracks.map(track => {
+          const selected = selectedTrackIds.includes(track.id);
+          return (
+            <polyline
+              key={track.id}
+              points={toPolyline(track.points)}
+              fill="none"
+              stroke={selected ? '#3b82f6' : DIFICULTAD_COLORS[track.dificultad] || '#64748b'}
+              strokeWidth={selected ? 7 : 2.5}
+              strokeOpacity={selected ? 1 : selectedTrackIds.length > 0 ? 0.2 : 0.65}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          );
+        })}
+        {builtRoute && (
+          <polyline
+            points={toPolyline(builtRoute.pointsCombinados)}
+            fill="none"
+            stroke="#ffffff"
+            strokeWidth="3"
+            strokeOpacity="0.9"
+            strokeDasharray="10 7"
+            strokeLinecap="round"
+          />
+        )}
+      </svg>
+      <div className="absolute left-3 top-3 flex max-w-[260px] items-start gap-2 rounded-xl border border-orange-500/20 bg-slate-950/90 px-3 py-2 text-[10px] text-slate-400 shadow-xl backdrop-blur">
+        <MapPinned className="mt-0.5 h-4 w-4 shrink-0 text-orange-400" />
+        <span>
+          Mapa básico activo. Añade el token de Mapbox para terreno 3D, satélite y controles avanzados.
+        </span>
+      </div>
+    </div>
+  );
 }
 
 export default function MTBMap({
@@ -216,7 +304,9 @@ export default function MTBMap({
   hoveredRouteKm: RouteHoverData | null;
   onTrackClick: (track: TrackMTB) => void;
 }) {
-  const [mapStyle, setMapStyle] = useState(MAP_STYLES[0].url);
+  const [mapStyleIndex, setMapStyleIndex] = useState(1);
+  const [mapFailed, setMapFailed] = useState(false);
+  const resilientStyle = useResilientMapStyle(mapStyleIndex);
   const hasSelection = selectedTrackIds.length > 0 || previewTrackIds.length > 0;
   const fitTrack = fitToTrackId ? tracks.find(t => t.id === fitToTrackId) || null : null;
 
@@ -231,22 +321,74 @@ export default function MTBMap({
     if (track) onTrackClick(track);
   }, [tracks, onTrackClick]);
 
+  if (mapFailed) {
+    return (
+      <BasicTrackMap
+        tracks={tracks}
+        selectedTrackIds={selectedTrackIds}
+        builtRoute={builtRoute}
+      />
+    );
+  }
+
   return (
     <Map
-      mapStyle={mapStyle}
-      mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
-      initialViewState={{ latitude: 40.6, longitude: -0.02, zoom: 13, pitch: 40 }}
-      terrain={{ source: 'mapbox-dem', exaggeration: 1.0 }}
+      mapboxAccessToken={MAPBOX_ACCESS_TOKEN}
+      mapStyle={resilientStyle.mapStyle}
+      terrain={MAPBOX_ACCESS_TOKEN ? { source: 'levo-forfait-terrain-dem', exaggeration: 1.3 } : undefined}
+      initialViewState={{ latitude: 40.6, longitude: -0.02, zoom: 13, pitch: 68, bearing: 18 }}
       interactiveLayerIds={lineLayerIds}
       onClick={onClick}
+      onError={event => {
+        if (resilientStyle.usingFallback) {
+          setMapFailed(true);
+          return;
+        }
+        resilientStyle.handleMapError(event);
+      }}
       style={{ width: '100%', height: '100%', borderRadius: '12px', overflow: 'hidden' }}
     >
-      <Source id="mapbox-dem" type="raster-dem" url="mapbox://mapbox.mapbox-terrain-dem-v1" />
+      {MAPBOX_ACCESS_TOKEN && (
+        <>
+          <Source
+            id="levo-forfait-terrain-dem"
+            type="raster-dem"
+            url="mapbox://mapbox.mapbox-terrain-dem-v1"
+            tileSize={512}
+            maxzoom={14}
+          />
+          <Source id="levo-forfait-buildings" type="vector" url="mapbox://mapbox.mapbox-streets-v8">
+            <Layer
+              id="levo-forfait-3d-buildings"
+              type="fill-extrusion"
+              source="levo-forfait-buildings"
+              source-layer="building"
+              minzoom={11}
+              filter={['!', ['has', 'underground']]}
+              paint={{
+                'fill-extrusion-color': '#8995a6',
+                'fill-extrusion-height': ['coalesce', ['get', 'height'], 8],
+                'fill-extrusion-base': ['coalesce', ['get', 'min_height'], 0],
+                'fill-extrusion-opacity': 0.5,
+              }}
+            />
+          </Source>
+        </>
+      )}
 
       <NavigationControl visualizePitch={true} position="top-right" />
       <FullscreenControl position="top-right" />
       <PitchToggle />
-      <StyleSwitcherControl current={mapStyle} onChange={setMapStyle} />
+      <StyleSwitcherControl current={mapStyleIndex} onChange={setMapStyleIndex} />
+      <div className="absolute bottom-3 left-3 z-10">
+        <MapProviderBadge
+          usingFallback={resilientStyle.usingFallback}
+          providerName={resilientStyle.providerName}
+          styleLabel={resilientStyle.styleLabel}
+          canRetry={resilientStyle.canRetryMapbox}
+          onRetry={resilientStyle.retryMapbox}
+        />
+      </div>
 
       <FitBounds tracks={tracks} routePoints={builtRoute?.pointsCombinados ?? []} />
       <FlyToTrack track={fitTrack} />

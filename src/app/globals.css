@@ -26,6 +26,74 @@
   --color-slate-950: #020617;
 }
 
+:root {
+  --levo-page: #020617;
+  --levo-surface: #0f172a;
+  --levo-strong-text: #f8fafc;
+}
+
+:root[data-theme="light"] {
+  --levo-page: #f8fafc;
+  --levo-surface: #ffffff;
+  --levo-strong-text: #0f172a;
+  --color-slate-950: #f8fafc;
+  --color-slate-900: #ffffff;
+  --color-slate-800: #f1f5f9;
+  --color-slate-700: #e2e8f0;
+  --color-slate-600: #64748b;
+  --color-slate-500: #64748b;
+  --color-slate-400: #475569;
+  --color-slate-300: #334155;
+  --color-slate-200: #1e293b;
+  --color-slate-100: #0f172a;
+  --color-slate-50: #0f172a;
+  --color-white: #0f172a;
+}
+
+:root[data-theme="light"] .theme-dark-island {
+  --color-slate-950: #020617;
+  --color-slate-900: #0f172a;
+  --color-slate-800: #1e293b;
+  --color-slate-700: #334155;
+  --color-slate-600: #475569;
+  --color-slate-500: #64748b;
+  --color-slate-400: #94a3b8;
+  --color-slate-300: #cbd5e1;
+  --color-slate-200: #e2e8f0;
+  --color-slate-100: #f1f5f9;
+  --color-slate-50: #f8fafc;
+  --color-white: #ffffff;
+  color-scheme: dark;
+}
+
+body {
+  background: var(--levo-page);
+  color: var(--levo-strong-text);
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+:root[data-theme="light"] .topo-pattern {
+  background-image: radial-gradient(circle at 2px 2px, rgba(15,23,42,0.08) 1px, transparent 0);
+}
+
+:root[data-theme="light"] .topo-pattern-subtle {
+  background-image:
+    radial-gradient(circle at 2px 2px, rgba(15,23,42,0.07) 1px, transparent 0),
+    radial-gradient(circle at 20px 20px, rgba(15,23,42,0.035) 1px, transparent 0);
+}
+
+:root[data-theme="light"] .mapboxgl-ctrl-group {
+  filter: none;
+}
+
+:root[data-theme="light"] .auth-provider-notice {
+  color: #92400e;
+}
+
+:root[data-theme="light"] .ride-focus-exit {
+  color: #1e40af !important;
+}
+
 @layer components {
   .topo-pattern {
     background-image: radial-gradient(circle at 2px 2px, rgba(255,255,255,0.04) 1px, transparent 0);
@@ -115,4 +183,54 @@
 
 ::-webkit-scrollbar-thumb {
   @apply bg-slate-800 rounded-full hover:bg-slate-700 transition-colors;
+}
+
+/* Map controls must remain usable with a finger or gloves on compact devices. */
+@media (pointer: coarse), (max-width: 1279px) {
+  .mapboxgl-ctrl-group button {
+    width: 44px !important;
+    height: 44px !important;
+  }
+
+  .leaflet-control a,
+  .leaflet-control-zoom a {
+    width: 44px !important;
+    height: 44px !important;
+    line-height: 44px !important;
+  }
+}
+
+/* Field cockpit: maximize the map when a phone is mounted horizontally. */
+@media (orientation: landscape) and (max-height: 600px) and (pointer: coarse) {
+  .ride-focus-header {
+    display: none;
+  }
+
+  .ride-focus-shell {
+    max-width: none;
+    padding:
+      max(.5rem, env(safe-area-inset-top))
+      max(.5rem, env(safe-area-inset-right))
+      max(.5rem, env(safe-area-inset-bottom))
+      max(.5rem, env(safe-area-inset-left));
+  }
+
+  .ride-focus-toolbar {
+    position: fixed;
+    top: max(.5rem, env(safe-area-inset-top));
+    left: max(.5rem, env(safe-area-inset-left));
+    width: min(60vw, 22rem);
+    margin: 0;
+    z-index: 2050;
+  }
+
+  .ride-focus-grid {
+    display: block;
+  }
+
+  .ride-navigation-focused {
+    height: calc(100svh - max(1rem, env(safe-area-inset-top) + env(safe-area-inset-bottom))) !important;
+    min-height: 0 !important;
+    border-radius: 1.25rem;
+  }
 }

@@ -1,4 +1,4 @@
-import { demoTrails } from '@/data/trails';
+import { realTrails } from '@/data/trails';
 import { routes } from '@/data/routes';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
@@ -11,6 +11,7 @@ import { getTrailStatusLabel, getTrailTypeLabel } from '@/lib/trail-utils';
 import TrailDetailMapWrapper from '@/components/TrailDetailMapWrapper';
 import TrailNowInsights from '@/components/TrailNowInsights';
 import TrailSidebarControls from '@/components/TrailSidebarControls';
+import PrintReportButton from '@/components/PrintReportButton';
 import { buildRouteStatus } from '@/lib/route-status';
 import { TrailHoverProvider } from '@/lib/trail-hover-context';
 
@@ -21,7 +22,7 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const trail = demoTrails.find(t => t.slug === slug);
+  const trail = realTrails.find(t => t.slug === slug);
   if (!trail) return { title: 'Sendero no encontrado' };
 
   return {
@@ -70,7 +71,7 @@ export default async function TrailDetailPage({ params, searchParams }: PageProp
     if (focusEndKm !== undefined) params.set('segEnd', String(focusEndKm));
     return `/forfait/${slug}?${params.toString()}#trail-map`;
   };
-  const trail = demoTrails.find(t => t.slug === slug);
+  const trail = realTrails.find(t => t.slug === slug);
   if (!trail) notFound();
   const statusData = await buildRouteStatus(slug);
   const segmentOverlays = statusData.ok && statusData.profile
@@ -79,7 +80,6 @@ export default async function TrailDetailPage({ params, searchParams }: PageProp
         .map((s) => ({ startKm: s.startKm, endKm: s.endKm, type: s.type }))
     : undefined;
 
-  const isPlaceholder = trail.dataStatus === "placeholder";
   const hasGpx = !!trail.gpxFile;
   const hasKml = !!trail.kmlFile;
   const statusCfg = getTrailStatusLabel(trail.status);
@@ -101,13 +101,6 @@ export default async function TrailDetailPage({ params, searchParams }: PageProp
             <ChevronLeft className="w-4 h-4" />
             Volver al forfait
           </Link>
-
-          {isPlaceholder && (
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-bold uppercase tracking-wider mb-4">
-              <AlertTriangle className="w-4 h-4" />
-              Este sendero utiliza datos demo. Pendiente de cargar track real.
-            </div>
-          )}
 
           <h1 className="text-4xl md:text-6xl font-black tracking-tighter text-white mb-4 leading-none">
             {trail.name}
@@ -327,12 +320,7 @@ export default async function TrailDetailPage({ params, searchParams }: PageProp
             <TrailSidebarControls />
 
             {/* Export PDF */}
-            <button
-              onClick={() => window.print()}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-800 text-white rounded-xl font-bold text-sm hover:bg-slate-700 transition-all"
-            >
-              Exportar informe (PDF)
-            </button>
+            <PrintReportButton />
 
             {/* Downloads */}
             <div className="bg-slate-900 border border-white/5 rounded-2xl p-6">

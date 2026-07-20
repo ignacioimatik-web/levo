@@ -2,8 +2,14 @@
 
 import { Suspense, useEffect, useState, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { signInWithGoogle, signInWithApple, getCurrentSession } from '@/lib/supabase/auth';
-import { Loader2, AlertCircle, XCircle, WifiOff, Ban } from 'lucide-react';
+import { signInWithGoogle, signInWithApple, signInWithEmail, getCurrentUser } from '@/lib/supabase/auth';
+import { Loader2, AlertCircle, XCircle, WifiOff, Ban, Mail, CheckCircle2, Apple } from 'lucide-react';
+import {
+  getAuthProviderAvailability,
+} from '@/lib/supabase/provider-status';
+import type { AuthProviderAvailability } from '@/lib/supabase/provider-status';
+import { createClient } from '@/lib/supabase/browser';
+import { getPostAuthDestination, normalizeAuthNextPath } from '@/lib/auth/redirect';
 
 const ERROR_MESSAGES: Record<string, string> = {
   'Provider not enabled': 'El inicio de sesión con este proveedor no está activado. Contacta con el administrador.',
@@ -12,6 +18,15 @@ const ERROR_MESSAGES: Record<string, string> = {
   'network_error': 'Error de conexión. Comprueba tu conexión a internet y vuelve a intentarlo.',
   'invalid_code': 'El enlace de inicio de sesión no es válido o ha expirado. Vuelve a iniciar sesión.',
   'session_not_found': 'No se ha podido iniciar la sesión. Inténtalo de nuevo.',
+  'auth_exchange_failed': 'No se ha podido completar el acceso. Vuelve a intentarlo desde este dispositivo.',
+  'access_denied': 'El acceso fue rechazado o cancelado. Vuelve a intentarlo y acepta los permisos solicitados.',
+  'unauthorized_client': 'El cliente OAuth no está autorizado en Supabase. Revisa el proveedor y sus credenciales.',
+  'invalid_request': 'La solicitud OAuth no es válida. Revisa las URLs de retorno configuradas en Supabase y Google Cloud.',
+  'provider_not_enabled': 'Este proveedor está desactivado en Supabase. Actívalo y guarda sus credenciales.',
+  'redirect_uri_mismatch': 'Google ha rechazado la dirección de retorno. En Google Cloud debe estar autorizada esta URL: https://tofcpitggqibbqemsowi.supabase.co/auth/v1/callback',
+  'invalid_client': 'Las credenciales OAuth de Google en Supabase no son válidas. Hay que revisar el Client ID y el secreto del proveedor.',
+  'provider is not enabled': 'Este proveedor está desactivado en Supabase. Actívalo y guarda sus credenciales en Authentication → Providers.',
+  'unsupported provider': 'Este proveedor está desactivado en Supabase. Actívalo y guarda sus credenciales en Authentication → Providers.',
 };
 
 function getErrorMessage(raw: string): string {
@@ -33,19 +48,50 @@ function AuthForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(() => {
+    const urlError = searchParams.get('error');
+    return urlError ? getErrorMessage(urlError) : null;
+  });
   const [checking, setChecking] = useState(true);
+  const [email, setEmail] = useState('');
+  const [emailSent, setEmailSent] = useState(false);
+  const [providers, setProviders] = useState<AuthProviderAvailability | null>(null);
 
-  const next = searchParams.get('next') ?? undefined;
+  const next = normalizeAuthNextPath(searchParams.get('next'));
+  const unavailableProviders = providers
+    ? [!providers.google && 'Google', !providers.apple && 'Apple'].filter(Boolean)
+    : [];
 
   useEffect(() => {
-    const urlError = searchParams.get('error');
-    if (urlError) setError(getErrorMessage(urlError));
-    getCurrentSession().then(({ session }) => {
-      if (session) router.replace('/account');
-      else setChecking(false);
+    let active = true;
+    void getCurrentUser().then(async ({ user }) => {
+      if (!active) return;
+      if (!user) {
+        setChecking(false);
+        return;
+      }
+
+      const supabase = createClient();
+      const { data: profile } = supabase
+        ? await supabase
+          .from('profiles')
+          .select('onboarding_completed_at')
+          .eq('user_id', user.id)
+          .maybeSingle()
+        : { data: null };
+
+      if (active) {
+        router.replace(getPostAuthDestination(next, profile?.onboarding_completed_at));
+      }
     });
-  }, [router, searchParams]);
+    return () => {
+      active = false;
+    };
+  }, [next, router]);
+
+  useEffect(() => {
+    void getAuthProviderAvailability().then(setProviders);
+  }, []);
 
   const handleGoogle = useCallback(async () => {
     setLoading('google');
@@ -67,6 +113,17 @@ function AuthForm() {
     }
   }, [next]);
 
+  const handleEmail = useCallback(async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!email.trim()) return;
+    setLoading('email');
+    setError(null);
+    const { error: err } = await signInWithEmail(email.trim(), next);
+    if (err) setError(getErrorMessage(err.message));
+    else setEmailSent(true);
+    setLoading(null);
+  }, [email, next]);
+
   if (checking) {
     return (
       <div className="flex items-center justify-center min-h-[calc(100vh-80px)]">
@@ -82,14 +139,52 @@ function AuthForm() {
           <div className="text-center mb-8">
             <h1 className="text-2xl font-bold text-white">Accede a tu cuenta</h1>
             <p className="text-sm text-slate-400 mt-2 leading-relaxed">
-              Inicia sesión o crea tu cuenta usando Google o Apple.
+              Entra por email para sincronizar tus salidas en todos tus dispositivos.
             </p>
           </div>
 
           <div className="space-y-3">
+            {emailSent ? (
+              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-center">
+                <CheckCircle2 className="mx-auto h-6 w-6 text-emerald-400" />
+                <p className="mt-2 text-sm font-bold text-emerald-300">Revisa tu correo</p>
+                <p className="mt-1 text-xs text-slate-400">Te hemos enviado un enlace seguro para entrar. No necesitas contraseña.</p>
+              </div>
+            ) : (
+              <form onSubmit={handleEmail} className="space-y-2">
+                <label htmlFor="email" className="sr-only">Correo electrónico</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                  <input
+                    id="email"
+                    type="email"
+                    required
+                    autoComplete="email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder="tu@email.com"
+                    className="w-full rounded-xl border border-white/10 bg-slate-950 py-3 pl-10 pr-3 text-sm text-white outline-none focus:border-orange-500"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={loading !== null}
+                  className="flex w-full items-center justify-center rounded-xl bg-orange-500 px-4 py-3 text-sm font-bold text-white hover:bg-orange-400 disabled:opacity-50"
+                >
+                  {loading === 'email' ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Continuar con email'}
+                </button>
+              </form>
+            )}
+
+            <div className="flex items-center gap-3 py-1">
+              <span className="h-px flex-1 bg-white/10" />
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-600">o</span>
+              <span className="h-px flex-1 bg-white/10" />
+            </div>
+
             <button
               onClick={handleGoogle}
-              disabled={loading !== null}
+              disabled={loading !== null || providers?.google === false}
               className="group relative w-full flex items-center justify-center gap-3 px-4 py-3 bg-white hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white text-slate-900 font-semibold rounded-xl transition-all duration-200 active:scale-[0.98]"
             >
               {loading === 'google' ? (
@@ -102,23 +197,28 @@ function AuthForm() {
                   <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                 </svg>
               )}
-              <span>Continuar con Google</span>
+              <span>{providers?.google === false ? 'Google no configurado' : 'Continuar con Google'}</span>
             </button>
 
             <button
               onClick={handleApple}
-              disabled={loading !== null}
-              className="group relative w-full flex items-center justify-center gap-3 px-4 py-3 bg-white hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white text-slate-900 font-semibold rounded-xl transition-all duration-200 active:scale-[0.98]"
+              disabled={loading !== null || providers?.apple !== true}
+              className="group relative flex w-full items-center justify-center gap-3 rounded-xl border border-white/10 bg-slate-950 px-4 py-3 font-semibold text-white transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-55"
+              title={providers?.apple === true ? 'Continuar con Apple' : 'Apple requiere credenciales de Apple Developer en Supabase'}
             >
-              {loading === 'apple' ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <svg viewBox="0 0 24 24" className="w-5 h-5 flex-shrink-0" fill="currentColor">
-                  <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
-                </svg>
-              )}
-              <span>Continuar con Apple</span>
+              {loading === 'apple' ? <Loader2 className="h-5 w-5 animate-spin" /> : <Apple className="h-5 w-5" />}
+              <span>{providers?.apple === true ? 'Continuar con Apple' : 'Apple no configurado'}</span>
             </button>
+
+            {unavailableProviders.length > 0 && (
+              <p role="status" className="auth-provider-notice rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-[11px] leading-relaxed text-amber-200">
+                El acceso por email está operativo.{' '}
+                {unavailableProviders.join(' y ')}
+                {unavailableProviders.length === 1
+                  ? ' aparecerá disponible cuando se activen sus credenciales OAuth.'
+                  : ' aparecerán disponibles cuando se activen sus credenciales OAuth.'}
+              </p>
+            )}
           </div>
 
           {error && (

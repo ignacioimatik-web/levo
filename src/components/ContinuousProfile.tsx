@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import type { KeyboardEventHandler, MouseEventHandler } from 'react';
 
 interface ProfilePoint {
@@ -9,6 +9,9 @@ interface ProfilePoint {
 }
 
 export default function ContinuousProfile({ series }: { series: ProfilePoint[] }) {
+  const [hover, setHover] = useState<{ idx: number; x: number; y: number } | null>(null);
+  const [lockedIdx, setLockedIdx] = useState<number | null>(null);
+
   if (!series.length) return null;
   const width = 760;
   const height = 220;
@@ -47,9 +50,6 @@ export default function ContinuousProfile({ series }: { series: ProfilePoint[] }
   }));
 
   const points = series.map((p) => ({ ...p, x: scaleX(p.km), y: scaleY(p.elevationM) }));
-  const [hover, setHover] = useState<{ idx: number; x: number; y: number } | null>(null);
-  const [lockedIdx, setLockedIdx] = useState<number | null>(null);
-
   const onMove: MouseEventHandler<SVGSVGElement> = (ev) => {
     const rect = ev.currentTarget.getBoundingClientRect();
     const relX = ((ev.clientX - rect.left) / rect.width) * width;
@@ -97,7 +97,7 @@ export default function ContinuousProfile({ series }: { series: ProfilePoint[] }
       })()
     : 0;
 
-  const clickedMax = useMemo(() => {
+  const clickedMax = (() => {
     if (activeIdx === null) return null;
     const anchor = lockedIdx ?? activeIdx;
     const from = Math.max(0, anchor);
@@ -107,7 +107,7 @@ export default function ContinuousProfile({ series }: { series: ProfilePoint[] }
       if (points[i].elevationM > points[maxI].elevationM) maxI = i;
     }
     return { idx: maxI, ...points[maxI] };
-  }, [activeIdx, lockedIdx, points]);
+  })();
 
   return (
     <div className="bg-slate-900/60 border border-white/5 rounded-xl p-4" tabIndex={0} onKeyDown={onKeyDown}>

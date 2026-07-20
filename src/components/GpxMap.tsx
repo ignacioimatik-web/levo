@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useEffect, useLayoutEffect, useCallback } from 'react';
-import { MapContainer, TileLayer, Polyline, CircleMarker, useMap } from 'react-leaflet';
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
+import { MapContainer, Polyline, CircleMarker, useMap } from 'react-leaflet';
 import type { LatLngExpression } from 'leaflet';
 import { TrailPoint } from '@/data/trails';
 import { parseGPX, haversineKm } from '@/lib/gpx-utils';
 import { useTrailHover } from '@/lib/trail-hover-context';
 import { Map, Maximize2, Minimize2 } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
+import ResilientRasterTileLayer from '@/components/map/ResilientRasterTileLayer';
 
 interface GpxMapProps {
   coordinates?: TrailPoint[];
@@ -122,21 +123,20 @@ function HoverMarker({ coords }: { coords: LatLngExpression[] }) {
 
 export default function GpxMap({ coordinates, gpxUrl, preparsedPoints, title, fallbackMessage, focusStartKm, focusEndKm, focusPointKm, segmentOverlays }: GpxMapProps) {
   const [maximized, setMaximized] = useState(false);
-  const [trackCoords, setTrackCoords] = useState<LatLngExpression[]>(
-    preparsedPoints
-      ? preparsedPoints.map(p => [p.lat, p.lng] as LatLngExpression)
-      : coordinates
-        ? coordinates.map(p => [p.lat, p.lng] as LatLngExpression)
-        : []
-  );
+  const [fetchedCoords, setFetchedCoords] = useState<LatLngExpression[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
+  const trackCoords = useMemo(() => {
+    if (preparsedPoints) {
+      return preparsedPoints.map(p => [p.lat, p.lng] as LatLngExpression);
+    }
+    if (coordinates) {
+      return coordinates.map(p => [p.lat, p.lng] as LatLngExpression);
+    }
+    return fetchedCoords;
+  }, [preparsedPoints, coordinates, fetchedCoords]);
 
   useEffect(() => {
-    if (preparsedPoints) {
-      setTrackCoords(preparsedPoints.map(p => [p.lat, p.lng] as LatLngExpression));
-      return;
-    }
     if (gpxUrl && !coordinates) {
       const fetchGpx = async () => {
         setLoading(true);
@@ -146,7 +146,7 @@ export default function GpxMap({ coordinates, gpxUrl, preparsedPoints, title, fa
           if (!res.ok) throw new Error('Failed to fetch GPX');
           const text = await res.text();
           const parsed = parseGPX(text);
-          setTrackCoords(parsed.map(p => [p.lat, p.lng] as LatLngExpression));
+          setFetchedCoords(parsed.map(p => [p.lat, p.lng] as LatLngExpression));
         } catch (e) {
           console.error(e);
           setError(true);
@@ -156,7 +156,7 @@ export default function GpxMap({ coordinates, gpxUrl, preparsedPoints, title, fa
       };
       fetchGpx();
     }
-  }, [gpxUrl, coordinates, preparsedPoints]);
+  }, [gpxUrl, coordinates]);
 
   if ((!trackCoords.length || error) && !loading) {
     return (
@@ -186,10 +186,7 @@ export default function GpxMap({ coordinates, gpxUrl, preparsedPoints, title, fa
             className="w-full h-full"
             zoomControl={true}
           >
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
+            <ResilientRasterTileLayer />
             {trackCoords.length > 1 && (
               <Polyline
                 positions={trackCoords}
@@ -242,10 +239,7 @@ export default function GpxMap({ coordinates, gpxUrl, preparsedPoints, title, fa
           className="w-full h-full"
           zoomControl={true}
         >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+        <ResilientRasterTileLayer />
         {trackCoords.length > 1 && (
           <Polyline 
             positions={trackCoords} 

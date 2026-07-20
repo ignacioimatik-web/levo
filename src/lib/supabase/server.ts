@@ -12,10 +12,16 @@ export async function createClient() {
         getAll() {
           return cookieStore.getAll();
         },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options),
-          );
+        setAll(cookiesToSet, headers) {
+          void headers;
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options),
+            );
+          } catch {
+            // Server Components cannot mutate cookies. Route handlers and
+            // the proxy do persist the refreshed session, so this is safe.
+          }
         },
       },
     },

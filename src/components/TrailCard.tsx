@@ -176,10 +176,11 @@ export default function TrailCard({ trail, isSelected, onSelect, mapSectionId = 
             {isSelected ? "Seleccionado" : "En mapa"}
           </button>
           <Link
-            href={`/forfait/${trail.slug}`}
+            href={trail.detailHref ?? `/forfait/${trail.slug}`}
             className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-all"
           >
             <ExternalLink className="w-3.5 h-3.5" />
+            <span className="sr-only">{trail.detailLabel ?? 'Ver ficha completa'}</span>
           </Link>
         </div>
       </div>

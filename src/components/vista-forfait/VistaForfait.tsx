@@ -8,6 +8,8 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import type { TrackMTB, DificultadMTB } from '@/lib/forfait/types';
 import { buildProfileSeries } from '@/lib/forfait/geo-utils';
 import { splitIntoSendas, type SendaSegment, type CameraView } from '@/lib/forfait/senda-utils';
+import { MAPBOX_ACCESS_TOKEN } from '@/lib/open-map-styles';
+import useResilientMapStyle from '@/components/map/useResilientMapStyle';
 
 /* ─── Types ─── */
 interface Bounds {
@@ -15,6 +17,14 @@ interface Bounds {
   maxLat: number;
   minLng: number;
   maxLng: number;
+}
+
+interface WeatherData {
+  temperatureC?: number;
+  humidityPct?: number;
+  windKmh?: number;
+  stationName?: string;
+  stationDistanceKm?: number;
 }
 
 /* ─── Constants ─── */
@@ -105,8 +115,10 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
   const [expandedTrackId, setExpandedTrackId] = useState<string | null>(null);
   const [cameraView, setCameraView] = useState<CameraView | null>(null);
   const [showPanel, setShowPanel] = useState(true);
+  const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const mapRef = useRef<MapRef>(null);
   const panoramaRef = useRef<HTMLDivElement>(null);
+  const resilientStyle = useResilientMapStyle();
 
   /* ── Computed sector data ── */
   const sectorsData = useMemo(() => {
@@ -138,6 +150,17 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
     return { lat: (sectorBounds.minLat + sectorBounds.maxLat) / 2, lng: (sectorBounds.minLng + sectorBounds.maxLng) / 2, zoom: 15.3 };
   }, [sectorBounds]);
 
+  useEffect(() => {
+    if (!activeSector || !sectorBounds) return;
+    const controller = new AbortController();
+    setWeatherData(null);
+    fetch(`/api/forfait/weather?lat=${sectorCenter.lat.toFixed(4)}&lng=${sectorCenter.lng.toFixed(4)}`, { signal: controller.signal, cache: 'no-store' })
+      .then(response => response.json())
+      .then(data => { if (!controller.signal.aborted && data && !data.error) setWeatherData(data); })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [activeSector, sectorBounds, sectorCenter]);
+
   /* ── Sendas ── */
   const allSendas = useMemo(() => {
     const map = new Map<string, SendaSegment[]>();
@@ -154,16 +177,19 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
 
   /* ── Auto-expand first track + show first senda ── */
   useEffect(() => {
-    if (sectorTracks.length > 0) {
-      const firstTrack = sectorTracks[0];
+    const firstTrack = sectorTracks[0];
+    if (firstTrack) {
+      const timer = window.setTimeout(() => {
       setExpandedTrackId(firstTrack.id);
       setActiveTrackId(firstTrack.id);
       const sendas = allSendas.get(firstTrack.id);
       if (sendas && sendas.length > 0) {
         setActiveSendaId(sendas[0].id);
       }
+      }, 0);
+      return () => window.clearTimeout(timer);
     }
-  }, [activeSector]);
+  }, [activeSector, allSendas, sectorTracks]);
 
   const activeSenda = useMemo(
     () => allSendaList.find(s => s.id === activeSendaId) || null,
@@ -195,8 +221,10 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const saved = JSON.parse(raw);
-        if (Array.isArray(saved.trackIds) && saved.trackIds.length > 0)
-          setSelectedTrackIds(saved.trackIds);
+        if (Array.isArray(saved.trackIds) && saved.trackIds.length > 0) {
+          const timer = window.setTimeout(() => setSelectedTrackIds(saved.trackIds), 0);
+          return () => window.clearTimeout(timer);
+        }
       }
     } catch {}
   }, []);
@@ -388,8 +416,6 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
   /* ── Render: Sector detail ── */
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col">
-      <style>{`.mapboxgl-ctrl-attrib { display: none !important; }`}</style>
-
       {/* ── NAV ── */}
       <nav className="relative z-20 bg-slate-950/90 backdrop-blur-md border-b border-white/5">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-12 sm:h-14 flex items-center justify-between gap-2">
@@ -419,10 +445,11 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
         <div className="relative w-full aspect-[2/1] min-h-[300px]">
           {sectorBounds ? (
             <MapboxMap ref={mapRef}
-              mapStyle="mapbox://styles/mapbox/satellite-streets-v12"
-              mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
+              mapboxAccessToken={MAPBOX_ACCESS_TOKEN}
+              mapStyle={resilientStyle.mapStyle}
+              terrain={MAPBOX_ACCESS_TOKEN ? { source: 'levo-panorama-terrain-dem', exaggeration: 1.35 } : undefined}
+              onError={resilientStyle.handleMapError}
               initialViewState={{ latitude: sectorCenter.lat, longitude: sectorCenter.lng, zoom: sectorCenter.zoom, pitch: 78, bearing: 170 }}
-              terrain={{ source: 'mapbox-dem', exaggeration: 1.5 }}
               interactiveLayerIds={trackLineIds}
               onMouseMove={handleMapHover}
               onClick={handleMapClick}
@@ -430,10 +457,36 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
               onMoveEnd={handleMoveEnd}
               onLoad={handleMoveEnd}
               style={{ width: '100%', height: '100%' }}
-              attributionControl={false}
             >
-              <Source id="mapbox-dem" type="raster-dem" url="mapbox://mapbox.mapbox-terrain-dem-v1" />
               <NavigationControl visualizePitch={true} position="top-right" />
+
+              {MAPBOX_ACCESS_TOKEN && (
+                <>
+                  <Source
+                    id="levo-panorama-terrain-dem"
+                    type="raster-dem"
+                    url="mapbox://mapbox.mapbox-terrain-dem-v1"
+                    tileSize={512}
+                    maxzoom={14}
+                  />
+                  <Source id="levo-panorama-buildings" type="vector" url="mapbox://mapbox.mapbox-streets-v8">
+                    <Layer
+                      id="levo-panorama-3d-buildings"
+                      type="fill-extrusion"
+                      source="levo-panorama-buildings"
+                      source-layer="building"
+                  minzoom={11}
+                      filter={['!', ['has', 'underground']]}
+                      paint={{
+                        'fill-extrusion-color': '#8b97a8',
+                        'fill-extrusion-height': ['coalesce', ['get', 'height'], 8],
+                        'fill-extrusion-base': ['coalesce', ['get', 'min_height'], 0],
+                        'fill-extrusion-opacity': 0.55,
+                      }}
+                    />
+                  </Source>
+                </>
+              )}
 
               {/* Track layers */}
               {sectorTracks.filter(t => !difFilter || t.dificultad === difFilter).map(track => {
@@ -445,8 +498,8 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
                 const isDimmed = activeSendaId !== null && !hasActiveSenda;
 
                 const color = getVisualColor(track);
-                let weight = isAct ? 5 : isHov ? 4.5 : isSel ? 3.5 : 2.5;
-                let opacity = isClosed ? 0.2 : isAct ? 1 : isHov ? 0.9 : isSel ? 0.75 : isDimmed ? 0.12 : 0.45;
+                const weight = isAct ? 5 : isHov ? 4.5 : isSel ? 3.5 : 2.5;
+                const opacity = isClosed ? 0.2 : isAct ? 1 : isHov ? 0.9 : isSel ? 0.75 : isDimmed ? 0.12 : 0.45;
                 const dash = isClosed ? [5, 5] as number[] : isSel ? [8, 5] as number[] : null;
 
                 const coords: [number, number][] = track.points.map(p => [p.lng, p.lat]);
@@ -557,8 +610,12 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
                 <div className="flex items-center gap-2 mt-0.5">
                   <span className={`text-[10px] font-bold uppercase ${cfg.text}`}>{cfg.label}</span>
                   <span className="text-emerald-400">+{track.desnivelPositivo}m</span>
-                  <span className="text-red-400">-{track.desnivelNegativo}m</span>
                 </div>
+                <div className="mt-1 flex items-center gap-2 border-t border-white/10 pt-1 text-[10px] text-slate-300">
+                  <span>{weatherData?.windKmh == null ? 'Viento —' : `Viento ${Math.round(weatherData.windKmh)} km/h`}</span>
+                  <span>{weatherData?.temperatureC == null ? 'Temp. —' : `${Math.round(weatherData.temperatureC)}°C`}</span>
+                </div>
+                {weatherData?.stationName && <div className="mt-0.5 text-[9px] text-slate-500">AEMET · {weatherData.stationName}{weatherData.stationDistanceKm != null ? ` · ${weatherData.stationDistanceKm} km` : ''}</div>}
               </div>
             );
           })()}
@@ -693,7 +750,7 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
                     <span className={`text-[10px] font-bold uppercase ${cfg.text}`}>{cfg.label}</span>
                   </div>
                   <p className="text-[11px] text-slate-500">
-                    {track.sector} · {track.distanciaKm.toFixed(1)} km · +{track.desnivelPositivo}m / -{track.desnivelNegativo}m
+                    {track.sector} · {track.distanciaKm.toFixed(1)} km · +{track.desnivelPositivo}m
                     <span className="ml-2 text-slate-600">T{track.nivelTecnico}/F{track.exigenciaFisica}</span>
                     <span className="ml-2">{hrs > 0 ? `${hrs}h ${mins}min` : `${mins}min`}</span>
                   </p>

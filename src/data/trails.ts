@@ -65,6 +65,9 @@ export interface MTBTrail {
   image?: string;
   lastReview?: string;
   dataStatus: "real" | "placeholder" | "needs-verification";
+  /** Optional destination for private routes that are not part of the static catalog. */
+  detailHref?: string;
+  detailLabel?: string;
 }
 
 import { garumbaCoordinates } from './garumba-coordinates';
@@ -909,3 +912,6 @@ export const demoTrails: MTBTrail[] = [
     dataStatus: "real",
   },
 ];
+
+/** Only GPS-backed trails that are safe to expose in public catalogues. */
+export const realTrails = demoTrails.filter((trail) => trail.dataStatus === "real");

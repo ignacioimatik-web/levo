@@ -34,7 +34,7 @@ export default async function Home() {
   return (
     <div className="relative min-h-screen overflow-x-hidden">
       {/* --- HERO SECTION --- */}
-      <section className="relative h-screen flex items-start justify-center pt-[12vh] overflow-hidden">
+      <section className="theme-dark-island relative min-h-[calc(100svh-4rem)] flex items-start justify-center pt-6 md:pt-4 overflow-hidden">
         <video
           autoPlay
           muted
@@ -46,33 +46,33 @@ export default async function Home() {
         </video>
         <div className="absolute inset-0 bg-gradient-to-b from-slate-950/70 via-slate-950/50 to-slate-950/80 z-[1]"></div>
 
-        <div className="relative z-20 text-center px-6 max-w-5xl">
+        <div className="relative z-20 text-center px-5 max-w-5xl">
           <img
             src="/images/logo-enduro-ebiketracks.png"
             alt="E-nduro Ebiketracks"
-            className="w-full max-w-3xl mx-auto mb-2 -mt-6 object-contain"
+            className="w-full max-w-64 sm:max-w-72 md:max-w-56 lg:max-w-64 mx-auto mb-0 object-contain"
           />
-          <h1 className="text-5xl md:text-8xl font-black tracking-tighter text-white mb-6 leading-none">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tighter text-white mb-4 leading-none">
             E-NDURO <br />
             <span className="text-orange-500">EBIKETRACKS</span>
           </h1>
-          <p className="text-xl md:text-3xl font-light text-slate-300 mb-12 max-w-3xl mx-auto leading-relaxed">
+          <p className="text-lg sm:text-xl md:text-3xl font-light text-slate-300 mb-4 md:mb-8 max-w-3xl mx-auto leading-relaxed">
             Enduro, all-mountain y sendas históricas en Els Ports.
           </p>
-          <p className="text-lg text-slate-400 mb-12 max-w-2xl mx-auto">
+          <p className="text-sm sm:text-base md:text-lg text-slate-400 mb-6 md:mb-10 max-w-2xl mx-auto">
             Rutas autoguiadas por GPS para descubrir la esencia de Morella sobre dos ruedas.
           </p>
           
-          <div className="flex flex-col sm:flex-row gap-5 justify-center items-center">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-5 justify-center items-center">
             <Link 
               href="/rutas" 
-              className="w-full sm:w-auto px-10 py-4 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold text-lg transition-all shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2"
+              className="w-full sm:w-auto px-8 md:px-10 py-3.5 md:py-4 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold text-base md:text-lg transition-all shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2"
             >
               Explorar rutas <ArrowRight className="w-5 h-5" />
             </Link>
             <Link 
               href="/planifica" 
-              className="w-full sm:w-auto px-10 py-4 bg-white/5 hover:bg-white/10 backdrop-blur-md text-white border border-white/10 rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2"
+              className="w-full sm:w-auto px-8 md:px-10 py-3.5 md:py-4 bg-white/5 hover:bg-white/10 backdrop-blur-md text-white border border-white/10 rounded-xl font-bold text-base md:text-lg transition-all flex items-center justify-center gap-2"
             >
               Planificar viaje
             </Link>
@@ -263,6 +263,3 @@ export default async function Home() {
     </div>
   );
 }
-
-
-

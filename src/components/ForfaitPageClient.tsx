@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { demoTrails } from '@/data/trails';
 import { filterTrails } from '@/lib/trail-utils';
+import { fetchSavedRoutes } from '@/lib/forfait/save-route';
+import { savedRoutesToTrails } from '@/lib/forfait/saved-route-trail';
 import type { TrailFilters as FiltersState } from '@/lib/trail-utils';
 import SectionHeading from './SectionHeading';
 import TrailFilters from './TrailFilters';
@@ -32,14 +34,25 @@ export default function ForfaitPageClient() {
   const [filters, setFilters] = useState<FiltersState>({});
   const [selectedTrailId, setSelectedTrailId] = useState<string | null>(null);
   const [tableOpen, setTableOpen] = useState(false);
-
-  const filteredTrails = useMemo(() => filterTrails(demoTrails, filters), [filters]);
+  const [savedTrails, setSavedTrails] = useState<ReturnType<typeof savedRoutesToTrails>>([]);
 
   useEffect(() => {
-    if (selectedTrailId && !filteredTrails.find(t => t.id === selectedTrailId)) {
-      setSelectedTrailId(null);
-    }
-  }, [filteredTrails, selectedTrailId]);
+    let active = true;
+    void fetchSavedRoutes().then((routes) => {
+      if (active) setSavedTrails(savedRoutesToTrails(routes));
+    });
+    return () => { active = false; };
+  }, []);
+
+  const allTrails = useMemo(() => {
+    const savedIds = new Set(savedTrails.map((trail) => trail.id));
+    return [...savedTrails, ...demoTrails.filter((trail) => !savedIds.has(trail.id))];
+  }, [savedTrails]);
+
+  const filteredTrails = useMemo(() => filterTrails(allTrails, filters), [allTrails, filters]);
+  const visibleSelectedTrailId = filteredTrails.some(t => t.id === selectedTrailId)
+    ? selectedTrailId
+    : null;
 
   const handleTrailSelect = useCallback((id: string | null) => {
     setSelectedTrailId(id);
@@ -96,11 +109,13 @@ export default function ForfaitPageClient() {
               <div className="max-w-7xl mx-auto">
                 <SectionHeading 
                   title="Exploración Visual" 
-                  subtitle="Navega por el mapa interactivo para descubrir las rutas disponibles." 
+                  subtitle={savedTrails.length > 0
+                    ? `${savedTrails.length} ruta${savedTrails.length === 1 ? '' : 's'} privada${savedTrails.length === 1 ? '' : 's'} cargada${savedTrails.length === 1 ? '' : 's'} · navega por el mapa para explorar.`
+                    : 'Navega por el mapa interactivo para descubrir las rutas disponibles.'}
                 />
                 <ForfaitInteractive
                   trails={filteredTrails}
-                  selectedTrailId={selectedTrailId}
+                  selectedTrailId={visibleSelectedTrailId}
                   onTrailSelect={handleTrailSelect}
                 />
               </div>
@@ -137,7 +152,7 @@ export default function ForfaitPageClient() {
                 />
                 <TrailFilters
                   filters={filters}
-                  trails={demoTrails}
+                  trails={allTrails}
                   onChange={setFilters}
                 />
               </div>
@@ -151,7 +166,7 @@ export default function ForfaitPageClient() {
                     <TrailCard
                       key={trail.id}
                       trail={trail}
-                      isSelected={selectedTrailId === trail.id}
+                      isSelected={visibleSelectedTrailId === trail.id}
                       onSelect={handleTrailSelect}
                       mapSectionId="forfait-map-section"
                     />
@@ -179,7 +194,7 @@ export default function ForfaitPageClient() {
                 />
                 <TrailFilters
                   filters={filters}
-                  trails={demoTrails}
+                  trails={allTrails}
                   onChange={setFilters}
                 />
               </div>
@@ -206,7 +221,7 @@ export default function ForfaitPageClient() {
                     <div className="mt-4">
                       <TrailComparisonTable
                         trails={filteredTrails}
-                        selectedTrailId={selectedTrailId}
+                        selectedTrailId={visibleSelectedTrailId}
                         onSelect={handleTrailSelect}
                       />
                     </div>

@@ -6,10 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "node --no-warnings --experimental-strip-types --test tests/*.test.mjs",
+    "smoke:production": "node scripts/smoke-production.mjs"
   },
   "dependencies": {
-    "@google/earthengine": "^1.7.28",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.106.2",
     "@turf/distance": "7.2.0",
@@ -18,11 +19,11 @@
     "@turf/nearest-point-on-line": "7.2.0",
     "@turf/turf": "^7.3.5",
     "@types/leaflet": "^1.9.21",
+    "google-auth-library": "^10.9.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.16.0",
     "mapbox-gl": "^3.24.0",
-    "maplibre-gl": "^5.24.0",
-    "next": "16.2.6",
+    "next": "16.2.10",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-leaflet": "^5.0.0",
@@ -34,8 +35,11 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.6",
+    "eslint-config-next": "16.2.10",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "overrides": {
+    "postcss": "^8.5.10"
   }
 }

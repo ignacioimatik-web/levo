@@ -1,8 +1,13 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import MobileBottomNav from "@/components/MobileBottomNav";
+import PwaRegistration from "@/components/PwaRegistration";
+import ActivitySyncBridge from "@/components/activity/ActivitySyncBridge";
+import ThemeProvider from "@/components/theme/ThemeProvider";
+import { THEME_STORAGE_KEY } from "@/lib/theme";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,7 +19,11 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL || "https://gpxtour.vercel.app").replace(/\/$/, "");
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_ORIGIN),
+  manifest: "/manifest.webmanifest",
   title: {
     default: "E-nduro Ebiketracks | Rutas MTB & Enduro",
     template: "%s | E-nduro Ebiketracks"
@@ -23,10 +32,20 @@ export const metadata: Metadata = {
   keywords: ["Morella", "Singletracks", "MTB", "Enduro", "Els Ports", "Rutas GPS", "All-Mountain"],
   authors: [{ name: "E-nduro Ebiketracks" }],
   creator: "E-nduro Ebiketracks",
+  icons: {
+    icon: "/favicon.ico",
+    apple: [
+      {
+        url: "/images/logo-enduro-ebiketracks.png",
+        sizes: "1024x1024",
+        type: "image/png",
+      },
+    ],
+  },
   openGraph: {
     type: "website",
     locale: "es_ES",
-    url: "https://ignacioimatik-web.github.io/levo",
+    url: SITE_ORIGIN,
     siteName: "E-nduro Ebiketracks",
     title: "E-nduro Ebiketracks | Rutas MTB & Enduro",
     description: "Descubre las mejores rutas autoguiadas por GPS de MTB, Enduro y All-Mountain en Morella y Els Ports.",
@@ -47,6 +66,13 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport: Viewport = {
+  themeColor: "#020617",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -56,15 +82,27 @@ export default function RootLayout({
     <html
       lang="es"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var p=localStorage.getItem('${THEME_STORAGE_KEY}');var d=window.matchMedia('(prefers-color-scheme: dark)').matches;var t=p==='light'||p==='dark'?p:(d?'dark':'light');document.documentElement.dataset.theme=t;document.documentElement.style.colorScheme=t}catch(e){document.documentElement.dataset.theme='dark'}})();`,
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col bg-slate-950 text-slate-50">
-        <Navbar />
-        <main className="flex-grow">
-          {children}
-        </main>
-        <Footer />
+        <ThemeProvider>
+          <Navbar />
+          <main className="flex-grow">
+            {children}
+          </main>
+          <Footer />
+          <MobileBottomNav />
+          <PwaRegistration />
+          <ActivitySyncBridge />
+        </ThemeProvider>
       </body>
     </html>
   );
 }
-
