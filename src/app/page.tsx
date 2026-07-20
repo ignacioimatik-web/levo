@@ -34,7 +34,7 @@ export default async function Home() {
   return (
     <div className="relative min-h-screen overflow-x-hidden">
       {/* --- HERO SECTION --- */}
-      <section className="relative h-screen flex items-start justify-center pt-[12vh] overflow-hidden">
+      <section className="relative min-h-screen flex items-start justify-center pt-[8vh] overflow-visible">
         <video
           autoPlay
           muted
