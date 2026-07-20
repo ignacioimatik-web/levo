@@ -19,8 +19,10 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL || "https://levo-eta.vercel.app").replace(/\/$/, "");
+
 export const metadata: Metadata = {
-  metadataBase: new URL("https://levo-eta.vercel.app"),
+  metadataBase: new URL(SITE_ORIGIN),
   manifest: "/manifest.webmanifest",
   title: {
     default: "E-nduro Ebiketracks | Rutas MTB & Enduro",
@@ -43,7 +45,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "es_ES",
-    url: "https://levo-eta.vercel.app",
+    url: SITE_ORIGIN,
     siteName: "E-nduro Ebiketracks",
     title: "E-nduro Ebiketracks | Rutas MTB & Enduro",
     description: "Descubre las mejores rutas autoguiadas por GPS de MTB, Enduro y All-Mountain en Morella y Els Ports.",
