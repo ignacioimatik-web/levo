@@ -8,7 +8,6 @@ import {
   Bike,
   ChevronRight,
   ShieldCheck,
-  MapPin,
   Mountain
 } from 'lucide-react';
 import TopoBackground from '@/components/TopoBackground';
@@ -163,39 +162,6 @@ export default async function Home() {
                 Explorar forfait <ArrowRight className="w-5 h-5" />
               </Link>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* --- MORELLA SECTION --- */}
-      <section className="py-24 px-6 relative overflow-hidden">
-        <TopoBackground />
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center gap-16">
-          <div className="md:w-1/2 relative overflow-hidden rounded-3xl shadow-2xl">
-            <div className="absolute -top-4 -left-4 w-24 h-24 bg-orange-500/20 rounded-full blur-3xl"></div>
-            <div className="absolute -bottom-4 -right-4 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl"></div>
-            <video
-              autoPlay
-              muted
-              loop
-              playsInline
-              className="w-full h-full object-cover relative z-10 rounded-3xl"
-            >
-              <source src="/videos/morella-dron.mp4" type="video/mp4" />
-            </video>
-          </div>
-          <div className="md:w-1/2">
-            <div className="flex items-center gap-2 text-orange-500 mb-4">
-              <MapPin className="w-5 h-5" />
-              <span className="text-xs font-bold uppercase tracking-widest">Destino</span>
-            </div>
-            <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">Morella: El corazón de la aventura</h2>
-            <p className="text-slate-400 text-lg leading-relaxed mb-8">
-              Más que un destino de MTB, Morella es un viaje al pasado. Sus murallas medievales, su castillo imponente y la naturaleza indómita de Els Ports te esperan para una experiencia inolvidable.
-            </p>
-            <Link href="/morella" className="inline-flex items-center gap-2 px-8 py-3 bg-white text-slate-950 rounded-xl font-bold hover:bg-orange-500 hover:text-white transition-all">
-              Descubrir Morella <ArrowRight className="w-5 h-5" />
-            </Link>
           </div>
         </div>
       </section>

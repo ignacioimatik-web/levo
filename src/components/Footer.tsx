@@ -34,8 +34,6 @@ const Footer = () => {
         <div>
           <h4 className="text-white font-bold text-sm uppercase tracking-widest mb-6">Información</h4>
           <ul className="space-y-4 text-sm">
-            <li><Link href="/quienes-somos" className="hover:text-orange-500 transition-colors">Quiénes Somos</Link></li>
-            <li><Link href="/morella" className="hover:text-orange-500 transition-colors">Turismo Morella</Link></li>
             <li><Link href="/seguridad" className="hover:text-orange-500 transition-colors">Seguridad</Link></li>
             <li><Link href="/contacto" className="hover:text-orange-500 transition-colors">Contacto</Link></li>
           </ul>

@@ -64,10 +64,6 @@ const navItems: ({ label: string; href: string } | { label: string; items: Dropd
   ]},
   { label: 'Forfait', href: '/forfait' },
   { label: 'Alerta Presión', href: '/alerta-presion' },
-  { label: 'Nosotros', items: [
-    { label: 'Quiénes Somos', href: '/quienes-somos' },
-    { label: 'Morella', href: '/morella' },
-  ]},
 ];
 
 const socialIconClass = "w-4 h-4 text-slate-400 hover:text-orange-500 transition-colors";
