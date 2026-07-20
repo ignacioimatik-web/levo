@@ -115,6 +115,7 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
   const [tracksLoading, setTracksLoading] = useState(true);
   const [gpxReady, setGpxReady] = useState(false);
   const [hoverWeather, setHoverWeather] = useState<Map<string, { temperatureC?: number; windKmh?: number }>>(new Map());
+  const [hoverPressure, setHoverPressure] = useState<Map<string, { frontBar: number; rearBar: number; frontPsi: number; rearPsi: number }>>(new Map());
   const weatherCache = useRef<Map<string, { temperatureC?: number; windKmh?: number }>>(new Map());
   const weatherFetching = useRef<Set<string>>(new Set());
   const mapRef = useRef<MapRef>(null);
@@ -196,7 +197,7 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
     });
   }, [tracks]);
 
-  // 🌤️ Fetch AEMET weather for hovered track
+  // 🌤️ Fetch AEMET weather + recommended pressure for hovered track
   useEffect(() => {
     if (!hoveredTrackId) return;
     if (weatherCache.current.has(hoveredTrackId)) {
@@ -229,6 +230,25 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
         weatherFetching.current.delete(hoveredTrackId);
         setHoverWeather(new Map(weatherCache.current));
       });
+
+    // Also fetch recommended pressure
+    fetch(`/api/alerta-presion/vista-pressure?lat=${mid.lat}&lng=${mid.lng}&trackName=${encodeURIComponent(track.nombre)}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data && !data.error && data.recommendedFrontBar) {
+          setHoverPressure(prev => {
+            const next = new Map(prev);
+            next.set(hoveredTrackId, {
+              frontBar: data.recommendedFrontBar,
+              rearBar: data.recommendedRearBar,
+              frontPsi: data.recommendedFrontPsi,
+              rearPsi: data.recommendedRearPsi,
+            });
+            return next;
+          });
+        }
+      })
+      .catch(() => {});
   }, [hoveredTrackId, tracks]);
 
   const activeSenda = useMemo(
@@ -628,6 +648,7 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
             if (!track) return null;
             const cfg = getVisualConfig(track);
             const weather = hoverWeather.get(hoveredTrackId);
+            const pressure = hoverPressure.get(hoveredTrackId);
             return (
               <div className="absolute z-30 px-2.5 py-1.5 rounded-lg bg-slate-950/85 backdrop-blur-md border border-white/10 shadow-xl pointer-events-none text-[11px] whitespace-nowrap"
                 style={{ left: `${tooltipPos.x}%`, top: `${tooltipPos.y}%`, transform: 'translate(-50%, -110%)' }}
@@ -642,6 +663,11 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
                   <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-300 border-t border-white/5 pt-1">
                     <span>🌡️ {weather.temperatureC !== undefined ? `${weather.temperatureC}°C` : '—'}</span>
                     <span>💨 {weather.windKmh !== undefined ? `${weather.windKmh} km/h` : '—'}</span>
+                  </div>
+                )}
+                {pressure && (
+                  <div className="flex items-center gap-2 mt-0.5 text-[10px] border-t border-white/5 pt-1">
+                    <span className="text-orange-400 font-bold">🔘 {pressure.frontBar.toFixed(1)} / {pressure.rearBar.toFixed(1)} bar</span>
                   </div>
                 )}
               </div>
