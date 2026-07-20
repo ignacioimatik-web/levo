@@ -1,19 +1,26 @@
 /**
  * Alerta Presión — MTB tire pressure calculation
  *
- * Calculates recommended tire pressures for technical descents
- * based on rider+bike weight, tire width (inches), temperature, and humidity.
+ * Calculates recommended tire pressures for technical descents.
  *
- * Objective: maximum grip without pinch flats or burping.
- * - Technical descents → lower pressure for grip
- * - Temperature compensation (~0.07 PSI/°C)
- * - Humidity affects tackiness
- * - Tubeless can run 2-3 PSI lower
+ * Base reference:
+ *   95 kg total (80 rider + 15 bike) on 2.3" tubeless → 22 PSI front / 25 PSI rear
+ * Scales by actual weight and tire width.
+ *
+ * Adjustments:
+ *   - Tubeless: -2.5 PSI front, -2.0 PSI rear
+ *   - Technical descent: -2.0 PSI front (grip), -1.0 PSI rear
+ *   - Temperature: ±0.07 PSI per °C from 20°C
+ *   - Humidity: high ≥70% → -0.5 PSI (more grip), low ≤35% → +0.5 PSI (loose terrain)
  */
 import type { BikeProfile, CalculationInput, PressureRecommendation } from './types';
 
 const PSI_PER_BAR = 14.504;
 const REF_TEMP_C = 20;
+const REF_WEIGHT_KG = 95;
+const REF_WIDTH_IN = 2.3;
+const REF_FRONT_PSI = 22;
+const REF_REAR_PSI = 25;
 
 function barToPsi(bar: number): number {
   return Math.round(bar * PSI_PER_BAR * 10) / 10;
@@ -23,70 +30,61 @@ function psiToBar(psi: number): number {
 }
 
 export function calculatePressure(input: CalculationInput): PressureRecommendation {
-  const { profile, temperatureC, humidityPct, descent } = input;
-  const totalWeightKg = profile.riderWeightKg + profile.bikeWeightKg;
+  const { profile, temperatureC, humidityPct } = input;
+  const totalKg = profile.riderWeightKg + profile.bikeWeightKg;
 
-  // Tire width in inches (directly from profile)
-  const frontWidthIn = profile.tireWidthFrontInch;
-  const rearWidthIn = profile.tireWidthRearInch;
+  // Scale from reference weight and tire width
+  const frontScale = (totalKg / REF_WEIGHT_KG) * (REF_WIDTH_IN / profile.tireWidthFrontInch);
+  const rearScale  = (totalKg / REF_WEIGHT_KG) * (REF_WIDTH_IN / profile.tireWidthRearInch);
 
-  // --- Base pressure (PSI) ---
-  // Formula: (total_weight_lbs * factor) / (tire_width_in * volume_coefficient)
-  // Lower factor = lower pressure = more grip
-  // Volume coefficient: 27.5" ≈ 0.85, 29" ≈ 0.95 (more volume = less pressure)
-  const volFront = frontWidthIn * (profile.wheelFront === '29' ? 0.95 : 0.85);
-  const volRear = rearWidthIn * (profile.wheelRear === '29' ? 0.95 : 0.85);
-  const weightLbs = totalWeightKg * 2.205;
+  let frontPsi = REF_FRONT_PSI * frontScale;
+  let rearPsi  = REF_REAR_PSI  * rearScale;
 
-  // Front: ~40% weight, needs grip → lower factor = lower pressure
-  // Rear: ~60% weight, needs support → higher factor = higher pressure
-  let frontPsi = (weightLbs * 0.080) / Math.max(volFront, 1.5);
-  let rearPsi = (weightLbs * 0.092) / Math.max(volRear, 1.5);
-
-  // --- Tubeless bonus (can run lower) ---
+  // --- Tubeless ---
   if (profile.tubeless) { frontPsi -= 2.5; rearPsi -= 2.0; }
 
-  // --- Technical descent: maximise grip, lower pressure ---
-  // Descents need more grip up front, moderate reduction rear
-  frontPsi -= 2.5;
-  rearPsi -= 1.2;
+  // --- Technical descent (max grip, avoid pinch flats) ---
+  frontPsi -= 2.0;
+  rearPsi  -= 1.0;
 
-  // --- Temperature compensation ---
+  // --- Temperature (ideal gas law: ~0.07 PSI/°C) ---
   const tempDiff = temperatureC - REF_TEMP_C;
   frontPsi += tempDiff * 0.07;
-  rearPsi += tempDiff * 0.07;
+  rearPsi  += tempDiff * 0.07;
 
   // --- Humidity / trail condition ---
   if (humidityPct >= 70) {
-    // Wet/tacky → can run slightly lower for extra grip
     frontPsi -= 0.5; rearPsi -= 0.3;
   } else if (humidityPct <= 35) {
-    // Dry/dusty → slightly higher to avoid burping on loose terrain
     frontPsi += 0.5; rearPsi += 0.3;
   }
 
-  // --- Safety minimums ---
-  const minPsi = profile.tubeless ? 15 : 19;
-  const maxPsi = 38;
-  frontPsi = Math.max(minPsi, Math.min(maxPsi, frontPsi));
-  rearPsi = Math.max(minPsi + 1, Math.min(maxPsi, rearPsi));
+  // --- Safety minimums (tubeless vs tubes) ---
+  const minFront = profile.tubeless ? 16 : 20;
+  const minRear  = profile.tubeless ? 18 : 22;
+  const maxPsi = 40;
+  frontPsi = Math.max(minFront, Math.min(maxPsi, frontPsi));
+  rearPsi  = Math.max(minRear,  Math.min(maxPsi, rearPsi));
 
   // Round to 0.5 PSI
   frontPsi = Math.round(frontPsi * 2) / 2;
-  rearPsi = Math.round(rearPsi * 2) / 2;
+  rearPsi  = Math.round(rearPsi * 2) / 2;
 
   const currentFrontPsi = profile.initialPressureFrontBar * PSI_PER_BAR;
-  const currentRearPsi = profile.initialPressureRearBar * PSI_PER_BAR;
+  const currentRearPsi  = profile.initialPressureRearBar * PSI_PER_BAR;
 
-  // Build reason
-  const parts: string[] = [];
-  parts.push(`${totalWeightKg}kg totales`);
-  if (profile.tubeless) parts.push('tubeless');
-  parts.push(`${frontWidthIn.toFixed(1)}\" del. / ${rearWidthIn.toFixed(1)}\" tras.`);
-  if (tempDiff > 0) parts.push(`+${tempDiff.toFixed(0)}°C → sube presión`);
-  else if (tempDiff < 0) parts.push(`${tempDiff.toFixed(0)}°C → baja presión`);
-  if (humidityPct >= 70) parts.push('suelo húmedo → más agarre');
-  else if (humidityPct <= 35) parts.push('suelo seco → +seguridad');
+  // Reason string
+  const parts: string[] = [
+    `${totalKg}kg totales`,
+    profile.tubeless ? 'tubeless' : 'cámara',
+    `${profile.tireWidthFrontInch.toFixed(1)}" del. / ${profile.tireWidthRearInch.toFixed(1)}" tras.`,
+  ];
+  const absDiff = Math.abs(tempDiff);
+  if (absDiff >= 3) {
+    parts.push(tempDiff > 0 ? `${tempDiff.toFixed(0)}°C → +presión` : `${tempDiff.toFixed(0)}°C → -presión`);
+  }
+  if (humidityPct >= 70) parts.push('suelo húmedo → -presión (agarre)');
+  else if (humidityPct <= 35) parts.push('suelo seco → +presión (seguridad)');
   parts.push('descenso técnico → máximo agarre');
 
   return {
