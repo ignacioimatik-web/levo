@@ -214,15 +214,23 @@ export function buildRouteRidePlan({
     const ages = stations
       .map((station) => station.dataAgeMin)
       .filter((age): age is number => age != null);
-    const temperatureC = weightedValue(stations, point, (station) => {
+    const weightedTemperatureC = weightedValue(stations, point, (station) => {
       if (station.temperatureC == null) return undefined;
       const elevationDifferenceM = (point.elevation ?? station.altitudeM ?? 0) - (station.altitudeM ?? 0);
       return station.temperatureC - elevationDifferenceM * 0.0065;
     });
-    const humidityPct = weightedValue(stations, point, (station) => station.humidityPct);
-    const windKmh = weightedValue(stations, point, (station) => station.windKmh);
-    const maxWindKmh = weightedValue(stations, point, (station) => station.maxWindKmh);
-    const precipitationMm = weightedValue(stations, point, (station) => station.precipitationMm);
+    const weightedHumidityPct = weightedValue(stations, point, (station) => station.humidityPct);
+    const weightedWindKmh = weightedValue(stations, point, (station) => station.windKmh);
+    const weightedMaxWindKmh = weightedValue(stations, point, (station) => station.maxWindKmh);
+    const weightedPrecipitationMm = weightedValue(stations, point, (station) => station.precipitationMm);
+    // Use the route-level observation when a nearby station lacks a particular
+    // field. The values shown in the cards, the sensation label and the risk
+    // level must all describe the same effective weather sample.
+    const temperatureC = weightedTemperatureC ?? weather?.temperatureC ?? null;
+    const humidityPct = weightedHumidityPct ?? weather?.humidityPct ?? null;
+    const windKmh = weightedWindKmh ?? weather?.windKmh ?? null;
+    const maxWindKmh = weightedMaxWindKmh ?? weather?.maxWindKmh ?? null;
+    const precipitationMm = weightedPrecipitationMm ?? weather?.precipitationMm ?? null;
     const windDirectionDeg = weightedDirection(stations, point);
     const effect = windEffect(routeBearingDeg, windDirectionDeg, windKmh);
     const measuredConfidence = confidence(nearestStationKm, ages, stations.length);
@@ -236,11 +244,11 @@ export function buildRouteRidePlan({
       toKm: Math.round(distanceKm * toFraction * 10) / 10,
       centerKm: Math.round(distanceKm * centerFraction * 10) / 10,
       routeBearingDeg,
-      temperatureC: temperatureC == null ? weather?.temperatureC ?? null : Math.round(temperatureC * 10) / 10,
-      humidityPct: humidityPct == null ? weather?.humidityPct ?? null : Math.round(humidityPct),
-      windKmh: windKmh == null ? weather?.windKmh ?? null : Math.round(windKmh * 10) / 10,
-      maxWindKmh: maxWindKmh == null ? weather?.maxWindKmh ?? null : Math.round(maxWindKmh * 10) / 10,
-      precipitationMm: precipitationMm == null ? weather?.precipitationMm ?? null : Math.round(precipitationMm * 10) / 10,
+      temperatureC: temperatureC == null ? null : Math.round(temperatureC * 10) / 10,
+      humidityPct: humidityPct == null ? null : Math.round(humidityPct),
+      windKmh: windKmh == null ? null : Math.round(windKmh * 10) / 10,
+      maxWindKmh: maxWindKmh == null ? null : Math.round(maxWindKmh * 10) / 10,
+      precipitationMm: precipitationMm == null ? null : Math.round(precipitationMm * 10) / 10,
       windEffect: effect,
       confidence: phaseConfidence,
       nearestStationKm: nearestStationKm == null ? weather?.stationDistanceKm ?? null : Math.round(nearestStationKm * 10) / 10,

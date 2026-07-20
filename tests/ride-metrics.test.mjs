@@ -1424,6 +1424,45 @@ test('la meteo de tramo expresa viento de cara y baja confianza si la estación 
   assert.match(plan.phases[0].feelLabel, /avance penalizado/);
 });
 
+test('los respaldos de meteo alimentan también sensación y riesgo del tramo', () => {
+  const plan = buildRouteRidePlan({
+    points: [
+      { lat: 40, lng: -0.1, elevation: 200 },
+      { lat: 40.01, lng: -0.1, elevation: 200 },
+    ],
+    distanceKm: 2,
+    phaseCount: 3,
+    weather: {
+      stationCode: 'A',
+      stationName: 'Estación parcial',
+      stationDistanceKm: 4,
+      temperatureC: 34,
+      humidityPct: 70,
+      windKmh: 30,
+      maxWindKmh: 46,
+      precipitationMm: 0,
+      riskLevel: 'red',
+      routeNowLabel: 'Comprometida',
+      routeNowMessage: 'Rachas fuertes',
+      nearbyStations: [{
+        stationCode: 'A',
+        stationName: 'Estación parcial',
+        distanceKm: 4,
+        latitude: 40,
+        longitude: -0.1,
+        dataAgeMin: 20,
+      }],
+    },
+  });
+
+  assert.equal(plan.phases[0].temperatureC, 34);
+  assert.equal(plan.phases[0].humidityPct, 70);
+  assert.equal(plan.phases[0].windKmh, 30);
+  assert.equal(plan.phases[0].maxWindKmh, 46);
+  assert.equal(plan.phases[0].riskLevel, 'red');
+  assert.match(plan.phases[0].feelLabel, /calor húmedo/);
+});
+
 test('la dirección de viento se interpola como un ángulo circular', () => {
   const baseStation = {
     distanceKm: 4,
