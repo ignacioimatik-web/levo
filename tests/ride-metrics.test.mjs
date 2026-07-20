@@ -2290,14 +2290,14 @@ test('el callback de acceso solo acepta destinos internos seguros', () => {
   );
 });
 
-test('OAuth vuelve al mismo origen para conservar el verificador PKCE', () => {
+test('OAuth prioriza el origen configurado y conserva el actual como respaldo', () => {
   assert.equal(
     resolveAuthSiteOrigin(undefined, 'https://levo-git-feature-example.vercel.app'),
     'https://levo-git-feature-example.vercel.app',
   );
   assert.equal(
     resolveAuthSiteOrigin('https://rutas.example.com/', 'https://levo-preview.vercel.app'),
-    'https://levo-preview.vercel.app',
+    'https://rutas.example.com',
   );
   assert.equal(resolveAuthSiteOrigin('https://rutas.example.com/', undefined), 'https://rutas.example.com');
 });

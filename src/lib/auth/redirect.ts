@@ -20,11 +20,11 @@ export function resolveAuthSiteOrigin(
   configuredSiteUrl: string | null | undefined,
   currentOrigin: string | null | undefined,
 ): string {
-  const browserOrigin = normalizeHttpOrigin(currentOrigin);
-  if (browserOrigin) return browserOrigin;
-
   const configuredOrigin = normalizeHttpOrigin(configuredSiteUrl);
-  return configuredOrigin ?? DEFAULT_SITE_ORIGIN;
+  if (configuredOrigin) return configuredOrigin;
+
+  const browserOrigin = normalizeHttpOrigin(currentOrigin);
+  return browserOrigin ?? DEFAULT_SITE_ORIGIN;
 }
 
 export function buildAuthCallbackUrl(
