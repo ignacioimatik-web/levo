@@ -48,7 +48,7 @@ export default function RealMap({
   onTrailSelect?: (trailId: string | null) => void;
 }) {
   const mapRef = useRef<MapRef>(null);
-  const [styleIndex, setStyleIndex] = useState(0);
+  const [styleIndex, setStyleIndex] = useState(1);
   const resilientStyle = useResilientMapStyle(styleIndex);
   const featureCollection = useMemo(() => ({
     type: 'FeatureCollection' as const,
@@ -87,7 +87,7 @@ export default function RealMap({
       <Map
         ref={mapRef}
         mapboxAccessToken={MAPBOX_ACCESS_TOKEN}
-        initialViewState={{ longitude: firstPoint.lng, latitude: firstPoint.lat, zoom: 12, pitch: 42, bearing: 18 }}
+        initialViewState={{ longitude: firstPoint.lng, latitude: firstPoint.lat, zoom: 12, pitch: 68, bearing: 18 }}
         mapStyle={resilientStyle.mapStyle}
         terrain={MAPBOX_ACCESS_TOKEN ? { source: 'route-library-terrain', exaggeration: 1.25 } : undefined}
         interactiveLayerIds={['route-library-lines']}

@@ -60,7 +60,7 @@ export default function RouteDetailMapbox({
   const mapRef = useRef<MapRef>(null);
   const { theme } = useTheme();
   const [selectedStyleIndex, setSelectedStyleIndex] = useState<number | null>(null);
-  const styleIndex = selectedStyleIndex ?? (theme === 'dark' ? 2 : 0);
+  const styleIndex = selectedStyleIndex ?? 1;
   const resilientStyle = useResilientMapStyle(styleIndex);
   const route = useMemo(() => routeFeature(points), [points]);
   const segmentRoutes = useMemo(() => ({
@@ -98,7 +98,7 @@ export default function RouteDetailMapbox({
       <Map
         ref={mapRef}
         mapboxAccessToken={MAPBOX_ACCESS_TOKEN}
-        initialViewState={{ longitude: first.lng, latitude: first.lat, zoom: 12, pitch: 48, bearing: 18 }}
+        initialViewState={{ longitude: first.lng, latitude: first.lat, zoom: 12, pitch: 68, bearing: 18 }}
         mapStyle={resilientStyle.mapStyle}
         terrain={MAPBOX_ACCESS_TOKEN ? { source: 'route-detail-terrain', exaggeration: 1.25 } : undefined}
         onError={resilientStyle.handleMapError}
@@ -117,7 +117,7 @@ export default function RouteDetailMapbox({
                 type="fill-extrusion"
                 source="route-detail-buildings"
                 source-layer="building"
-                minzoom={14}
+                minzoom={11}
                 filter={['!', ['has', 'underground']]}
                 paint={{
                   'fill-extrusion-color': '#8995a6',

@@ -79,7 +79,7 @@ async function fetchPublicGpx(initialUrl: URL): Promise<{
       cache: 'no-store',
       headers: {
         Accept: 'application/gpx+xml, application/xml, text/xml, application/octet-stream;q=0.8',
-        'User-Agent': 'LEVO-GPX-import/1.0 (+https://levo-eta.vercel.app)',
+        'User-Agent': 'LEVO-GPX-import/1.0 (+https://gpxtour.vercel.app)',
       },
       signal: AbortSignal.timeout(12_000),
     });

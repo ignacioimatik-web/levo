@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
           const response = await fetch(providerUrl(points, profile), {
             headers: {
               Accept: 'application/geo+json, application/json',
-              'User-Agent': 'E-nduro-Ebiketracks/1.0 (+https://levo-eta.vercel.app)',
+              'User-Agent': 'E-nduro-Ebiketracks/1.0 (+https://gpxtour.vercel.app)',
             },
             next: { revalidate: 604_800 },
             signal: AbortSignal.timeout(18_000),

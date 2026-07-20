@@ -304,7 +304,7 @@ export default function MTBMap({
   hoveredRouteKm: RouteHoverData | null;
   onTrackClick: (track: TrackMTB) => void;
 }) {
-  const [mapStyleIndex, setMapStyleIndex] = useState(0);
+  const [mapStyleIndex, setMapStyleIndex] = useState(1);
   const [mapFailed, setMapFailed] = useState(false);
   const resilientStyle = useResilientMapStyle(mapStyleIndex);
   const hasSelection = selectedTrackIds.length > 0 || previewTrackIds.length > 0;
@@ -336,7 +336,7 @@ export default function MTBMap({
       mapboxAccessToken={MAPBOX_ACCESS_TOKEN}
       mapStyle={resilientStyle.mapStyle}
       terrain={MAPBOX_ACCESS_TOKEN ? { source: 'levo-forfait-terrain-dem', exaggeration: 1.3 } : undefined}
-      initialViewState={{ latitude: 40.6, longitude: -0.02, zoom: 13, pitch: 40 }}
+      initialViewState={{ latitude: 40.6, longitude: -0.02, zoom: 13, pitch: 68, bearing: 18 }}
       interactiveLayerIds={lineLayerIds}
       onClick={onClick}
       onError={event => {
@@ -363,7 +363,7 @@ export default function MTBMap({
               type="fill-extrusion"
               source="levo-forfait-buildings"
               source-layer="building"
-              minzoom={14}
+              minzoom={11}
               filter={['!', ['has', 'underground']]}
               paint={{
                 'fill-extrusion-color': '#8995a6',

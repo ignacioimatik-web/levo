@@ -32,7 +32,7 @@ async function fetchOverpassElements(query: string): Promise<OverpassElement[] |
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-          'User-Agent': 'LEVO-offline-route/2.0 contact:https://levo-eta.vercel.app',
+          'User-Agent': 'LEVO-offline-route/2.0 contact:https://gpxtour.vercel.app',
         },
         body: new URLSearchParams({ data: query }),
         signal: AbortSignal.timeout(13_000),

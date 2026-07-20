@@ -50,7 +50,7 @@ export default function UniversalRouteMap({
   const mapRef = useRef<MapRef>(null);
   const { theme } = useTheme();
   const [selectedStyleIndex, setSelectedStyleIndex] = useState<number | null>(null);
-  const styleIndex = selectedStyleIndex ?? (theme === 'dark' ? 2 : 0);
+  const styleIndex = selectedStyleIndex ?? 1;
   const resilientStyle = useResilientMapStyle(styleIndex);
   const route = useMemo(() => routeFeature(points), [points]);
   const displayedControls = useMemo(() => visibleControls(controlPoints), [controlPoints]);
@@ -101,7 +101,7 @@ export default function UniversalRouteMap({
     <Map
       ref={mapRef}
       mapboxAccessToken={MAPBOX_ACCESS_TOKEN}
-      initialViewState={{ longitude: -3.7, latitude: 40.25, zoom: 5.4, pitch: 42, bearing: 15 }}
+      initialViewState={{ longitude: -3.7, latitude: 40.25, zoom: 5.4, pitch: 65, bearing: 15 }}
       mapStyle={resilientStyle.mapStyle}
       terrain={MAPBOX_ACCESS_TOKEN ? { source: 'levo-planner-terrain-dem', exaggeration: 1.25 } : undefined}
       onError={resilientStyle.handleMapError}
@@ -135,7 +135,7 @@ export default function UniversalRouteMap({
               type="fill-extrusion"
               source="levo-planner-buildings"
               source-layer="building"
-              minzoom={14}
+              minzoom={11}
               filter={['!', ['has', 'underground']]}
               paint={{
                 'fill-extrusion-color': '#8995a6',

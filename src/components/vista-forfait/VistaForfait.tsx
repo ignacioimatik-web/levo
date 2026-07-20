@@ -475,7 +475,7 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
                       type="fill-extrusion"
                       source="levo-panorama-buildings"
                       source-layer="building"
-                      minzoom={14}
+                  minzoom={11}
                       filter={['!', ['has', 'underground']]}
                       paint={{
                         'fill-extrusion-color': '#8b97a8',

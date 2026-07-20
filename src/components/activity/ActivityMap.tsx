@@ -41,7 +41,7 @@ function SchematicMap({ points }: { points: RidePoint[] }) {
 export default function ActivityMap({ points }: { points: RidePoint[] }) {
   const mapRef = useRef<MapRef>(null);
   const [mapFailed, setMapFailed] = useState(false);
-  const [styleIndex, setStyleIndex] = useState(0);
+  const [styleIndex, setStyleIndex] = useState(1);
   const resilientStyle = useResilientMapStyle(styleIndex);
   const route = useMemo(() => ({
     type: 'Feature' as const,
@@ -99,7 +99,7 @@ export default function ActivityMap({ points }: { points: RidePoint[] }) {
             source: 'composite',
             'source-layer': 'building',
             type: 'fill-extrusion',
-            minzoom: 14,
+            minzoom: 11,
             paint: {
               'fill-extrusion-color': '#64748b',
               'fill-extrusion-height': ['coalesce', ['get', 'height'], 0],

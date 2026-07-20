@@ -4,7 +4,7 @@ import { realTrails } from '@/data/trails';
 import { COMPETITIVE_SEGMENTS } from '@/data/competitive-segments';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://levo-eta.vercel.app').replace(/\/$/, '');
+  const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://gpxtour.vercel.app').replace(/\/$/, '');
 
   const staticRoutes = [
     '', '/rutas', '/sectores', '/top-tracks', '/travesias',

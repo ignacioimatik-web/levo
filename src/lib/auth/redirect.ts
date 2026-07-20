@@ -1,5 +1,5 @@
 const DEFAULT_AUTH_DESTINATION = '/account';
-const DEFAULT_SITE_ORIGIN = 'https://levo-eta.vercel.app';
+const DEFAULT_SITE_ORIGIN = 'https://gpxtour.vercel.app';
 const AUTH_FLOW_PATHS = ['/auth', '/onboarding'] as const;
 const AUTH_PROVIDERS = ['google', 'apple', 'email'] as const;
 

@@ -152,7 +152,7 @@ export default function RideNavigationMap({
   const [following, setFollowing] = useState(true);
   const [followMode, setFollowMode] = useState<FollowMode>('north');
   const [selectedStyleIndex, setSelectedStyleIndex] = useState<number | null>(null);
-  const styleIndex = selectedStyleIndex ?? (theme === 'dark' ? 2 : 0);
+  const styleIndex = selectedStyleIndex ?? 1;
   const [online, setOnline] = useState(true);
   const [preferOffline, setPreferOffline] = useState(false);
   const resilientStyle = useResilientMapStyle(styleIndex);
@@ -273,7 +273,7 @@ export default function RideNavigationMap({
                 type="fill-extrusion"
                 source="levo-nav-buildings"
                 source-layer="building"
-                minzoom={14}
+                minzoom={11}
                 filter={['!', ['has', 'underground']]}
                 paint={{
                   'fill-extrusion-color': '#7c8799',

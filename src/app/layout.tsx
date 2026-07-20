@@ -19,7 +19,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL || "https://levo-eta.vercel.app").replace(/\/$/, "");
+const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL || "https://gpxtour.vercel.app").replace(/\/$/, "");
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_ORIGIN),
