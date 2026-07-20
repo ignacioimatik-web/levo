@@ -57,11 +57,9 @@ function NavDropdown({ label, items }: { label: string; items: DropdownItem[] })
 }
 
 const navItems: ({ label: string; href: string } | { label: string; items: DropdownItem[] })[] = [
-  { label: 'Rutas', items: [
-    { label: 'Todas las rutas', href: '/rutas' },
-    { label: 'Sectores', href: '/sectores' },
-    { label: 'Top Tracks', href: '/top-tracks' },
-  ]},
+  { label: 'Rutas', href: '/rutas' },
+  { label: 'Sectores', href: '/sectores' },
+  { label: 'Top Tracks', href: '/top-tracks' },
   { label: 'Forfait', href: '/forfait' },
   { label: 'Alerta Presión', href: '/alerta-presion' },
 ];
