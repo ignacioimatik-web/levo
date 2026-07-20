@@ -478,7 +478,9 @@ export default function RideRecorder({
 
   useEffect(() => {
     if (!finishArmed) return;
-    const timer = window.setTimeout(() => setFinishArmed(false), 5_000);
+    // Give riders enough time to confirm on a small touch screen, especially
+    // when the map is still settling or the device is under load.
+    const timer = window.setTimeout(() => setFinishArmed(false), 15_000);
     return () => window.clearTimeout(timer);
   }, [finishArmed]);
 
@@ -2011,7 +2013,7 @@ export default function RideRecorder({
                 </div>
                 {finishArmed && (
                   <p role="status" className="mt-3 text-[10px] font-bold text-red-300">
-                    Toca «Confirmar fin» antes de 5 segundos. Pausar no requiere confirmación.
+                    Toca «Confirmar fin» antes de 15 segundos. Pausar no requiere confirmación.
                   </p>
                 )}
               </div>
