@@ -38,6 +38,9 @@ export default function AlertaPresionPage() {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [profile, setProfile] = useState<BikeProfile>(DEFAULT_PROFILE);
+  const [profileName, setProfileName] = useState('Mi perfil');
+  const [savedProfiles, setSavedProfiles] = useState<any[]>([]);
+  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved' | 'error'>('idle');
@@ -62,32 +65,46 @@ export default function AlertaPresionPage() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Load profile
-  const loadProfile = useCallback(async () => {
+  // Load ALL profiles for the user
+  const loadProfiles = useCallback(async () => {
     if (!user) return;
     try {
       const res = await fetch('/api/alerta-presion/profile');
       const data = await res.json();
-      if (data.profile) {
-        setProfile({
-          riderWeightKg: data.profile.rider_weight_kg,
-          bikeWeightKg: data.profile.bike_weight_kg,
-          bikeModel: data.profile.bike_model || 'Turbo Levo Carbono 2023',
-          wheelFront: data.profile.wheel_front || '27.5',
-          wheelRear: data.profile.wheel_rear || '27.5',
-          tireModelFront: data.profile.tire_model_front || '',
-          tireModelRear: data.profile.tire_model_rear || '',
-          tireWidthFrontInch: data.profile.tire_width_front_inch || 2.3,
-          tireWidthRearInch: data.profile.tire_width_rear_inch || 2.3,
-          initialPressureFrontBar: data.profile.initial_pressure_front_bar || 1.8,
-          initialPressureRearBar: data.profile.initial_pressure_rear_bar || 2.0,
-          tubeless: data.profile.tubeless ?? true,
-        });
+      if (data.profiles && data.profiles.length > 0) {
+        setSavedProfiles(data.profiles);
+        // Auto-select the first one
+        selectProfile(data.profiles[0]);
+      } else {
+        setSavedProfiles([]);
+        setProfile({ ...DEFAULT_PROFILE });
+        setProfileName('Mi perfil');
+        setSelectedProfileId(null);
       }
       setProfileLoaded(true);
     } catch { setProfileLoaded(true); }
   }, [user]);
-  useEffect(() => { if (user) loadProfile(); else setProfileLoaded(true); }, [user, loadProfile]);
+
+  const selectProfile = (p: any) => {
+    setSelectedProfileId(p.id);
+    setProfileName(p.profile_name || 'Mi perfil');
+    setProfile({
+      riderWeightKg: p.rider_weight_kg,
+      bikeWeightKg: p.bike_weight_kg,
+      bikeModel: p.bike_model || '',
+      wheelFront: p.wheel_front || '27.5',
+      wheelRear: p.wheel_rear || '27.5',
+      tireModelFront: p.tire_model_front || '',
+      tireModelRear: p.tire_model_rear || '',
+      tireWidthFrontInch: p.tire_width_front_inch || 2.3,
+      tireWidthRearInch: p.tire_width_rear_inch || 2.3,
+      initialPressureFrontBar: p.initial_pressure_front_bar || 1.8,
+      initialPressureRearBar: p.initial_pressure_rear_bar || 2.0,
+      tubeless: p.tubeless ?? true,
+    });
+  };
+
+  useEffect(() => { if (user) loadProfiles(); else { setProfileLoaded(true); setSavedProfiles([]); } }, [user, loadProfiles]);
 
   // Load tracks list
   useEffect(() => {
@@ -205,15 +222,17 @@ export default function AlertaPresionPage() {
     setCalculating(false);
   };
 
-  // Save profile
+  // Save profile (creates new or updates existing)
   const handleSaveProfile = async () => {
     setSaving(true);
     setSaveStatus('idle');
     try {
-      const res = await fetch('/api/alerta-presion/profile', {
-        method: 'POST',
+      const isUpdate = !!selectedProfileId;
+      const res = await fetch(`/api/alerta-presion/profile${isUpdate ? `?id=${selectedProfileId}` : ''}`, {
+        method: isUpdate ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          profile_name: profileName,
           rider_weight_kg: profile.riderWeightKg,
           bike_weight_kg: profile.bikeWeightKg,
           bike_model: profile.bikeModel,
@@ -228,10 +247,29 @@ export default function AlertaPresionPage() {
           tubeless: profile.tubeless,
         }),
       });
-      setSaveStatus(res.ok ? 'saved' : 'error');
+      if (res.ok) {
+        setSaveStatus('saved');
+        await loadProfiles(); // Reload the list
+      } else {
+        setSaveStatus('error');
+      }
     } catch { setSaveStatus('error'); }
     setSaving(false);
     setTimeout(() => setSaveStatus('idle'), 3000);
+  };
+
+  // Delete profile
+  const handleDeleteProfile = async (id: string) => {
+    if (!confirm('¿Eliminar este perfil?')) return;
+    try {
+      await fetch(`/api/alerta-presion/profile?id=${id}`, { method: 'DELETE' });
+      if (selectedProfileId === id) {
+        setProfile({ ...DEFAULT_PROFILE });
+        setProfileName('Mi perfil');
+        setSelectedProfileId(null);
+      }
+      await loadProfiles();
+    } catch {}
   };
 
   if (authLoading) {
@@ -288,16 +326,58 @@ export default function AlertaPresionPage() {
           <>
             {/* ─── PERFIL ─── */}
             <section className="bg-slate-900/40 border border-white/5 rounded-2xl p-6">
-              <div className="flex items-center gap-2 mb-6">
+              <div className="flex items-center gap-2 mb-4">
                 <Bike className="w-5 h-5 text-orange-500" />
                 <h2 className="text-base font-bold text-white">Perfil del ciclista</h2>
+              </div>
+
+              {/* Selector de perfil guardado */}
+              {savedProfiles.length > 0 && (
+                <div className="mb-4">
+                  <label className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">Perfiles guardados</label>
+                  <div className="flex items-center gap-2">
+                    <select value={selectedProfileId || ''} onChange={e => {
+                      const p = savedProfiles.find(sp => sp.id === e.target.value);
+                      if (p) selectProfile(p);
+                    }}
+                      className="flex-1 bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer"
+                    >
+                      {savedProfiles.map(p => (
+                        <option key={p.id} value={p.id}>{p.profile_name || 'Sin nombre'}</option>
+                      ))}
+                    </select>
+                    <button onClick={() => handleDeleteProfile(selectedProfileId!)}
+                      className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors text-xs"
+                      title="Eliminar perfil"
+                    >🗑️</button>
+                    <button onClick={() => { setProfile({ ...DEFAULT_PROFILE }); setProfileName('Mi perfil'); setSelectedProfileId(null); }}
+                      className="p-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors text-xs"
+                      title="Nuevo perfil"
+                    >➕</button>
+                  </div>
+                </div>
+              )}
+
+              {/* Nombre del perfil y botón guardar */}
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex-1">
+                  <label className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">Nombre del perfil</label>
+                  <input type="text" value={profileName} onChange={e => setProfileName(e.target.value)}
+                    placeholder="Ej: Enduro con Turbo Levo"
+                    className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/40"
+                  />
+                </div>
                 {profileLoaded && (
                   <button onClick={handleSaveProfile} disabled={saving}
-                    className={`ml-auto px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                    className={`mt-5 px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors whitespace-nowrap ${
                       saveStatus === 'saved' ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                      : 'bg-orange-500/10 text-orange-400 border border-orange-500/25 hover:bg-orange-500/20'
+                      : selectedProfileId
+                        ? 'bg-blue-500/10 text-blue-400 border border-blue-500/25 hover:bg-blue-500/20'
+                        : 'bg-orange-500/10 text-orange-400 border border-orange-500/25 hover:bg-orange-500/20'
                     }`}
-                  >{saving ? 'Guardando...' : saveStatus === 'saved' ? '✓ Guardado' : 'Guardar'}</button>
+                  >
+                    {saving ? 'Guardando...' : saveStatus === 'saved' ? '✓ Guardado' : selectedProfileId ? 'Actualizar' : 'Guardar nuevo'}
+                  </button>
                 )}
               </div>
 
