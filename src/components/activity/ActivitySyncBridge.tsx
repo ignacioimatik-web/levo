@@ -45,6 +45,10 @@ export default function ActivitySyncBridge() {
     };
 
     const schedule = () => { void run(); };
+    // A connection can be technically online while DNS, the device radio or
+    // Supabase is temporarily unavailable. Keep local-first rides convergent
+    // without making the rider open the history and press “Sincronizar”.
+    const retryTimer = window.setInterval(schedule, 120_000);
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') schedule();
     };
@@ -59,6 +63,7 @@ export default function ActivitySyncBridge() {
     return () => {
       cancelled = true;
       window.clearTimeout(initialTimer);
+      window.clearInterval(retryTimer);
       window.removeEventListener('online', schedule);
       document.removeEventListener('visibilitychange', onVisibilityChange);
       subscription.unsubscribe();
