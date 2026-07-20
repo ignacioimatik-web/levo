@@ -5,6 +5,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import PwaRegistration from "@/components/PwaRegistration";
+import ActivitySyncBridge from "@/components/activity/ActivitySyncBridge";
 import ThemeProvider from "@/components/theme/ThemeProvider";
 import { THEME_STORAGE_KEY } from "@/lib/theme";
 
@@ -97,6 +98,7 @@ export default function RootLayout({
           <Footer />
           <MobileBottomNav />
           <PwaRegistration />
+          <ActivitySyncBridge />
         </ThemeProvider>
       </body>
     </html>
