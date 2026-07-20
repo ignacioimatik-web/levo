@@ -2327,6 +2327,7 @@ test('el callback oculta errores OAuth técnicos y ofrece códigos accionables',
     'invalid_code',
   );
   assert.equal(normalizeAuthExchangeError('session_not_found'), 'session_not_found');
+  assert.equal(normalizeAuthExchangeError('access_denied'), 'auth_exchange_failed');
   assert.equal(normalizeAuthExchangeError('unexpected upstream failure'), 'auth_exchange_failed');
 });
 

@@ -17,7 +17,13 @@ export async function GET(request: Request) {
   const code = searchParams.get('code');
   const requestedNext = searchParams.get('next');
   const next = normalizeAuthNextPath(requestedNext);
-  const providerError = searchParams.get('error_description') ?? searchParams.get('error');
+  // Supabase may return either the human-readable description, an OAuth error
+  // code, or (for some providers) an error reason. Keep the most useful value
+  // so the auth screen can show an actionable diagnosis instead of `invalid_code`.
+  const providerError = searchParams.get('error_description')
+    ?? searchParams.get('error_code')
+    ?? searchParams.get('error_reason')
+    ?? searchParams.get('error');
 
   if (!code || providerError) {
     const params = new URLSearchParams({
