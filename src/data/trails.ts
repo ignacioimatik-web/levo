@@ -65,6 +65,9 @@ export interface MTBTrail {
   image?: string;
   lastReview?: string;
   dataStatus: "real" | "placeholder" | "needs-verification";
+  /** Optional destination for private routes that are not part of the static catalog. */
+  detailHref?: string;
+  detailLabel?: string;
 }
 
 import { garumbaCoordinates } from './garumba-coordinates';

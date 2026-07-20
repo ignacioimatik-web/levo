@@ -142,6 +142,7 @@ import {
 import { completeRidePointsForSave } from '../src/lib/activities/finalize.ts';
 import { plannedRouteFromSavedRoute } from '../src/lib/navigation/cloud-route.ts';
 import { fetchSavedRoute, saveRouteToCloud } from '../src/lib/forfait/save-route.ts';
+import { savedRouteToTrail } from '../src/lib/forfait/saved-route-trail.ts';
 import { savePlannedRoute } from '../src/lib/navigation/storage.ts';
 import {
   externalGpxFileName,
@@ -242,6 +243,34 @@ test('una ruta privada conserva modo y controles al viajar entre dispositivos', 
 
   assert.equal(route.routingMode, 'ebike');
   assert.deepEqual(route.controlPoints, controls);
+});
+
+test('una ruta guardada aparece como track real y se puede cargar en el grabador', () => {
+  const trail = savedRouteToTrail({
+    id: '22222222-2222-4222-8222-222222222222',
+    name: 'Circular privada',
+    track_ids: [],
+    distance_km: 12.5,
+    elevation_gain_m: 410,
+    elevation_loss_m: 405,
+    estimated_time_min: 75,
+    difficulty: 'azul',
+    route_points: [
+      { latitude: 40.61, longitude: -0.1, elevation: 900 },
+      { latitude: 40.62, longitude: -0.09, elevation: 940 },
+    ],
+    control_points: [],
+    routing_mode: 'ebike',
+    reference: null,
+    warnings: [],
+    created_at: '2026-07-19T00:00:00.000Z',
+    updated_at: '2026-07-19T00:00:00.000Z',
+  });
+
+  assert.equal(trail?.dataStatus, 'real');
+  assert.equal(trail?.ebikeFriendly, true);
+  assert.equal(trail?.coordinates?.length, 2);
+  assert.equal(trail?.detailHref, '/grabar?ruta=22222222-2222-4222-8222-222222222222');
 });
 
 test('el grabador puede recuperar una ruta concreta de la cuenta en otro dispositivo', async () => {

@@ -218,11 +218,11 @@ export default function TrailDrawer({ trail, onClose }: TrailDrawerProps) {
           </div>
         )}
         <Link
-          href={`/forfait/${trail.slug}`}
+          href={trail.detailHref ?? `/forfait/${trail.slug}`}
           className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white/5 text-slate-300 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-white/10 hover:text-white transition-all"
         >
           <ExternalLink className="w-4 h-4" />
-          Ver ficha completa
+          {trail.detailLabel ?? 'Ver ficha completa'}
         </Link>
       </div>
     </div>
