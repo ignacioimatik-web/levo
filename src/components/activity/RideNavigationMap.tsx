@@ -196,7 +196,9 @@ export default function RideNavigationMap({
       center: [currentPoint.longitude, currentPoint.latitude],
       zoom: active ? 15.5 : 13,
       bearing: followMode === 'heading' ? heading : 0,
-      pitch: followMode === 'heading' ? 42 : 0,
+      // Keep the terrain perspective in both orientations. North-up still
+      // keeps the map readable, while preserving the 3D Mapbox experience.
+      pitch: 38,
       duration: 500,
       essential: true,
     });
@@ -209,7 +211,7 @@ export default function RideNavigationMap({
       center: [currentPoint.longitude, currentPoint.latitude],
       zoom: 15.5,
       bearing: followMode === 'heading' ? heading : 0,
-      pitch: followMode === 'heading' ? 42 : 0,
+      pitch: 38,
       duration: 400,
     });
   };
@@ -240,6 +242,8 @@ export default function RideNavigationMap({
           longitude: initialPoint.longitude,
           latitude: initialPoint.latitude,
           zoom: currentPoint ? 15.5 : 12,
+          pitch: 38,
+          bearing: 0,
         }}
         mapStyle={offlineActive ? OFFLINE_MAP_STYLE : resilientStyle.mapStyle}
         terrain={!offlineActive && MAPBOX_ACCESS_TOKEN
