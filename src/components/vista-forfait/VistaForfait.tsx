@@ -19,6 +19,14 @@ interface Bounds {
   maxLng: number;
 }
 
+interface WeatherData {
+  temperatureC?: number;
+  humidityPct?: number;
+  windKmh?: number;
+  stationName?: string;
+  stationDistanceKm?: number;
+}
+
 /* ─── Constants ─── */
 const STORAGE_KEY = 'forfait-builder-route';
 const SENDA_VIEWS_KEY = 'vista-forfait-senda-views';
@@ -107,6 +115,7 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
   const [expandedTrackId, setExpandedTrackId] = useState<string | null>(null);
   const [cameraView, setCameraView] = useState<CameraView | null>(null);
   const [showPanel, setShowPanel] = useState(true);
+  const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const mapRef = useRef<MapRef>(null);
   const panoramaRef = useRef<HTMLDivElement>(null);
   const resilientStyle = useResilientMapStyle();
@@ -140,6 +149,17 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
     if (!sectorBounds) return { lat: 40.6, lng: -0.02, zoom: 15.3 };
     return { lat: (sectorBounds.minLat + sectorBounds.maxLat) / 2, lng: (sectorBounds.minLng + sectorBounds.maxLng) / 2, zoom: 15.3 };
   }, [sectorBounds]);
+
+  useEffect(() => {
+    if (!activeSector || !sectorBounds) return;
+    const controller = new AbortController();
+    setWeatherData(null);
+    fetch(`/api/forfait/weather?lat=${sectorCenter.lat.toFixed(4)}&lng=${sectorCenter.lng.toFixed(4)}`, { signal: controller.signal, cache: 'no-store' })
+      .then(response => response.json())
+      .then(data => { if (!controller.signal.aborted && data && !data.error) setWeatherData(data); })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [activeSector, sectorBounds, sectorCenter]);
 
   /* ── Sendas ── */
   const allSendas = useMemo(() => {
@@ -590,8 +610,12 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
                 <div className="flex items-center gap-2 mt-0.5">
                   <span className={`text-[10px] font-bold uppercase ${cfg.text}`}>{cfg.label}</span>
                   <span className="text-emerald-400">+{track.desnivelPositivo}m</span>
-                  <span className="text-red-400">-{track.desnivelNegativo}m</span>
                 </div>
+                <div className="mt-1 flex items-center gap-2 border-t border-white/10 pt-1 text-[10px] text-slate-300">
+                  <span>{weatherData?.windKmh == null ? 'Viento —' : `Viento ${Math.round(weatherData.windKmh)} km/h`}</span>
+                  <span>{weatherData?.temperatureC == null ? 'Temp. —' : `${Math.round(weatherData.temperatureC)}°C`}</span>
+                </div>
+                {weatherData?.stationName && <div className="mt-0.5 text-[9px] text-slate-500">AEMET · {weatherData.stationName}{weatherData.stationDistanceKm != null ? ` · ${weatherData.stationDistanceKm} km` : ''}</div>}
               </div>
             );
           })()}
@@ -726,7 +750,7 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
                     <span className={`text-[10px] font-bold uppercase ${cfg.text}`}>{cfg.label}</span>
                   </div>
                   <p className="text-[11px] text-slate-500">
-                    {track.sector} · {track.distanciaKm.toFixed(1)} km · +{track.desnivelPositivo}m / -{track.desnivelNegativo}m
+                    {track.sector} · {track.distanciaKm.toFixed(1)} km · +{track.desnivelPositivo}m
                     <span className="ml-2 text-slate-600">T{track.nivelTecnico}/F{track.exigenciaFisica}</span>
                     <span className="ml-2">{hrs > 0 ? `${hrs}h ${mins}min` : `${mins}min`}</span>
                   </p>

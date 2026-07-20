@@ -65,6 +65,7 @@ const navItems: ({ label: string; href: string } | { label: string; items: Dropd
     { label: 'Mis segmentos', href: '/segmentos' },
     { label: 'Mi progreso', href: '/progreso' },
     { label: 'Mi taller', href: '/taller' },
+    { label: 'Alerta presión', href: '/alerta-presion' },
   ]},
   { label: 'Rutas', items: [
     { label: 'Todas las rutas', href: '/rutas' },

@@ -23,6 +23,7 @@ const productionMigrationHashes = new Map([
   ['20260718223650_optimize_live_session_rls.sql', 'a8fb1bd3cce144f99ffb2a231d558c4e'],
   ['20260718225606_pause_social_features_for_private_beta.sql', 'c9cd7ea7d927dbfc48df2800ae5d7b36'],
   ['20260719013059_preserve_planned_route_editing.sql', '86815b5f4126ce2576405b3b4d1b7ea9'],
+  ['20260720182938_add_tire_pressure_profile.sql', '78d8b507aab7e6f9e5bc2131cf877dc3'],
 ]);
 
 function compactSqlHash(sql) {
