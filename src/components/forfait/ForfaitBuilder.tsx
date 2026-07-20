@@ -1,13 +1,13 @@
 'use client';
 
-import { useMemo, useState, useCallback, useEffect } from 'react';
+import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import {
   List, AlertTriangle, Download, Plus, Trash2, ArrowUp, ArrowDown,
-  Search, X, MapIcon, Bike, Route, Save, Copy, ChevronUp, ChevronDown,
+  Search, X, MapIcon, Bike, Route, Save, Copy, ChevronUp, ChevronDown, Loader2,
 } from 'lucide-react';
-import type { TrackMTB, FiltrosForfait, NivelUsuario, DificultadMTB } from '@/lib/forfait/types';
+import type { TrackMTB, TrackPoint, FiltrosForfait, NivelUsuario, DificultadMTB } from '@/lib/forfait/types';
 import type { RouteHoverData } from '@/components/forfait/ContinuousProfile';
 import {
   detectAllConnections, sugerirSiguientesTracks, buildRouteFromTracks,
@@ -18,6 +18,10 @@ import { createClient } from '@/lib/supabase/browser';
 import { fetchSavedRoutes, saveRouteToCloud, deleteSavedRoute } from '@/lib/forfait/save-route';
 import type { SavedRouteData } from '@/lib/forfait/save-route';
 import type { User } from '@supabase/supabase-js';
+import {
+  loadTrackPoints, registerAllGpxUrls, preloadAllGpx,
+  getCachedTrackPoints,
+} from '@/lib/forfait/track-points-cache';
 
 const MTBMap = dynamic(() => import('@/components/forfait/MTBMap'), { ssr: false });
 const ElevationProfile = dynamic(() => import('@/components/forfait/ContinuousProfile'), { ssr: false });
@@ -83,6 +87,8 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
   const [savedRoutes, setSavedRoutes] = useState<SavedRouteData[]>([]);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [loadingSaved, setLoadingSaved] = useState(false);
+  const [tracksLoading, setTracksLoading] = useState(true);
+  const tracksReady = useRef(false);
   const NAME_COUNTER_KEY = 'forfait_route_counter';
 
   const getNextRouteName = useCallback(() => {
@@ -135,6 +141,27 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  // 🚀 Preload GPX tracks in background (client-side)
+  useEffect(() => {
+    const gpxUrls = tracks
+      .filter(t => t.gpxUrl)
+      .map(t => t.gpxUrl!);
+    registerAllGpxUrls(gpxUrls);
+
+    // Start background preload
+    preloadAllGpx().then(() => {
+      // Populate points cache into track objects
+      for (const t of tracks) {
+        if (t.gpxUrl) {
+          const pts = getCachedTrackPoints(t.gpxUrl);
+          if (pts) t.points = pts;
+        }
+      }
+      tracksReady.current = true;
+      setTracksLoading(false);
+    });
+  }, [tracks]);
 
   const conexiones = useMemo(() => detectAllConnections(tracks), [tracks]);
 
@@ -800,6 +827,15 @@ export default function ForfaitBuilder({ tracks }: { tracks: TrackMTB[] }) {
         {/* ÁREA DERECHA: mapa + perfil de elevación */}
         <div className="flex-1 flex flex-col h-full min-w-0">
           <div className="flex-1 relative z-0">
+            {tracksLoading && (
+              <div className="absolute inset-0 z-20 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center">
+                <div className="flex flex-col items-center gap-3">
+                  <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
+                  <p className="text-sm font-bold text-slate-300">Cargando trazados GPS...</p>
+                  <p className="text-[10px] text-slate-500">Obteniendo coordenadas de {tracks.filter(t => t.gpxUrl).length} tracks</p>
+                </div>
+              </div>
+            )}
             <MTBMap
               tracks={effectiveTracks}
               selectedTrackIds={selectedTrackIds}

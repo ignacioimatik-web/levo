@@ -1,28 +1,11 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Polyline, useMap, Tooltip } from 'react-leaflet';
-import type { LatLngExpression } from 'leaflet';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import { Map, Source, Layer, useMap, NavigationControl, FullscreenControl } from 'react-map-gl/mapbox';
+import type { MapMouseEvent } from 'react-map-gl/mapbox';
+import 'mapbox-gl/dist/mapbox-gl.css';
 import { MTBTrail, TrailDifficulty } from '@/data/trails';
 import { getTrailDifficultyLabel } from '@/lib/trail-utils';
-import 'leaflet/dist/leaflet.css';
-
-const DIFFICULTY_BASE: Record<TrailDifficulty, { weight: number; opacity: number }> = {
-  green: { weight: 4, opacity: 0.85 },
-  blue: { weight: 4, opacity: 0.85 },
-  red: { weight: 4, opacity: 0.85 },
-  black: { weight: 4, opacity: 0.85 },
-  'double-black': { weight: 4, opacity: 0.85 },
-  unclassified: { weight: 3, opacity: 0.55 },
-};
-
-const DIFFICULTY_HOVER: Record<TrailDifficulty, number> = {
-  green: 7, blue: 7, red: 7, black: 7, 'double-black': 7, unclassified: 5,
-};
-
-const DIFFICULTY_SELECTED: Record<TrailDifficulty, number> = {
-  green: 8, blue: 8, red: 8, black: 8, 'double-black': 8, unclassified: 6,
-};
 
 const DIFFICULTY_COLORS: Record<TrailDifficulty, string> = {
   green: '#22c55e',
@@ -34,28 +17,72 @@ const DIFFICULTY_COLORS: Record<TrailDifficulty, string> = {
 };
 
 const DEFAULT_CENTER: [number, number] = [40.622, -0.125];
-const DEFAULT_ZOOM = 13;
+const DEFAULT_ZOOM = 12;
 
-function toLatLng(trail: MTBTrail): LatLngExpression[] {
-  return (trail.coordinates ?? []).map(p => [p.lat, p.lng] as LatLngExpression);
+function toGeoJSON(trail: MTBTrail): GeoJSON.Feature<GeoJSON.LineString> {
+  return {
+    type: 'Feature',
+    geometry: {
+      type: 'LineString',
+      coordinates: (trail.coordinates ?? []).map(p => [p.lng, p.lat] as [number, number]),
+    },
+    properties: {
+      trailId: trail.id,
+      difficulty: trail.difficulty,
+      name: trail.name,
+    },
+  };
 }
 
-function getBounds(trails: MTBTrail[]): [[number, number], [number, number]] | null {
-  let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
-  for (const t of trails) {
-    for (const c of (t.coordinates ?? [])) {
-      if (c.lat < minLat) minLat = c.lat;
-      if (c.lat > maxLat) maxLat = c.lat;
-      if (c.lng < minLng) minLng = c.lng;
-      if (c.lng > maxLng) maxLng = c.lng;
+interface RealMapProps {
+  trails: MTBTrail[];
+  selectedTrailId?: string | null;
+  onTrailSelect?: (trailId: string | null) => void;
+}
+
+function MapController({ trails, selectedTrailId }: { trails: MTBTrail[]; selectedTrailId: string | null | undefined }) {
+  const { current: mapRef } = useMap();
+  const fitted = useRef(false);
+  const prevSelected = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!mapRef) return;
+
+    // Fly to selected trail
+    if (selectedTrailId && selectedTrailId !== prevSelected.current) {
+      const trail = trails.find(t => t.id === selectedTrailId);
+      if (trail && trail.coordinates && trail.coordinates.length > 1) {
+        const lats = trail.coordinates.map(p => p.lat);
+        const lngs = trail.coordinates.map(p => p.lng);
+        mapRef.fitBounds(
+          [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
+          { padding: 60, maxZoom: 15, duration: 1000 },
+        );
+      }
+      prevSelected.current = selectedTrailId;
     }
-  }
-  if (!isFinite(minLat)) return null;
-  return [[minLat, minLng], [maxLat, maxLng]];
-}
+  }, [selectedTrailId, trails, mapRef]);
 
-function hasCoords(trail: MTBTrail): boolean {
-  return !!(trail.coordinates && trail.coordinates.length > 1);
+  // Initial fit to bounds
+  useEffect(() => {
+    if (fitted.current || !mapRef) return;
+    const withCoords = trails.filter(t => t.coordinates && t.coordinates.length > 1);
+    if (withCoords.length === 0) return;
+    const lats = withCoords.flatMap(t => t.coordinates!.map(p => p.lat));
+    const lngs = withCoords.flatMap(t => t.coordinates!.map(p => p.lng));
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    const minLng = Math.min(...lngs);
+    const maxLng = Math.max(...lngs);
+    if (!isFinite(minLat)) return;
+    mapRef.fitBounds(
+      [[minLng, minLat], [maxLng, maxLat]],
+      { padding: 40, maxZoom: 14, duration: 0 },
+    );
+    fitted.current = true;
+  }, [trails, mapRef]);
+
+  return null;
 }
 
 function DifficultyLegend() {
@@ -75,157 +102,79 @@ function DifficultyLegend() {
   );
 }
 
-function MapController({ selectedTrailId, trails }: {
-  selectedTrailId: string | null;
-  trails: MTBTrail[];
-}) {
-  const map = useMap();
-  const prevSelected = useRef<string | null>(null);
-  const initialFitDone = useRef(false);
-
-  useEffect(() => {
-    if (selectedTrailId && selectedTrailId !== prevSelected.current) {
-      const trail = trails.find(t => t.id === selectedTrailId);
-      if (trail && hasCoords(trail)) {
-        const coords = toLatLng(trail);
-        if (coords.length > 1) {
-          map.flyToBounds(coords as unknown as [[number, number], [number, number]], {
-            padding: [60, 60],
-            maxZoom: 15,
-            duration: 1,
-          });
-        }
-      }
-      prevSelected.current = selectedTrailId;
-    }
-  }, [selectedTrailId, trails, map]);
-
-  useEffect(() => {
-    if (initialFitDone.current) return;
-    const withCoords = trails.filter(hasCoords);
-    if (withCoords.length === 0) return;
-    const bounds = getBounds(withCoords);
-    if (bounds) {
-      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
-      initialFitDone.current = true;
-    }
-  }, [trails, map]);
-
-  return null;
-}
-
-function TrailPolyline({ trail, isHovered, isSelected, onMouseEnter, onMouseLeave, onClick }: {
-  trail: MTBTrail;
-  isHovered: boolean;
-  isSelected: boolean;
-  onMouseEnter: () => void;
-  onMouseLeave: () => void;
-  onClick: () => void;
-}) {
-  const coords = toLatLng(trail);
-  if (coords.length < 2) return null;
-
-  const color = DIFFICULTY_COLORS[trail.difficulty];
-  const base = DIFFICULTY_BASE[trail.difficulty];
-  const weight = isSelected ? DIFFICULTY_SELECTED[trail.difficulty]
-    : isHovered ? DIFFICULTY_HOVER[trail.difficulty]
-    : base.weight;
-  const opacity = isSelected ? 1 : isHovered ? 1 : base.opacity;
-  const isPlaceholder = trail.dataStatus === 'placeholder';
-  const isDouble = trail.difficulty === 'double-black';
-
-  return (
-    <>
-      {isDouble && (
-        <Polyline
-          positions={coords}
-          pathOptions={{
-            color,
-            weight: weight + 3,
-            opacity: 0.15,
-            lineCap: 'round',
-            lineJoin: 'round',
-          }}
-        />
-      )}
-      <Polyline
-        positions={coords}
-        pathOptions={{
-          color,
-          weight,
-          opacity,
-          lineCap: 'round',
-          lineJoin: 'round',
-          dashArray: isPlaceholder ? (isSelected || isHovered ? undefined : '6 4') : undefined,
-        }}
-        eventHandlers={{
-          mouseover: onMouseEnter,
-          mouseout: onMouseLeave,
-          click: onClick,
-        }}
-      >
-        <Tooltip
-          direction="top"
-          offset={[0, -8]}
-          className="bg-slate-900 border border-white/10 text-white text-xs font-bold px-2 py-1 rounded-lg shadow-xl"
-        >
-          {trail.name}
-          {isPlaceholder && (
-            <span className="block text-[9px] text-amber-400/70 font-medium">Datos demo</span>
-          )}
-        </Tooltip>
-      </Polyline>
-    </>
-  );
-}
-
-interface RealMapProps {
-  trails: MTBTrail[];
-  selectedTrailId?: string | null;
-  onTrailSelect?: (trailId: string | null) => void;
-}
-
 export default function RealMap({ trails, selectedTrailId, onTrailSelect }: RealMapProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [mapStyle, setMapStyle] = useState('mapbox://styles/mapbox/outdoors-v12');
 
   const handleSelect = useCallback((id: string | null) => {
-    if (id === null) { onTrailSelect?.(null); return; }
     onTrailSelect?.(selectedTrailId === id ? null : id);
   }, [selectedTrailId, onTrailSelect]);
 
   const hasPlaceholderTrails = trails.some(t => t.dataStatus === 'placeholder');
 
+  const onClick = useCallback((e: MapMouseEvent) => {
+    const feature = e.features?.[0];
+    if (!feature?.properties?.trailId) return;
+    handleSelect(feature.properties.trailId);
+  }, [handleSelect]);
+
+  const geoJSONFeatures = useMemo(() => trails.map(toGeoJSON), [trails]);
+
+  const layerIds = useMemo(() => ['trails-line'], []);
+
   return (
     <div className="relative w-full h-[500px] lg:h-[600px] rounded-3xl overflow-hidden border border-white/5 shadow-2xl ring-1 ring-white/[0.02]">
-      <MapContainer
-        center={DEFAULT_CENTER}
-        zoom={DEFAULT_ZOOM}
-        className="w-full h-full"
-        zoomControl={true}
-        scrollWheelZoom={true}
+      <Map
+        mapStyle={mapStyle}
+        mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
+        initialViewState={{ latitude: DEFAULT_CENTER[0], longitude: DEFAULT_CENTER[1], zoom: DEFAULT_ZOOM, pitch: 45 }}
+        terrain={{ source: 'mapbox-dem', exaggeration: 1.2 }}
+        interactiveLayerIds={layerIds}
+        onClick={onClick}
+        style={{ width: '100%', height: '100%' }}
+        cursor="pointer"
       >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-
-        <MapController
-          selectedTrailId={selectedTrailId ?? null}
-          trails={trails}
-        />
-
-        {trails.map(trail => (
-          <TrailPolyline
-            key={trail.id}
-            trail={trail}
-            isHovered={hoveredId === trail.id}
-            isSelected={selectedTrailId === trail.id}
-            onMouseEnter={() => setHoveredId(trail.id)}
-            onMouseLeave={() => setHoveredId(null)}
-            onClick={() => handleSelect(trail.id)}
+        <Source id="mapbox-dem" type="raster-dem" url="mapbox://mapbox.mapbox-terrain-dem-v1" />
+        <Source id="trails-source" type="geojson" data={{ type: 'FeatureCollection', features: geoJSONFeatures }}>
+          <Layer
+            id="trails-line"
+            type="line"
+            source="trails-source"
+            layout={{
+              'line-cap': 'round',
+              'line-join': 'round',
+            }}
+            paint={{
+              'line-color': ['case',
+                ['==', ['get', 'trailId'], selectedTrailId || ''], '#f97316',
+                ['==', ['get', 'trailId'], hoveredId || ''], '#fbbf24',
+                ['match', ['get', 'difficulty'],
+                  'green', '#22c55e',
+                  'blue', '#60a5fa',
+                  'red', '#f87171',
+                  'black', '#cbd5e1',
+                  'double-black', '#f1f5f9',
+                  '#64748b',
+                ],
+              ],
+              'line-width': ['case',
+                ['==', ['get', 'trailId'], selectedTrailId || ''], 6,
+                ['==', ['get', 'trailId'], hoveredId || ''], 5,
+                2.5,
+              ],
+              'line-opacity': ['case',
+                ['==', ['get', 'trailId'], selectedTrailId || ''], 1,
+                ['==', ['get', 'trailId'], hoveredId || ''], 1,
+                0.7,
+              ],
+            }}
           />
-        ))}
-      </MapContainer>
+        </Source>
+
+        <NavigationControl visualizePitch={true} position="top-right" />
+        <FullscreenControl position="top-right" />
+        <MapController trails={trails} selectedTrailId={selectedTrailId} />
+      </Map>
 
       <DifficultyLegend />
 

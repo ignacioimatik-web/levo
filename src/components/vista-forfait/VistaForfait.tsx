@@ -5,9 +5,13 @@ import Link from 'next/link';
 import { Map as MapboxMap, Source, Layer, NavigationControl } from 'react-map-gl/mapbox';
 import type { MapRef, MapMouseEvent } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import type { TrackMTB, DificultadMTB } from '@/lib/forfait/types';
+import type { TrackMTB, TrackPoint, DificultadMTB } from '@/lib/forfait/types';
 import { buildProfileSeries } from '@/lib/forfait/geo-utils';
 import { splitIntoSendas, type SendaSegment, type CameraView } from '@/lib/forfait/senda-utils';
+import {
+  loadTrackPoints, registerAllGpxUrls, preloadAllGpx,
+  getCachedTrackPoints,
+} from '@/lib/forfait/track-points-cache';
 
 /* ─── Types ─── */
 interface Bounds {
@@ -53,10 +57,13 @@ function getVisualColor(track: TrackMTB): string {
 
 function computeBounds(tracks: TrackMTB[]): Bounds {
   let minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
+  let hasCoords = false;
   for (const t of tracks) for (const p of t.points) {
     minLat = Math.min(minLat, p.lat); maxLat = Math.max(maxLat, p.lat);
     minLng = Math.min(minLng, p.lng); maxLng = Math.max(maxLng, p.lng);
+    hasCoords = true;
   }
+  if (!hasCoords) return { minLat: 40.5, maxLat: 40.7, minLng: -0.2, maxLng: 0.0 };
   const padLat = (maxLat - minLat) * 0.15 || 0.01;
   const padLng = (maxLng - minLng) * 0.15 || 0.01;
   return { minLat: minLat - padLat, maxLat: maxLat + padLat, minLng: minLng - padLng, maxLng: maxLng + padLng };
@@ -105,6 +112,11 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
   const [expandedTrackId, setExpandedTrackId] = useState<string | null>(null);
   const [cameraView, setCameraView] = useState<CameraView | null>(null);
   const [showPanel, setShowPanel] = useState(true);
+  const [tracksLoading, setTracksLoading] = useState(true);
+  const [gpxReady, setGpxReady] = useState(false);
+  const [hoverWeather, setHoverWeather] = useState<Map<string, { temperatureC?: number; windKmh?: number }>>(new Map());
+  const weatherCache = useRef<Map<string, { temperatureC?: number; windKmh?: number }>>(new Map());
+  const weatherFetching = useRef<Set<string>>(new Set());
   const mapRef = useRef<MapRef>(null);
   const panoramaRef = useRef<HTMLDivElement>(null);
 
@@ -164,6 +176,60 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
       }
     }
   }, [activeSector]);
+
+  // 🚀 Preload GPX tracks in background (client-side)
+  useEffect(() => {
+    const gpxUrls = tracks
+      .filter(t => t.gpxUrl)
+      .map(t => t.gpxUrl!);
+    registerAllGpxUrls(gpxUrls);
+
+    preloadAllGpx().then(() => {
+      for (const t of tracks) {
+        if (t.gpxUrl) {
+          const pts = getCachedTrackPoints(t.gpxUrl);
+          if (pts) t.points = pts;
+        }
+      }
+      setTracksLoading(false);
+      setGpxReady(true);
+    });
+  }, [tracks]);
+
+  // 🌤️ Fetch AEMET weather for hovered track
+  useEffect(() => {
+    if (!hoveredTrackId) return;
+    if (weatherCache.current.has(hoveredTrackId)) {
+      setHoverWeather(new Map(weatherCache.current));
+      return;
+    }
+    if (weatherFetching.current.has(hoveredTrackId)) return;
+    weatherFetching.current.add(hoveredTrackId);
+
+    const track = tracks.find(t => t.id === hoveredTrackId);
+    if (!track || track.points.length === 0) return;
+    const mid = track.points[Math.floor(track.points.length / 2)];
+
+    fetch(`/api/forfait/weather?lat=${mid.lat}&lng=${mid.lng}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data && !data.error) {
+          weatherCache.current.set(hoveredTrackId, {
+            temperatureC: data.weightedRouteTempC ?? data.temperatureC,
+            windKmh: data.windKmh ?? data.maxWindKmh,
+          });
+        } else {
+          weatherCache.current.set(hoveredTrackId, {});
+        }
+        weatherFetching.current.delete(hoveredTrackId);
+        setHoverWeather(new Map(weatherCache.current));
+      })
+      .catch(() => {
+        weatherCache.current.set(hoveredTrackId, {});
+        weatherFetching.current.delete(hoveredTrackId);
+        setHoverWeather(new Map(weatherCache.current));
+      });
+  }, [hoveredTrackId, tracks]);
 
   const activeSenda = useMemo(
     () => allSendaList.find(s => s.id === activeSendaId) || null,
@@ -323,6 +389,8 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
     // Build combined route from selected tracks, ordered by proximity
     const sel = selectedTrackIds.map(id => tracks.find(t => t.id === id)).filter(Boolean) as TrackMTB[];
     if (sel.length === 0) return null;
+    // Check that tracks have points loaded (GPX lazy loading)
+    if (!sel.every(t => t.points.length > 0)) return null;
 
     // Simple chain: sort selected tracks by end -> next start proximity
     const ordered: TrackMTB[] = [sel[0]];
@@ -330,9 +398,11 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
     while (remaining.length > 0) {
       const last = ordered[ordered.length - 1];
       const lastPt = last.points[last.points.length - 1];
+      if (!lastPt) { ordered.push(remaining[0]); remaining.splice(0, 1); continue; }
       let bestIdx = 0, bestDist = Infinity;
       for (let i = 0; i < remaining.length; i++) {
         const firstPt = remaining[i].points[0];
+        if (!firstPt) continue;
         const d = Math.sqrt(
           ((firstPt.lat - lastPt.lat) * 111320) ** 2 +
           ((firstPt.lng - lastPt.lng) * 111320 * Math.cos(firstPt.lat * Math.PI / 180)) ** 2
@@ -344,7 +414,7 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
     }
 
     const coords: [number, number][] = ordered.flatMap(t => t.points.map(p => [p.lng, p.lat] as [number, number]));
-    return coords;
+    return coords.length > 1 ? coords : null;
   }, [selectedTrackIds, tracks]);
 
   /* ── Render: Sector cards ── */
@@ -417,7 +487,16 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
         className="panorama-container relative mx-3 sm:mx-6 lg:mx-8 overflow-hidden bg-slate-900 max-h-[50vh] sm:max-h-[55vh] lg:max-h-none rounded-xl"
       >
         <div className="relative w-full aspect-[2/1] min-h-[300px]">
-          {sectorBounds ? (
+          {tracksLoading && (
+            <div className="absolute inset-0 z-20 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center rounded-xl">
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+                <p className="text-sm font-bold text-slate-300">Cargando trazados GPS...</p>
+                <p className="text-[10px] text-slate-500">Obteniendo coordenadas de {tracks.filter(t => t.gpxUrl).length} tracks</p>
+              </div>
+            </div>
+          )}
+          {true ? (
             <MapboxMap ref={mapRef}
               mapStyle="mapbox://styles/mapbox/satellite-streets-v12"
               mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
@@ -548,6 +627,7 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
             const track = trackMap.get(hoveredTrackId);
             if (!track) return null;
             const cfg = getVisualConfig(track);
+            const weather = hoverWeather.get(hoveredTrackId);
             return (
               <div className="absolute z-30 px-2.5 py-1.5 rounded-lg bg-slate-950/85 backdrop-blur-md border border-white/10 shadow-xl pointer-events-none text-[11px] whitespace-nowrap"
                 style={{ left: `${tooltipPos.x}%`, top: `${tooltipPos.y}%`, transform: 'translate(-50%, -110%)' }}
@@ -557,8 +637,13 @@ export default function VistaForfait({ tracks }: { tracks: TrackMTB[] }) {
                 <div className="flex items-center gap-2 mt-0.5">
                   <span className={`text-[10px] font-bold uppercase ${cfg.text}`}>{cfg.label}</span>
                   <span className="text-emerald-400">+{track.desnivelPositivo}m</span>
-                  <span className="text-red-400">-{track.desnivelNegativo}m</span>
                 </div>
+                {weather && (
+                  <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-300 border-t border-white/5 pt-1">
+                    <span>🌡️ {weather.temperatureC !== undefined ? `${weather.temperatureC}°C` : '—'}</span>
+                    <span>💨 {weather.windKmh !== undefined ? `${weather.windKmh} km/h` : '—'}</span>
+                  </div>
+                )}
               </div>
             );
           })()}

@@ -1,13 +1,12 @@
 'use client';
 
-import { useState, useEffect, useLayoutEffect, useCallback } from 'react';
-import { MapContainer, TileLayer, Polyline, CircleMarker, useMap } from 'react-leaflet';
-import type { LatLngExpression } from 'leaflet';
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
+import { Map, Source, Layer, Marker, NavigationControl, useMap } from 'react-map-gl/mapbox';
+import 'mapbox-gl/dist/mapbox-gl.css';
 import { TrailPoint } from '@/data/trails';
 import { parseGPX, haversineKm } from '@/lib/gpx-utils';
 import { useTrailHover } from '@/lib/trail-hover-context';
-import { Map, Maximize2, Minimize2 } from 'lucide-react';
-import 'leaflet/dist/leaflet.css';
+import { MapIcon, Maximize2, Minimize2 } from 'lucide-react';
 
 interface GpxMapProps {
   coordinates?: TrailPoint[];
@@ -21,112 +20,116 @@ interface GpxMapProps {
   segmentOverlays?: Array<{ startKm: number; endKm: number; type: 'climb' | 'descent' | 'flat' }>;
 }
 
-function buildCumulativeKm(coords: LatLngExpression[]): number[] {
+function buildCumulativeKm(coords: [number, number][]): number[] {
   const out = [0];
   for (let i = 1; i < coords.length; i++) {
-    const a = coords[i - 1] as number[];
-    const b = coords[i] as number[];
+    const a = coords[i - 1];
+    const b = coords[i];
     const d = haversineKm(a[0], a[1], b[0], b[1]);
     out.push(out[out.length - 1] + d);
   }
   return out;
 }
 
-function segmentSlice(coords: LatLngExpression[], startKm: number, endKm: number) {
+function segmentSlice(coords: [number, number][], startKm: number, endKm: number) {
   if (coords.length < 2) return null;
   const cum = buildCumulativeKm(coords);
-  let startIdx = 0;
-  let endIdx = coords.length - 1;
+  let startIdx = 0, endIdx = coords.length - 1;
   for (let i = 0; i < cum.length; i++) {
-    if (cum[i] >= startKm) {
-      startIdx = i;
-      break;
-    }
+    if (cum[i] >= startKm) { startIdx = i; break; }
   }
   for (let i = startIdx; i < cum.length; i++) {
-    if (cum[i] >= endKm) {
-      endIdx = i;
-      break;
-    }
+    if (cum[i] >= endKm) { endIdx = i; break; }
   }
   const slice = coords.slice(startIdx, Math.max(endIdx + 1, startIdx + 2));
-  if (slice.length < 2) return null;
-  return slice;
+  return slice.length >= 2 ? slice : null;
 }
 
-function segmentBounds(coords: LatLngExpression[], startKm: number, endKm: number) {
-  const slice = segmentSlice(coords, startKm, endKm);
-  if (!slice) return null;
-  const lats = slice.map((c) => (c as number[])[0]);
-  const lngs = slice.map((c) => (c as number[])[1]);
-  return [
-    [Math.min(...lats), Math.min(...lngs)],
-    [Math.max(...lats), Math.max(...lngs)],
-  ] as [[number, number], [number, number]];
-}
-
-function pointAtKm(coords: LatLngExpression[], km: number) {
+function pointAtKm(coords: [number, number][], km: number): [number, number] | null {
   if (coords.length < 2) return null;
   const cum = buildCumulativeKm(coords);
   for (let i = 0; i < cum.length; i++) {
-    if (cum[i] >= km) return coords[i] as [number, number];
+    if (cum[i] >= km) return coords[i];
   }
-  return coords[coords.length - 1] as [number, number];
+  return coords[coords.length - 1];
 }
 
-function MapController({ coords, focusStartKm, focusEndKm, focusPointKm, maximized }: { coords: LatLngExpression[]; focusStartKm?: number; focusEndKm?: number; focusPointKm?: number; maximized?: boolean }) {
-  const map = useMap();
+function FitController({ coords, focusStartKm, focusEndKm, focusPointKm, maximized }:
+  { coords: [number, number][]; focusStartKm?: number; focusEndKm?: number; focusPointKm?: number; maximized?: boolean }) {
+  const { current: mapRef } = useMap();
+  const fitted = useRef(false);
+
   useLayoutEffect(() => {
-    map.invalidateSize();
-  }, [maximized, map]);
+    if (mapRef) mapRef.resize();
+  }, [maximized, mapRef]);
+
   useEffect(() => {
-    if (coords.length > 1) {
-      if (typeof focusPointKm === 'number') {
-        const pt = pointAtKm(coords, focusPointKm);
-        if (pt) {
-          map.setView(pt, 15, { animate: true });
-          return;
-        }
+    if (!mapRef || coords.length < 2) return;
+    if (typeof focusPointKm === 'number') {
+      const pt = pointAtKm(coords, focusPointKm);
+      if (pt) {
+        mapRef.flyTo({ center: pt, zoom: 15, duration: 500 });
+        return;
       }
-      if (typeof focusStartKm === 'number' && typeof focusEndKm === 'number' && focusEndKm > focusStartKm) {
-        const bounds = segmentBounds(coords, focusStartKm, focusEndKm);
-        if (bounds) {
-          map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
-          return;
-        }
-      }
-      const lats = coords.map(c => (c as number[])[0]);
-      const lngs = coords.map(c => (c as number[])[1]);
-      map.fitBounds([
-        [Math.min(...lats), Math.min(...lngs)],
-        [Math.max(...lats), Math.max(...lngs)]
-      ], { padding: [40, 40], maxZoom: 15 });
     }
-  }, [coords, map, focusStartKm, focusEndKm, focusPointKm]);
+    if (typeof focusStartKm === 'number' && typeof focusEndKm === 'number' && focusEndKm > focusStartKm) {
+      const slice = segmentSlice(coords, focusStartKm, focusEndKm);
+      if (slice) {
+        const lats = slice.map(c => c[0]);
+        const lngs = slice.map(c => c[1]);
+        mapRef.fitBounds(
+          [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
+          { padding: 50, maxZoom: 16 },
+        );
+        return;
+      }
+    }
+    const lats = coords.map(c => c[0]);
+    const lngs = coords.map(c => c[1]);
+    mapRef.fitBounds(
+      [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
+      { padding: 40, maxZoom: 15 },
+    );
+  }, [coords, mapRef, focusStartKm, focusEndKm, focusPointKm]);
+
   return null;
 }
 
-function HoverMarker({ coords }: { coords: LatLngExpression[] }) {
+function HoverMarker({ coords }: { coords: [number, number][] }) {
   const { hoveredKm } = useTrailHover();
   if (typeof hoveredKm !== 'number') return null;
   const pt = pointAtKm(coords, hoveredKm);
   if (!pt) return null;
   return (
-    <CircleMarker
-      center={pt}
-      radius={6}
-      pathOptions={{ color: '#ffffff', fillColor: '#38bdf8', fillOpacity: 0.9, weight: 2.5 }}
-    />
+    <Marker longitude={pt[1]} latitude={pt[0]} anchor="center">
+      <div style={{
+        width: 12, height: 12, borderRadius: '50%',
+        background: '#38bdf8', border: '2.5px solid #fff',
+        boxShadow: '0 0 8px rgba(56,189,248,0.6)',
+      }} />
+    </Marker>
   );
+}
+
+function toLngLatCoords(points: Array<{ lat: number; lng: number }>): [number, number][] {
+  return points.map(p => [p.lat, p.lng] as [number, number]);
+}
+
+function toGeoJSONLine(coords: [number, number][]): GeoJSON.Feature<GeoJSON.LineString> {
+  return {
+    type: 'Feature',
+    geometry: { type: 'LineString', coordinates: coords.map(c => [c[1], c[0]] as [number, number]) },
+    properties: null,
+  };
 }
 
 export default function GpxMap({ coordinates, gpxUrl, preparsedPoints, title, fallbackMessage, focusStartKm, focusEndKm, focusPointKm, segmentOverlays }: GpxMapProps) {
   const [maximized, setMaximized] = useState(false);
-  const [trackCoords, setTrackCoords] = useState<LatLngExpression[]>(
+  const [trackCoords, setTrackCoords] = useState<[number, number][]>(
     preparsedPoints
-      ? preparsedPoints.map(p => [p.lat, p.lng] as LatLngExpression)
+      ? toLngLatCoords(preparsedPoints)
       : coordinates
-        ? coordinates.map(p => [p.lat, p.lng] as LatLngExpression)
+        ? toLngLatCoords(coordinates)
         : []
   );
   const [loading, setLoading] = useState(false);
@@ -134,7 +137,7 @@ export default function GpxMap({ coordinates, gpxUrl, preparsedPoints, title, fa
 
   useEffect(() => {
     if (preparsedPoints) {
-      setTrackCoords(preparsedPoints.map(p => [p.lat, p.lng] as LatLngExpression));
+      setTrackCoords(toLngLatCoords(preparsedPoints));
       return;
     }
     if (gpxUrl && !coordinates) {
@@ -146,7 +149,7 @@ export default function GpxMap({ coordinates, gpxUrl, preparsedPoints, title, fa
           if (!res.ok) throw new Error('Failed to fetch GPX');
           const text = await res.text();
           const parsed = parseGPX(text);
-          setTrackCoords(parsed.map(p => [p.lat, p.lng] as LatLngExpression));
+          setTrackCoords(parsed.map(p => [p.lat, p.lng] as [number, number]));
         } catch (e) {
           console.error(e);
           setError(true);
@@ -158,68 +161,118 @@ export default function GpxMap({ coordinates, gpxUrl, preparsedPoints, title, fa
     }
   }, [gpxUrl, coordinates, preparsedPoints]);
 
+  const trackGeoJSON = useMemo(() => {
+    if (trackCoords.length < 2) return null;
+    return toGeoJSONLine(trackCoords);
+  }, [trackCoords]);
+
   if ((!trackCoords.length || error) && !loading) {
     return (
       <div className="w-full h-[300px] bg-slate-900/50 border-2 border-dashed border-slate-700 rounded-2xl flex flex-col items-center justify-center text-center p-6">
-        <Map className="w-12 h-12 text-slate-700 mb-3" />
+        <MapIcon className="w-12 h-12 text-slate-700 mb-3" />
         <p className="text-slate-400 text-sm font-bold">{title || 'Mapa no disponible'}</p>
         <p className="text-slate-600 text-xs mt-1">{fallbackMessage || 'Próximamente disponible'}</p>
       </div>
     );
   }
 
+  const mapContent = (inline: boolean) => (
+    <>
+      <Map
+        mapStyle="mapbox://styles/mapbox/outdoors-v12"
+        mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
+        initialViewState={{ latitude: 40.62, longitude: -0.12, zoom: 13, pitch: 50 }}
+        terrain={{ source: 'mapbox-dem', exaggeration: 1.2 }}
+        style={{ width: '100%', height: '100%' }}
+      >
+        <Source id="mapbox-dem" type="raster-dem" url="mapbox://mapbox.mapbox-terrain-dem-v1" />
+
+        {trackGeoJSON && (
+          <Source id="track-line-source" type="geojson" data={trackGeoJSON}>
+            <Layer
+              id="track-line"
+              type="line"
+              source="track-line-source"
+              layout={{
+                'line-cap': 'round',
+                'line-join': 'round',
+              }}
+              paint={{
+                'line-color': '#64748b',
+                'line-width': 4,
+                'line-opacity': 0.6,
+              }}
+            />
+          </Source>
+        )}
+
+        {segmentOverlays?.map((seg, idx) => {
+          const slice = segmentSlice(trackCoords, seg.startKm, seg.endKm);
+          if (!slice) return null;
+          const color = seg.type === 'climb' ? '#000000' : seg.type === 'descent' ? '#ef4444' : '#f59e0b';
+          return (
+            <Source key={`seg-${idx}`} id={`seg-source-${idx}`} type="geojson" data={toGeoJSONLine(slice)}>
+              <Layer
+                id={`seg-line-${idx}`}
+                type="line"
+                source={`seg-source-${idx}`}
+                layout={{
+                  'line-cap': 'round',
+                }}
+                paint={{
+                  'line-color': color,
+                  'line-width': 5,
+                  'line-opacity': 0.9,
+                }}
+              />
+            </Source>
+          );
+        })}
+
+        {typeof focusPointKm === 'number' && pointAtKm(trackCoords, focusPointKm) && (
+          <Marker longitude={pointAtKm(trackCoords, focusPointKm)![1]} latitude={pointAtKm(trackCoords, focusPointKm)![0]} anchor="center">
+            <div style={{
+              width: 14, height: 14, borderRadius: '50%',
+              background: '#fb923c', border: '2px solid #f97316',
+              boxShadow: '0 0 8px rgba(249,115,22,0.6)',
+            }} />
+          </Marker>
+        )}
+
+        <HoverMarker coords={trackCoords} />
+        <FitController coords={trackCoords} focusStartKm={focusStartKm} focusEndKm={focusEndKm} focusPointKm={focusPointKm} maximized={maximized} />
+
+        {!inline && (
+          <>
+            <NavigationControl visualizePitch={true} position="top-right" />
+          </>
+        )}
+      </Map>
+
+      {/* Minimize button only in fullscreen mode */}
+      {!inline && (
+        <button
+          onClick={() => setMaximized(false)}
+          className="absolute bottom-3 left-3 z-[1000] flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider border transition-colors bg-slate-950/80 backdrop-blur-sm border-white/10 text-slate-300 hover:bg-slate-800 hover:text-white"
+          aria-label="Minimizar mapa"
+        >
+          <Minimize2 className="w-3.5 h-3.5" />
+          Minimizar
+        </button>
+      )}
+    </>
+  );
+
   return (
     <>
+      {/* Fullscreen overlay */}
       {maximized && (
         <div className="fixed inset-0 z-[9999] bg-slate-950">
-          <button
-            onClick={() => setMaximized(false)}
-            className="absolute bottom-3 left-3 z-[1000] flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider border transition-colors bg-slate-950/80 backdrop-blur-sm border-white/10 text-slate-300 hover:bg-slate-800 hover:text-white"
-            aria-label="Minimizar mapa"
-          >
-            <Minimize2 className="w-3.5 h-3.5" />
-            Minimizar
-          </button>
-          <MapContainer
-            center={[40.62, -0.12]}
-            zoom={13}
-            className="w-full h-full"
-            zoomControl={true}
-          >
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-            {trackCoords.length > 1 && (
-              <Polyline
-                positions={trackCoords}
-                pathOptions={{ color: '#64748b', weight: 4, opacity: 0.6, lineCap: 'round' }}
-              />
-            )}
-            {segmentOverlays?.map((seg, idx) => {
-              const slice = segmentSlice(trackCoords, seg.startKm, seg.endKm);
-              if (!slice) return null;
-              const color = seg.type === 'climb' ? '#000000' : seg.type === 'descent' ? '#ef4444' : '#f59e0b';
-              return (
-                <Polyline
-                  key={`seg-${idx}`}
-                  positions={slice}
-                  pathOptions={{ color, weight: 5, opacity: 0.9, lineCap: 'round' }}
-                />
-              );
-            })}
-            {typeof focusPointKm === 'number' && pointAtKm(trackCoords, focusPointKm) && (
-              <CircleMarker
-                center={pointAtKm(trackCoords, focusPointKm)!}
-                radius={7}
-                pathOptions={{ color: '#f97316', fillColor: '#fb923c', fillOpacity: 0.9, weight: 2 }}
-              />
-            )}
-            <HoverMarker coords={trackCoords} />
-            <MapController coords={trackCoords} focusStartKm={focusStartKm} focusEndKm={focusEndKm} focusPointKm={focusPointKm} maximized={maximized} />
-          </MapContainer>
+          {mapContent(false)}
         </div>
       )}
+
+      {/* Inline map */}
       <div className={`relative w-full h-[400px] rounded-2xl overflow-hidden border border-white/5 shadow-xl bg-slate-950 ${maximized ? 'hidden' : ''}`}>
         {!maximized && (
           <button
@@ -236,45 +289,8 @@ export default function GpxMap({ coordinates, gpxUrl, preparsedPoints, title, fa
             <p className="text-white text-xs font-bold animate-pulse">Cargando trazado...</p>
           </div>
         )}
-        <MapContainer
-          center={[40.62, -0.12]}
-          zoom={13}
-          className="w-full h-full"
-          zoomControl={true}
-        >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        {trackCoords.length > 1 && (
-          <Polyline 
-            positions={trackCoords} 
-            pathOptions={{ color: '#64748b', weight: 4, opacity: 0.6, lineCap: 'round' }} 
-          />
-        )}
-        {segmentOverlays?.map((seg, idx) => {
-          const slice = segmentSlice(trackCoords, seg.startKm, seg.endKm);
-          if (!slice) return null;
-          const color = seg.type === 'climb' ? '#000000' : seg.type === 'descent' ? '#ef4444' : '#f59e0b';
-          return (
-            <Polyline
-              key={`seg-${idx}`}
-              positions={slice}
-              pathOptions={{ color, weight: 5, opacity: 0.9, lineCap: 'round' }}
-            />
-          );
-        })}
-        {typeof focusPointKm === 'number' && pointAtKm(trackCoords, focusPointKm) && (
-          <CircleMarker
-            center={pointAtKm(trackCoords, focusPointKm)!}
-            radius={7}
-            pathOptions={{ color: '#f97316', fillColor: '#fb923c', fillOpacity: 0.9, weight: 2 }}
-          />
-        )}
-        <HoverMarker coords={trackCoords} />
-        <MapController coords={trackCoords} focusStartKm={focusStartKm} focusEndKm={focusEndKm} focusPointKm={focusPointKm} maximized={maximized} />
-      </MapContainer>
-    </div>
+        {mapContent(true)}
+      </div>
     </>
   );
 }

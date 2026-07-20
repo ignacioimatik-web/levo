@@ -63,6 +63,7 @@ const navItems: ({ label: string; href: string } | { label: string; items: Dropd
     { label: 'Top Tracks', href: '/top-tracks' },
   ]},
   { label: 'Forfait', href: '/forfait' },
+  { label: 'Alerta Presión', href: '/alerta-presion' },
   { label: 'Planifica', items: [
     { label: 'Planifica tu viaje', href: '/planifica' },
     { label: 'Travesías', href: '/travesias' },
