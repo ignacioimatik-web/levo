@@ -62,6 +62,8 @@ export default function UniversalRouteMap({
       [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
       { padding: 56, duration: 450, maxZoom: 15 },
     );
+    mapRef.current.setPitch(42);
+    mapRef.current.setBearing(15);
   }, [points]);
 
   const showPlace = (result: GeocodingResult) => {
@@ -99,7 +101,7 @@ export default function UniversalRouteMap({
     <Map
       ref={mapRef}
       mapboxAccessToken={MAPBOX_ACCESS_TOKEN}
-      initialViewState={{ longitude: -3.7, latitude: 40.25, zoom: 5.4 }}
+      initialViewState={{ longitude: -3.7, latitude: 40.25, zoom: 5.4, pitch: 42, bearing: 15 }}
       mapStyle={resilientStyle.mapStyle}
       terrain={MAPBOX_ACCESS_TOKEN ? { source: 'levo-planner-terrain-dem', exaggeration: 1.25 } : undefined}
       onError={resilientStyle.handleMapError}

@@ -79,6 +79,8 @@ export default function RouteDetailMapbox({
       [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
       { padding: 56, duration: 450, maxZoom: 15 },
     );
+    mapRef.current.setPitch(48);
+    mapRef.current.setBearing(18);
   }, [points]);
 
   useEffect(() => fitRoute(), [fitRoute]);
@@ -96,7 +98,7 @@ export default function RouteDetailMapbox({
       <Map
         ref={mapRef}
         mapboxAccessToken={MAPBOX_ACCESS_TOKEN}
-        initialViewState={{ longitude: first.lng, latitude: first.lat, zoom: 12 }}
+        initialViewState={{ longitude: first.lng, latitude: first.lat, zoom: 12, pitch: 48, bearing: 18 }}
         mapStyle={resilientStyle.mapStyle}
         terrain={MAPBOX_ACCESS_TOKEN ? { source: 'route-detail-terrain', exaggeration: 1.25 } : undefined}
         onError={resilientStyle.handleMapError}
