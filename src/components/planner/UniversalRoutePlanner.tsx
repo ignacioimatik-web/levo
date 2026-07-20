@@ -857,7 +857,10 @@ export default function UniversalRoutePlanner({
           </p>
         </form>
 
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+        {/* Landscape iPad (>=1024px) has enough room for the map and the
+            action/metrics panel side by side; phones and portrait tablets keep
+            the more readable stacked layout. */}
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
           <section className="overflow-hidden rounded-3xl border border-white/10 bg-slate-900/50">
             <div className="grid grid-cols-3 gap-1.5 border-b border-white/10 bg-slate-950/35 p-2 sm:flex sm:gap-2 sm:p-3">
               {([
