@@ -1,8 +1,10 @@
 import { createClient } from './browser';
 
 function getRedirectTo(path: string, next?: string): string {
-  if (typeof window === 'undefined') return path;
-  const url = `${window.location.origin}${path}`;
+  const base = process.env.NEXT_PUBLIC_SITE_URL
+    || (typeof window !== 'undefined' ? window.location.origin : '')
+    || 'https://gpxtour.vercel.app';
+  const url = `${base}${path}`;
   if (next) return `${url}?next=${encodeURIComponent(next)}`;
   return url;
 }
