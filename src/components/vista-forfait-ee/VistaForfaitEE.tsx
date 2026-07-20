@@ -526,6 +526,7 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
           ref={mapRef}
           mapboxAccessToken={MAPBOX_ACCESS_TOKEN}
           mapStyle={resilientStyle.mapStyle}
+          terrain={MAPBOX_ACCESS_TOKEN ? { source: 'levo-terrain-dem', exaggeration: 1.35 } : undefined}
           onError={resilientStyle.handleMapError}
           initialViewState={{ latitude: sectorCenter.latitude, longitude: sectorCenter.longitude, zoom: 15.3, pitch: 60, bearing: 0 }}
           onMove={e => {
@@ -552,6 +553,36 @@ export default function VistaForfaitEE({ tracks }: { tracks: TrackMTB[] }) {
           doubleClickZoom={true}
           keyboard={true}
         >
+          {MAPBOX_ACCESS_TOKEN && (
+            <>
+              {/* Mapbox DEM gives the satellite view real relief at trail scale. */}
+              <Source
+                id="levo-terrain-dem"
+                type="raster-dem"
+                url="mapbox://mapbox.mapbox-terrain-dem-v1"
+                tileSize={512}
+                maxzoom={14}
+              />
+              {/* Native Mapbox building footprints, extruded only when zoomed in. */}
+              <Source id="levo-buildings" type="vector" url="mapbox://mapbox.mapbox-streets-v8">
+                <Layer
+                  id="levo-3d-buildings"
+                  type="fill-extrusion"
+                  source="levo-buildings"
+                  source-layer="building"
+                  minzoom={14}
+                  filter={['!', ['has', 'underground']]}
+                  paint={{
+                    'fill-extrusion-color': '#8b97a8',
+                    'fill-extrusion-height': ['coalesce', ['get', 'height'], 8],
+                    'fill-extrusion-base': ['coalesce', ['get', 'min_height'], 0],
+                    'fill-extrusion-opacity': 0.58,
+                  }}
+                />
+              </Source>
+            </>
+          )}
+
           {/* Track layers */}
           {trackGeoJsons.map(t => (
             <Source key={t.id} id={t.id} type="geojson" data={t.data}>

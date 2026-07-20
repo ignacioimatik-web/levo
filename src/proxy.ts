@@ -20,9 +20,12 @@ export async function proxy(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet, headers) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
           supabaseResponse = NextResponse.next({ request });
+          Object.entries(headers ?? {}).forEach(([key, value]) => {
+            supabaseResponse.headers.set(key, value);
+          });
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options),
           );
@@ -31,17 +34,22 @@ export async function proxy(request: NextRequest) {
     },
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
+  // getClaims validates the signed JWT locally and avoids an extra Auth API
+  // round-trip on every protected navigation (the recommended SSR pattern).
+  const { data: claims } = await supabase.auth.getClaims();
 
-  if (!user) {
+  if (!claims) {
     const url = request.nextUrl.clone();
     const requestedPath = `${pathname}${request.nextUrl.search}`;
     url.pathname = '/auth';
     url.search = '';
     url.searchParams.set('next', normalizeAuthNextPath(requestedPath));
-    return NextResponse.redirect(url);
+    const redirect = NextResponse.redirect(url);
+    redirect.headers.set('Cache-Control', 'private, no-store');
+    return redirect;
   }
 
+  supabaseResponse.headers.set('Cache-Control', 'private, no-store');
   return supabaseResponse;
 }
 
