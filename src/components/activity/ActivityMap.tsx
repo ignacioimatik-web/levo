@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import Map, { Layer, Marker, NavigationControl, Source } from 'react-map-gl/mapbox';
+import Map, { FullscreenControl, GeolocateControl, Layer, Marker, NavigationControl, Source } from 'react-map-gl/mapbox';
 import type { MapRef } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import type { RidePoint } from '@/lib/activities/types';
 import { MapPinned } from 'lucide-react';
-import { MAPBOX_ACCESS_TOKEN } from '@/lib/open-map-styles';
+import { MAPBOX_ACCESS_TOKEN, OPEN_MAP_STYLES } from '@/lib/open-map-styles';
 import useResilientMapStyle from '@/components/map/useResilientMapStyle';
 import { MapProviderBadge } from '@/components/map/MapProviderBadge';
 
@@ -41,7 +41,8 @@ function SchematicMap({ points }: { points: RidePoint[] }) {
 export default function ActivityMap({ points }: { points: RidePoint[] }) {
   const mapRef = useRef<MapRef>(null);
   const [mapFailed, setMapFailed] = useState(false);
-  const resilientStyle = useResilientMapStyle();
+  const [styleIndex, setStyleIndex] = useState(0);
+  const resilientStyle = useResilientMapStyle(styleIndex);
   const route = useMemo(() => ({
     type: 'Feature' as const,
     properties: {},
@@ -57,7 +58,7 @@ export default function ActivityMap({ points }: { points: RidePoint[] }) {
     const lats = points.map((point) => point.latitude);
     mapRef.current.fitBounds(
       [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
-      { padding: 48, duration: 0 },
+      { padding: 48, duration: 0, pitch: 46, bearing: 18 },
     );
   }, [points]);
 
@@ -79,8 +80,35 @@ export default function ActivityMap({ points }: { points: RidePoint[] }) {
         longitude: points[0].longitude,
         latitude: points[0].latitude,
         zoom: 12,
+        pitch: 46,
+        bearing: 18,
       }}
       mapStyle={resilientStyle.mapStyle}
+      onLoad={({ target }) => {
+        if (resilientStyle.usingFallback || target.getSource('activity-terrain')) return;
+        target.addSource('activity-terrain', {
+          type: 'raster-dem',
+          url: 'mapbox://mapbox.mapbox-terrain-dem-v1',
+          tileSize: 512,
+          maxzoom: 14,
+        });
+        target.setTerrain({ source: 'activity-terrain', exaggeration: 1.15 });
+        if (target.getSource('composite') && !target.getLayer('activity-3d-buildings')) {
+          target.addLayer({
+            id: 'activity-3d-buildings',
+            source: 'composite',
+            'source-layer': 'building',
+            type: 'fill-extrusion',
+            minzoom: 14,
+            paint: {
+              'fill-extrusion-color': '#64748b',
+              'fill-extrusion-height': ['coalesce', ['get', 'height'], 0],
+              'fill-extrusion-base': ['coalesce', ['get', 'min_height'], 0],
+              'fill-extrusion-opacity': 0.52,
+            },
+          });
+        }
+      }}
       onError={event => {
         if (resilientStyle.usingFallback) {
           setMapFailed(true);
@@ -110,6 +138,22 @@ export default function ActivityMap({ points }: { points: RidePoint[] }) {
         <span className="grid h-5 w-5 place-items-center rounded-full border-2 border-white bg-orange-500 shadow-lg" aria-label="Final" />
       </Marker>
       <NavigationControl position="top-right" showCompass visualizePitch />
+      <GeolocateControl position="top-right" trackUserLocation />
+      <FullscreenControl position="top-right" />
+      <div className="absolute left-3 top-3 z-10 flex gap-1 rounded-xl border border-white/10 bg-slate-950/85 p-1 backdrop-blur">
+        {OPEN_MAP_STYLES.map((option, index) => (
+          <button
+            key={option.label}
+            type="button"
+            onClick={() => { setMapFailed(false); setStyleIndex(index); }}
+            className={`rounded-lg px-2.5 py-2 text-[9px] font-black uppercase tracking-wide transition ${styleIndex === index ? 'bg-orange-500 text-white' : 'text-slate-300 hover:bg-white/10'}`}
+            aria-label={`Mapa ${option.label}`}
+            aria-pressed={styleIndex === index}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
       <div className="absolute bottom-3 left-3 z-10">
         <MapProviderBadge
           usingFallback={resilientStyle.usingFallback}
