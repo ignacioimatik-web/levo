@@ -4,11 +4,12 @@ export interface BikeProfile {
   riderWeightKg: number;
   bikeWeightKg: number;
   bikeModel: string;
-  wheelType: '29' | '27.5' | '29-front-27.5-rear' | '26';
+  wheelFront: '29' | '27.5' | '26';
+  wheelRear: '29' | '27.5' | '26';
   tireModelFront: string;
   tireModelRear: string;
-  tireWidthFrontMm: number;
-  tireWidthRearMm: number;
+  tireWidthFrontInch: number;
+  tireWidthRearInch: number;
   initialPressureFrontBar: number;
   initialPressureRearBar: number;
   tubeless: boolean;
@@ -27,16 +28,23 @@ export interface PressureRecommendation {
   recommendedRearPsi: number;
   temperatureC: number;
   humidityPct: number;
-  adjustedTemp: number;
   terrainType: 'enduro' | 'dh' | 'trail';
   reason: string;
+}
+
+export interface DescentInfo {
+  id: string;
+  name: string;
+  trackName: string;
+  distanceKm: number;
+  elevationLoss: number;
+  elevationGain: number;
+  midpoint: { lat: number; lng: number };
 }
 
 export interface CalculationInput {
   profile: BikeProfile;
   temperatureC: number;
   humidityPct: number;
-  difficulty: 'rojo' | 'negro' | 'doble-negro';
-  sector: string;
-  trackName: string;
+  descent: DescentInfo;
 }

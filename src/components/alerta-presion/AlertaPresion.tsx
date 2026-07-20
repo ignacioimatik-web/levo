@@ -3,36 +3,35 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/browser';
 import type { User } from '@supabase/supabase-js';
-import type { BikeProfile, PressureRecommendation } from '@/lib/alerta-presion/types';
-import { Loader2, AlertTriangle, Bike, Thermometer, Droplets, Gauge, ArrowRight } from 'lucide-react';
+import type { BikeProfile, PressureRecommendation, DescentInfo } from '@/lib/alerta-presion/types';
+import { loadTrackPoints, getCachedTrackPoints } from '@/lib/forfait/track-points-cache';
+import { splitIntoSendas } from '@/lib/forfait/senda-utils';
+import type { TrackMTB } from '@/lib/forfait/types';
+import { Loader2, Gauge, Thermometer, Droplets, Bike, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 
-/* ─── Default profile ─── */
-const DEFAULT_PROFILE = {
+const DEFAULT_PROFILE: BikeProfile = {
   riderWeightKg: 75,
-  bikeWeightKg: 14,
-  bikeModel: '',
-  wheelType: '29' as const,
+  bikeWeightKg: 20,
+  bikeModel: 'Turbo Levo Carbono 2023',
+  wheelFront: '27.5',
+  wheelRear: '27.5',
   tireModelFront: '',
   tireModelRear: '',
-  tireWidthFrontMm: 60,
-  tireWidthRearMm: 60,
+  tireWidthFrontInch: 2.3,
+  tireWidthRearInch: 2.3,
   initialPressureFrontBar: 1.8,
   initialPressureRearBar: 2.0,
   tubeless: true,
 };
 
-/* ─── Track info for pressure calculation ─── */
-interface TrackInfo {
+interface AvailableTrack {
   id: string;
   name: string;
   sector: string;
-  difficulty: 'rojo' | 'negro' | 'doble-negro';
-  lat: number;
-  lng: number;
+  gpxUrl: string;
 }
 
-/* ─── Main component ─── */
 export default function AlertaPresionPage() {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -40,12 +39,12 @@ export default function AlertaPresionPage() {
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved' | 'error'>('idle');
-
-  const [selectedDifficulty, setSelectedDifficulty] = useState<'rojo' | 'negro' | 'doble-negro' | null>(null);
-  const [selectedTrack, setSelectedTrack] = useState<TrackInfo | null>(null);
+  const [allTracks, setAllTracks] = useState<AvailableTrack[]>([]);
+  const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
+  const [descents, setDescents] = useState<DescentInfo[]>([]);
+  const [descentResults, setDescentResults] = useState<Map<string, { recommendation: PressureRecommendation; weather: any }>>(new Map());
   const [calculating, setCalculating] = useState(false);
-  const [recommendation, setRecommendation] = useState<PressureRecommendation | null>(null);
-  const [calcWeather, setCalcWeather] = useState<{ temperatureC: number; humidityPct: number; stationName?: string } | null>(null);
+  const [selectedOnlyCalc, setSelectedOnlyCalc] = useState(false);
   const [error, setError] = useState('');
 
   // Auth
@@ -55,7 +54,7 @@ export default function AlertaPresionPage() {
       setUser(data.user);
       setAuthLoading(false);
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
       setUser(session?.user ?? null);
     });
     return () => subscription.unsubscribe();
@@ -71,24 +70,138 @@ export default function AlertaPresionPage() {
         setProfile({
           riderWeightKg: data.profile.rider_weight_kg,
           bikeWeightKg: data.profile.bike_weight_kg,
-          bikeModel: data.profile.bike_model || '',
-          wheelType: data.profile.wheel_type || '29',
+          bikeModel: data.profile.bike_model || 'Turbo Levo Carbono 2023',
+          wheelFront: data.profile.wheel_front || '27.5',
+          wheelRear: data.profile.wheel_rear || '27.5',
           tireModelFront: data.profile.tire_model_front || '',
           tireModelRear: data.profile.tire_model_rear || '',
-          tireWidthFrontMm: data.profile.tire_width_front_mm || 60,
-          tireWidthRearMm: data.profile.tire_width_rear_mm || 60,
+          tireWidthFrontInch: data.profile.tire_width_front_inch || 2.3,
+          tireWidthRearInch: data.profile.tire_width_rear_inch || 2.3,
           initialPressureFrontBar: data.profile.initial_pressure_front_bar || 1.8,
           initialPressureRearBar: data.profile.initial_pressure_rear_bar || 2.0,
           tubeless: data.profile.tubeless ?? true,
         });
       }
       setProfileLoaded(true);
-    } catch {
-      setProfileLoaded(true);
-    }
+    } catch { setProfileLoaded(true); }
   }, [user]);
-
   useEffect(() => { if (user) loadProfile(); else setProfileLoaded(true); }, [user, loadProfile]);
+
+  // Load tracks list
+  useEffect(() => {
+    fetch('/api/forfait/tracks-list').then(r => r.json()).then(data => {
+      if (data.tracks) setAllTracks(data.tracks);
+    }).catch(() => {});
+  }, []);
+
+  // Handle track selection → extract descents
+  const handleTrackSelect = async (trackId: string) => {
+    setSelectedTrackId(trackId);
+    setDescents([]);
+    setDescentResults(new Map());
+    setError('');
+
+    const track = allTracks.find(t => t.id === trackId);
+    if (!track) return;
+
+    // Load GPX and split into sendas
+    try {
+      const points = await loadTrackPoints(track.gpxUrl);
+      if (!points || points.length < 2) { setError('El track no tiene datos GPX'); return; }
+
+      // Build a minimal TrackMTB for splitIntoSendas
+      const miniTrack: TrackMTB = {
+        id: track.id,
+        nombre: track.name,
+        sector: track.sector,
+        dificultad: 'rojo',
+        estado: 'abierto',
+        tipo: ['enduro'],
+        distanciaKm: 0,
+        desnivelPositivo: 0,
+        desnivelNegativo: 0,
+        nivelTecnico: 3,
+        exigenciaFisica: 3,
+        sentidoRecomendado: 'bidireccional',
+        aptoEbike: true,
+        aptoLluvia: false,
+        tiempoEstimadoMin: 60,
+        descripcion: '',
+        advertencias: [],
+        gpxUrl: track.gpxUrl,
+        points: points,
+        startPoint: { lat: points[0].lat, lng: points[0].lng },
+        endPoint: { lat: points[points.length - 1].lat, lng: points[points.length - 1].lng },
+        dataStatus: 'real',
+      };
+
+      const sendas = splitIntoSendas(miniTrack);
+      const descentsList: DescentInfo[] = sendas
+        .filter(s => s.name.startsWith('Descenso'))
+        .map(s => ({
+          id: s.id,
+          name: s.name,
+          trackName: s.trackName,
+          distanceKm: s.distanceKm,
+          elevationLoss: s.elevationLoss,
+          elevationGain: s.elevationGain,
+          midpoint: {
+            lat: (s.bounds.minLat + s.bounds.maxLat) / 2,
+            lng: (s.bounds.minLng + s.bounds.maxLng) / 2,
+          },
+        }));
+
+      if (descentsList.length === 0) {
+        // If no descents found, use the whole track as one
+        const mid = Math.floor(points.length / 2);
+        descentsList.push({
+          id: `${track.id}-full`,
+          name: track.name,
+          trackName: track.name,
+          distanceKm: 0,
+          elevationLoss: 0,
+          elevationGain: 0,
+          midpoint: { lat: points[mid].lat, lng: points[mid].lng },
+        });
+      }
+
+      setDescents(descentsList);
+    } catch (e) {
+      setError('Error al cargar los datos del track');
+    }
+  };
+
+  // Calculate pressure for all descents
+  const handleCalculateAll = async () => {
+    if (descents.length === 0) return;
+    setCalculating(true);
+    setError('');
+    setSelectedOnlyCalc(true);
+
+    const results = new Map<string, { recommendation: PressureRecommendation; weather: any }>();
+
+    for (const descent of descents) {
+      try {
+        const res = await fetch('/api/alerta-presion/calculate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            profile,
+            lat: descent.midpoint.lat,
+            lng: descent.midpoint.lng,
+            descent,
+          }),
+        });
+        const data = await res.json();
+        if (data.recommendation) {
+          results.set(descent.id, { recommendation: data.recommendation, weather: data.weather });
+        }
+      } catch {}
+    }
+
+    setDescentResults(results);
+    setCalculating(false);
+  };
 
   // Save profile
   const handleSaveProfile = async () => {
@@ -102,67 +215,21 @@ export default function AlertaPresionPage() {
           rider_weight_kg: profile.riderWeightKg,
           bike_weight_kg: profile.bikeWeightKg,
           bike_model: profile.bikeModel,
-          wheel_type: profile.wheelType,
+          wheel_front: profile.wheelFront,
+          wheel_rear: profile.wheelRear,
           tire_model_front: profile.tireModelFront,
           tire_model_rear: profile.tireModelRear,
-          tire_width_front_mm: profile.tireWidthFrontMm,
-          tire_width_rear_mm: profile.tireWidthRearMm,
+          tire_width_front_inch: profile.tireWidthFrontInch,
+          tire_width_rear_inch: profile.tireWidthRearInch,
           initial_pressure_front_bar: profile.initialPressureFrontBar,
           initial_pressure_rear_bar: profile.initialPressureRearBar,
           tubeless: profile.tubeless,
         }),
       });
-      if (res.ok) setSaveStatus('saved');
-      else setSaveStatus('error');
-    } catch {
-      setSaveStatus('error');
-    }
+      setSaveStatus(res.ok ? 'saved' : 'error');
+    } catch { setSaveStatus('error'); }
     setSaving(false);
     setTimeout(() => setSaveStatus('idle'), 3000);
-  };
-
-  // Tracks for calculation (hardcoded technical descents from the forfait data)
-  const technicalTracks: TrackInfo[] = [
-    { id: 'real-01', name: 'Garumba Gigante', sector: 'Bergantes', difficulty: 'rojo', lat: 40.62, lng: -0.125 },
-    { id: 'real-02', name: 'Vuelta Garumba', sector: 'Bergantes', difficulty: 'rojo', lat: 40.63, lng: -0.13 },
-    { id: 'real-03', name: 'Santets Gegants', sector: 'Bergantes', difficulty: 'rojo', lat: 40.61, lng: -0.115 },
-    { id: 'real-04', name: 'Left Dark Side', sector: 'Bergantes', difficulty: 'negro', lat: 40.64, lng: -0.14 },
-    { id: 'real-21', name: 'Coronel Perdido', sector: 'El Riu de les Corces', difficulty: 'negro', lat: 40.58, lng: -0.08 },
-    { id: 'real-22', name: 'Rico Perdido', sector: 'El Riu de les Corces', difficulty: 'doble-negro', lat: 40.57, lng: -0.09 },
-    { id: 'real-23', name: 'Todo Perdido', sector: 'El Riu de les Corces', difficulty: 'doble-negro', lat: 40.56, lng: -0.07 },
-    { id: 'real-24', name: 'Tercer Plato Perdido', sector: 'El Riu de les Corces', difficulty: 'doble-negro', lat: 40.59, lng: -0.085 },
-  ];
-
-  // Calculate pressure
-  const handleCalculate = async () => {
-    if (!selectedTrack) return;
-    setCalculating(true);
-    setError('');
-    setRecommendation(null);
-    try {
-      const res = await fetch('/api/alerta-presion/calculate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          profile,
-          lat: selectedTrack.lat,
-          lng: selectedTrack.lng,
-          difficulty: selectedTrack.difficulty,
-          sector: selectedTrack.sector,
-          trackName: selectedTrack.name,
-        }),
-      });
-      const data = await res.json();
-      if (data.recommendation) {
-        setRecommendation(data.recommendation);
-        setCalcWeather(data.weather);
-      } else {
-        setError(data.error || 'Error al calcular');
-      }
-    } catch {
-      setError('Error de conexión');
-    }
-    setCalculating(false);
   };
 
   if (authLoading) {
@@ -172,6 +239,14 @@ export default function AlertaPresionPage() {
       </div>
     );
   }
+
+  const Select = ({ value, onChange, options }: { value: number; onChange: (v: number) => void; options: number[] }) => (
+    <select value={value} onChange={e => onChange(Number(e.target.value))}
+      className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer"
+    >
+      {options.map(o => <option key={o} value={o}>{o}</option>)}
+    </select>
+  );
 
   return (
     <div className="min-h-screen bg-slate-950">
@@ -184,15 +259,13 @@ export default function AlertaPresionPage() {
             </div>
             <div>
               <h1 className="text-lg font-black text-white tracking-tight">Alerta Presión</h1>
-              <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Presión recomendada para descensos técnicos</p>
+              <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Presión óptima para descensos técnicos</p>
             </div>
           </div>
           {!user && (
             <Link href="/auth"
               className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-xs font-bold transition-colors"
-            >
-              Iniciar sesión
-            </Link>
+            >Iniciar sesión</Link>
           )}
         </div>
       </div>
@@ -207,13 +280,11 @@ export default function AlertaPresionPage() {
             </p>
             <Link href="/auth"
               className="inline-block px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold transition-colors"
-            >
-              Iniciar sesión / Registrarse
-            </Link>
+            >Iniciar sesión / Registrarse</Link>
           </div>
         ) : (
           <>
-            {/* ─── QUADRANT 1: Perfil del ciclista ─── */}
+            {/* ─── PERFIL ─── */}
             <section className="bg-slate-900/40 border border-white/5 rounded-2xl p-6">
               <div className="flex items-center gap-2 mb-6">
                 <Bike className="w-5 h-5 text-orange-500" />
@@ -224,9 +295,7 @@ export default function AlertaPresionPage() {
                       saveStatus === 'saved' ? 'bg-green-500/20 text-green-400 border border-green-500/30'
                       : 'bg-orange-500/10 text-orange-400 border border-orange-500/25 hover:bg-orange-500/20'
                     }`}
-                  >
-                    {saving ? 'Guardando...' : saveStatus === 'saved' ? '✓ Guardado' : 'Guardar'}
-                  </button>
+                  >{saving ? 'Guardando...' : saveStatus === 'saved' ? '✓ Guardado' : 'Guardar'}</button>
                 )}
               </div>
 
@@ -234,57 +303,69 @@ export default function AlertaPresionPage() {
                 {/* Peso ciclista */}
                 <div>
                   <label className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">Peso ciclista (kg)</label>
-                  <input type="number" step="0.5" min="30" max="200" value={profile.riderWeightKg}
-                    onChange={e => setProfile(p => ({ ...p, riderWeightKg: Number(e.target.value) }))}
-                    className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/40"
-                  />
+                  <Select value={profile.riderWeightKg} onChange={v => setProfile(p => ({ ...p, riderWeightKg: v }))}
+                    options={Array.from({ length: 28 }, (_, i) => 68 + i)} />
                 </div>
                 {/* Peso bici */}
                 <div>
                   <label className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">Peso bicicleta (kg)</label>
-                  <input type="number" step="0.1" min="5" max="30" value={profile.bikeWeightKg}
-                    onChange={e => setProfile(p => ({ ...p, bikeWeightKg: Number(e.target.value) }))}
-                    className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/40"
-                  />
+                  <Select value={profile.bikeWeightKg} onChange={v => setProfile(p => ({ ...p, bikeWeightKg: v }))}
+                    options={Array.from({ length: 15 }, (_, i) => 11 + i)} />
                 </div>
                 {/* Modelo bici */}
                 <div>
                   <label className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">Modelo bicicleta</label>
-                  <input type="text" placeholder="Ej: Trek Slash 9.8" value={profile.bikeModel}
-                    onChange={e => setProfile(p => ({ ...p, bikeModel: e.target.value }))}
-                    className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/40"
-                  />
+                  <select value={profile.bikeModel} onChange={e => setProfile(p => ({ ...p, bikeModel: e.target.value }))}
+                    className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer"
+                  >
+                    <option>Turbo Levo Carbono 2023</option>
+                    <option>Turbo Levo Comp 2023</option>
+                    <option>Stumpjumper EVO</option>
+                    <option>Enduro Comp</option>
+                    <option>Other</option>
+                  </select>
                 </div>
-                {/* Tipo ruedas */}
+                {/* Rueda delantera */}
                 <div>
-                  <label className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">Tipo ruedas</label>
-                  <select value={profile.wheelType}
-                    onChange={e => setProfile(p => ({ ...p, wheelType: e.target.value as any }))}
-                    className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/40"
+                  <label className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">Rueda delantera</label>
+                  <select value={profile.wheelFront} onChange={e => setProfile(p => ({ ...p, wheelFront: e.target.value as any }))}
+                    className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer"
                   >
                     <option value="29">29"</option>
                     <option value="27.5">27.5"</option>
-                    <option value="29-front-27.5-rear">29" delante / 27.5" detrás</option>
                     <option value="26">26"</option>
                   </select>
                 </div>
-                {/* Ancho neumático delantero */}
+                {/* Rueda trasera */}
                 <div>
-                  <label className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">Ancho neumático del. (mm)</label>
-                  <input type="number" step="2.5" min="40" max="80" value={profile.tireWidthFrontMm}
-                    onChange={e => setProfile(p => ({ ...p, tireWidthFrontMm: Number(e.target.value) }))}
-                    className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/40"
-                  />
+                  <label className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">Rueda trasera</label>
+                  <select value={profile.wheelRear} onChange={e => setProfile(p => ({ ...p, wheelRear: e.target.value as any }))}
+                    className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer"
+                  >
+                    <option value="29">29"</option>
+                    <option value="27.5">27.5"</option>
+                    <option value="26">26"</option>
+                  </select>
                 </div>
-                {/* Ancho neumático trasero */}
+                {/* Ancho neumático del. (pulgadas) */}
                 <div>
-                  <label className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">Ancho neumático tras. (mm)</label>
-                  <input type="number" step="2.5" min="40" max="80" value={profile.tireWidthRearMm}
-                    onChange={e => setProfile(p => ({ ...p, tireWidthRearMm: Number(e.target.value) }))}
-                    className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/40"
-                  />
+                  <label className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">Ancho neumático del. (")</label>
+                  <select value={profile.tireWidthFrontInch} onChange={e => setProfile(p => ({ ...p, tireWidthFrontInch: Number(e.target.value) }))}
+                    className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer"
+                  >
+                    {[2.1, 2.2, 2.3, 2.4, 2.5].map(v => <option key={v} value={v}>{v.toFixed(1)}"</option>)}
+                  </select>
                 </div>
-                {/* Presión inicial delantera */}
+                {/* Ancho neumático tras. (pulgadas) */}
+                <div>
+                  <label className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">Ancho neumático tras. (")</label>
+                  <select value={profile.tireWidthRearInch} onChange={e => setProfile(p => ({ ...p, tireWidthRearInch: Number(e.target.value) }))}
+                    className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer"
+                  >
+                    {[2.1, 2.2, 2.3, 2.4, 2.5].map(v => <option key={v} value={v}>{v.toFixed(1)}"</option>)}
+                  </select>
+                </div>
+                {/* Presión inicial del. */}
                 <div>
                   <label className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">Presión inicial del. (bar)</label>
                   <input type="number" step="0.1" min="0.5" max="4" value={profile.initialPressureFrontBar}
@@ -292,7 +373,7 @@ export default function AlertaPresionPage() {
                     className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/40"
                   />
                 </div>
-                {/* Presión inicial trasera */}
+                {/* Presión inicial tras. */}
                 <div>
                   <label className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">Presión inicial tras. (bar)</label>
                   <input type="number" step="0.1" min="0.5" max="4" value={profile.initialPressureRearBar}
@@ -301,7 +382,7 @@ export default function AlertaPresionPage() {
                   />
                 </div>
                 {/* Tubeless */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 pt-6">
                   <label className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Tubeless</label>
                   <button onClick={() => setProfile(p => ({ ...p, tubeless: !p.tubeless }))}
                     className={`w-12 h-6 rounded-full transition-colors ${profile.tubeless ? 'bg-orange-500' : 'bg-slate-700'}`}
@@ -312,135 +393,127 @@ export default function AlertaPresionPage() {
               </div>
             </section>
 
-            {/* ─── QUADRANT 2: Selección de descenso y cálculo ─── */}
+            {/* ─── SELECCIÓN DE RUTA ─── */}
             <section className="bg-slate-900/40 border border-white/5 rounded-2xl p-6">
               <div className="flex items-center gap-2 mb-6">
                 <AlertTriangle className="w-5 h-5 text-orange-500" />
-                <h2 className="text-base font-bold text-white">Calculadora de presión para descensos técnicos</h2>
+                <h2 className="text-base font-bold text-white">Calculadora de presión para descensos</h2>
               </div>
 
-              {/* Selector de dificultad */}
-              <div className="flex flex-wrap gap-2 mb-4">
-                {(['rojo', 'negro', 'doble-negro'] as const).map(d => (
-                  <button key={d} onClick={() => { setSelectedDifficulty(d); setSelectedTrack(null); setRecommendation(null); }}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors ${
-                      selectedDifficulty === d
-                        ? d === 'rojo' ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                        : d === 'negro' ? 'bg-slate-700/30 text-slate-200 border border-slate-600/30'
-                        : 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
-                        : 'text-slate-500 border border-white/5 hover:text-slate-300'
-                    }`}
-                  >{d === 'doble-negro' ? 'Doble Negro' : d === 'negro' ? 'Negro' : 'Rojo'}</button>
-                ))}
-              </div>
-
-              {/* Lista de tracks filtrados */}
-              {selectedDifficulty && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-6">
-                  {technicalTracks.filter(t => t.difficulty === selectedDifficulty).map(t => (
-                    <button key={t.id} onClick={() => { setSelectedTrack(t); setRecommendation(null); }}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-colors ${
-                        selectedTrack?.id === t.id
-                          ? 'bg-orange-500/10 border border-orange-500/30'
-                          : 'bg-slate-950/50 border border-white/5 hover:bg-slate-800/50'
-                      }`}
-                    >
-                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                        t.difficulty === 'rojo' ? 'bg-red-500' : t.difficulty === 'negro' ? 'bg-slate-200' : 'bg-orange-500'
-                      }`} />
-                      <div className="min-w-0">
-                        <span className="text-[11px] font-bold text-white block truncate">{t.name}</span>
-                        <span className="text-[9px] text-slate-500">{t.sector}</span>
-                      </div>
-                    </button>
+              {/* Selector de ruta */}
+              <div className="mb-4">
+                <label className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">Elige una ruta</label>
+                <select value={selectedTrackId || ''} onChange={e => handleTrackSelect(e.target.value)}
+                  className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer"
+                >
+                  <option value="">Selecciona una ruta...</option>
+                  {allTracks.filter(t => t.sector).sort((a, b) => a.sector.localeCompare(b.sector)).map(t => (
+                    <option key={t.id} value={t.id}>{t.name} — {t.sector}</option>
                   ))}
-                  {technicalTracks.filter(t => t.difficulty === selectedDifficulty).length === 0 && (
-                    <p className="text-xs text-slate-500 col-span-2 py-4 text-center">No hay descensos con esta dificultad</p>
-                  )}
+                </select>
+              </div>
+
+              {/* Descensos detectados */}
+              {descents.length > 0 && (
+                <div className="space-y-2 mb-4">
+                  <p className="text-[11px] text-slate-400 font-bold">
+                    {descents.length} descenso{descents.length !== 1 ? 's' : ''} detectado{descents.length !== 1 ? 's' : ''}
+                  </p>
+                  {descents.map(d => (
+                    <div key={d.id} className="flex items-center justify-between px-3 py-2 bg-slate-950/50 border border-white/5 rounded-lg">
+                      <div>
+                        <span className="text-xs font-bold text-white">{d.name}</span>
+                        <span className="text-[10px] text-slate-500 ml-2">{d.distanceKm.toFixed(1)} km · -{d.elevationLoss}m</span>
+                      </div>
+                      {descentResults.has(d.id) && (
+                        <span className="text-[10px] text-orange-400 font-bold">
+                          {descentResults.get(d.id)!.recommendation.recommendedFrontBar.toFixed(1)} bar
+                        </span>
+                      )}
+                    </div>
+                  ))}
                 </div>
               )}
 
+              {error && (
+                <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-400">{error}</div>
+              )}
+
               {/* Botón calcular */}
-              {selectedTrack && (
-                <button onClick={handleCalculate} disabled={calculating}
+              {descents.length > 0 && (
+                <button onClick={handleCalculateAll} disabled={calculating}
                   className="w-full py-3 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white rounded-xl font-bold text-sm transition-all shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2"
                 >
                   {calculating ? (
-                    <><Loader2 className="w-4 h-4 animate-spin" /> Calculando...</>
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Calculando presión con AEMET...</>
                   ) : (
-                    <><Gauge className="w-4 h-4" /> Calcular presión para {selectedTrack.name}</>
+                    <><Gauge className="w-4 h-4" /> Calcular presión para {descents.length} descenso{descents.length !== 1 ? 's' : ''}</>
                   )}
                 </button>
               )}
 
-              {error && (
-                <div className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-400">
-                  {error}
-                </div>
-              )}
-
-              {/* ─── RESULTADO ─── */}
-              {recommendation && (
-                <div className="mt-6 space-y-4 animate-in fade-in duration-300">
-                  {/* Condiciones ambientales */}
-                  {calcWeather && (
-                    <div className="flex flex-wrap items-center gap-4 p-3 bg-slate-950/50 border border-white/5 rounded-xl text-[10px] text-slate-400">
-                      <span className="flex items-center gap-1"><Thermometer className="w-3.5 h-3.5 text-orange-400" /> {calcWeather.temperatureC}°C</span>
-                      <span className="flex items-center gap-1"><Droplets className="w-3.5 h-3.5 text-blue-400" /> {calcWeather.humidityPct}% HR</span>
-                      {calcWeather.stationName && <span className="text-slate-600">Estación: {calcWeather.stationName}</span>}
-                    </div>
-                  )}
-
-                  {/* Presiones: grandes números */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* RUEDA DELANTERA */}
-                    <div className="bg-slate-950/60 border border-white/5 rounded-2xl p-6 text-center">
-                      <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-1">Rueda Delantera</p>
-                      <div className="flex items-end justify-center gap-6 my-4">
-                        <div>
-                          <p className="text-[9px] text-slate-600 mb-1">Actual</p>
-                          <p className="text-3xl font-black text-slate-500">{recommendation.currentFrontBar.toFixed(1)}</p>
-                          <p className="text-[10px] text-slate-600">bar ({recommendation.currentFrontPsi} PSI)</p>
+              {/* ─── RESULTADOS ─── */}
+              {selectedOnlyCalc && descentResults.size > 0 && (
+                <div className="mt-6 space-y-6">
+                  {descents.map(descent => {
+                    const result = descentResults.get(descent.id);
+                    if (!result) return null;
+                    const { recommendation, weather } = result;
+                    return (
+                      <div key={descent.id} className="bg-slate-950/60 border border-white/5 rounded-2xl p-5">
+                        <div className="flex items-center justify-between mb-3">
+                          <h3 className="text-sm font-bold text-white">{descent.name}</h3>
+                          <span className="text-[10px] text-slate-500">{descent.distanceKm.toFixed(1)} km · -{descent.elevationLoss}m</span>
                         </div>
-                        <ArrowRight className="w-5 h-5 text-orange-500 mb-2" />
-                        <div>
-                          <p className="text-[9px] text-orange-400 mb-1">Recomendada</p>
-                          <p className="text-5xl font-black text-orange-500">{recommendation.recommendedFrontBar.toFixed(1)}</p>
-                          <p className="text-xs text-slate-400">bar ({recommendation.recommendedFrontPsi} PSI)</p>
-                        </div>
-                      </div>
-                      <div className="text-[10px] text-slate-500">
-                        {recommendation.recommendedFrontBar < recommendation.currentFrontBar ? '⬇️ Reducir' : '⬆️ Aumentar'} presión
-                      </div>
-                    </div>
 
-                    {/* RUEDA TRASERA */}
-                    <div className="bg-slate-950/60 border border-white/5 rounded-2xl p-6 text-center">
-                      <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-1">Rueda Trasera</p>
-                      <div className="flex items-end justify-center gap-6 my-4">
-                        <div>
-                          <p className="text-[9px] text-slate-600 mb-1">Actual</p>
-                          <p className="text-3xl font-black text-slate-500">{recommendation.currentRearBar.toFixed(1)}</p>
-                          <p className="text-[10px] text-slate-600">bar ({recommendation.currentRearPsi} PSI)</p>
-                        </div>
-                        <ArrowRight className="w-5 h-5 text-orange-500 mb-2" />
-                        <div>
-                          <p className="text-[9px] text-orange-400 mb-1">Recomendada</p>
-                          <p className="text-5xl font-black text-orange-500">{recommendation.recommendedRearBar.toFixed(1)}</p>
-                          <p className="text-xs text-slate-400">bar ({recommendation.recommendedRearPsi} PSI)</p>
-                        </div>
-                      </div>
-                      <div className="text-[10px] text-slate-500">
-                        {recommendation.recommendedRearBar < recommendation.currentRearBar ? '⬇️ Reducir' : '⬆️ Aumentar'} presión
-                      </div>
-                    </div>
-                  </div>
+                        {/* Weather */}
+                        {weather && (
+                          <div className="flex items-center gap-3 mb-4 text-[10px] text-slate-400 bg-slate-950/50 rounded-lg px-3 py-2">
+                            <span className="flex items-center gap-1"><Thermometer className="w-3 h-3 text-orange-400" /> {weather.temperatureC}°C</span>
+                            <span className="flex items-center gap-1"><Droplets className="w-3 h-3 text-blue-400" /> {weather.humidityPct}% HR</span>
+                          </div>
+                        )}
 
-                  {/* Razón del cálculo */}
-                  <div className="p-3 bg-slate-950/50 border border-white/5 rounded-xl">
-                    <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-1">Factores considerados</p>
-                    <p className="text-[11px] text-slate-300">{recommendation.reason}</p>
-                  </div>
+                        {/* Pressure comparison */}
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="text-center p-3 bg-slate-950/40 rounded-xl border border-white/5">
+                            <p className="text-[9px] text-slate-600 uppercase tracking-widest mb-1">Delantera</p>
+                            <div className="flex items-center justify-center gap-3">
+                              <div>
+                                <p className="text-[8px] text-slate-600">Actual</p>
+                                <p className="text-lg font-black text-slate-500">{recommendation.currentFrontBar.toFixed(1)}</p>
+                                <p className="text-[9px] text-slate-600">{recommendation.currentFrontPsi} PSI</p>
+                              </div>
+                              <span className="text-orange-500 text-lg">→</span>
+                              <div>
+                                <p className="text-[8px] text-orange-400">Recomendada</p>
+                                <p className="text-2xl font-black text-orange-500">{recommendation.recommendedFrontBar.toFixed(1)}</p>
+                                <p className="text-[9px] text-slate-400">{recommendation.recommendedFrontPsi} PSI</p>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-center p-3 bg-slate-950/40 rounded-xl border border-white/5">
+                            <p className="text-[9px] text-slate-600 uppercase tracking-widest mb-1">Trasera</p>
+                            <div className="flex items-center justify-center gap-3">
+                              <div>
+                                <p className="text-[8px] text-slate-600">Actual</p>
+                                <p className="text-lg font-black text-slate-500">{recommendation.currentRearBar.toFixed(1)}</p>
+                                <p className="text-[9px] text-slate-600">{recommendation.currentRearPsi} PSI</p>
+                              </div>
+                              <span className="text-orange-500 text-lg">→</span>
+                              <div>
+                                <p className="text-[8px] text-orange-400">Recomendada</p>
+                                <p className="text-2xl font-black text-orange-500">{recommendation.recommendedRearBar.toFixed(1)}</p>
+                                <p className="text-[9px] text-slate-400">{recommendation.recommendedRearPsi} PSI</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <p className="mt-3 text-[9px] text-slate-500 leading-relaxed">{recommendation.reason}</p>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </section>
