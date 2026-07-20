@@ -17,6 +17,7 @@ export type OfflineMapPackage = {
   fetchedAt: string;
   attribution: string;
   sampleRadiusM: number;
+  source?: 'overpass' | 'route-only';
 };
 
 function openDatabase(): Promise<IDBDatabase> {

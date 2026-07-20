@@ -3,6 +3,7 @@ import {
   buildOverpassMapQuery,
   buildOverpassTrailOnlyQuery,
   overpassElementsToGeoJson,
+  routeToOfflineGeoJson,
   summarizeOfflineMap,
 } from '@/lib/navigation/offline-map-data';
 import type { OverpassElement } from '@/lib/navigation/offline-map-data';
@@ -83,13 +84,11 @@ export async function POST(request: NextRequest) {
     const enrichedQuery = buildOverpassMapQuery(points);
     const elements = await fetchOverpassElements(enrichedQuery)
       ?? await fetchOverpassElements(buildOverpassTrailOnlyQuery(points));
-    if (!elements) {
-      return NextResponse.json(
-        { error: 'OpenStreetMap no pudo preparar el mapa offline en este momento.' },
-        { status: 503 },
-      );
-    }
-    const trails = overpassElementsToGeoJson(elements);
+    const overpassTrails = elements ? overpassElementsToGeoJson(elements) : null;
+    const trails = overpassTrails?.features.length
+      ? overpassTrails
+      : routeToOfflineGeoJson(points, typeof body.routeName === 'string' ? body.routeName : 'Ruta planificada');
+    const source = overpassTrails?.features.length ? 'overpass' : 'route-only';
     if (trails.features.length === 0) {
       return NextResponse.json(
         { error: 'No se encontraron caminos cartografiados alrededor de esta ruta.' },
@@ -105,7 +104,10 @@ export async function POST(request: NextRequest) {
       trails,
       summary: summarizeOfflineMap(trails),
       fetchedAt: new Date().toISOString(),
-      attribution: '© colaboradores de OpenStreetMap · datos obtenidos mediante Overpass API',
+      source,
+      attribution: source === 'overpass'
+        ? '© colaboradores de OpenStreetMap · datos obtenidos mediante Overpass API'
+        : 'Trazado de la ruta guardado para navegación offline · cartografía contextual no disponible',
       sampleRadiusM: 800,
     }, {
       headers: { 'Cache-Control': 'private, no-store' },

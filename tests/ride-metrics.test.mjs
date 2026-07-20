@@ -87,6 +87,7 @@ import {
   buildOverpassTrailQuery,
   buildOverpassTrailOnlyQuery,
   overpassWaysToGeoJson,
+  routeToOfflineGeoJson,
   summarizeOfflineMap,
   sampleOfflineRoute,
 } from '../src/lib/navigation/offline-map-data.ts';
@@ -1765,6 +1766,22 @@ test('la descarga offline conserva una consulta ligera de rescate si Overpass es
   assert.match(query, /way\["highway"\]/);
   assert.doesNotMatch(query, /drinking_water/);
   assert.match(query, /timeout:15/);
+});
+
+test('el mapa offline conserva el trazado si Overpass no responde', () => {
+  const route = [
+    { latitude: 40.62, longitude: -0.1, elevation: 900 },
+    { latitude: 40.625, longitude: -0.09, elevation: 940 },
+  ];
+  const collection = routeToOfflineGeoJson(route, 'Ruta e-bike');
+
+  assert.equal(collection.features.length, 1);
+  assert.equal(collection.features[0].properties.name, 'Ruta e-bike');
+  assert.equal(collection.features[0].properties.kind, 'trail');
+  assert.deepEqual(collection.features[0].geometry.coordinates, [
+    [-0.1, 40.62],
+    [-0.09, 40.625],
+  ]);
 });
 
 test('el paquete offline incorpora agua, refugios, fuentes y barreras sin depender de teselas', () => {

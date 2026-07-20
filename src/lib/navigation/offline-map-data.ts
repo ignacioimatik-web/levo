@@ -209,6 +209,37 @@ export function overpassElementsToGeoJson(
   return { type: 'FeatureCollection', features };
 }
 
+/**
+ * Last-resort offline context when Overpass is unavailable or has no mapped
+ * ways around a route. The planned line is still useful offline for guidance
+ * and makes the feature degrade gracefully instead of failing the whole ride.
+ */
+export function routeToOfflineGeoJson(
+  points: PlannedRoutePoint[],
+  name = 'Ruta planificada',
+): OfflineTrailCollection {
+  const coordinates = points.map((point) => [point.longitude, point.latitude] as [number, number]);
+  return {
+    type: 'FeatureCollection',
+    features: coordinates.length >= 2 ? [{
+      type: 'Feature',
+      properties: {
+        id: 0,
+        kind: 'trail',
+        highway: null,
+        name,
+        surface: null,
+        tracktype: null,
+        mtbScale: null,
+        access: null,
+        poiType: null,
+        elevationM: null,
+      },
+      geometry: { type: 'LineString', coordinates },
+    }] : [],
+  };
+}
+
 export const overpassWaysToGeoJson = overpassElementsToGeoJson;
 
 export function summarizeOfflineMap(collection: OfflineTrailCollection): OfflineMapSummary {

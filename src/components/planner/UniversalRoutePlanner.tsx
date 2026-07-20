@@ -40,6 +40,7 @@ import {
   buildOverpassMapQuery,
   buildOverpassTrailOnlyQuery,
   overpassElementsToGeoJson,
+  routeToOfflineGeoJson,
   summarizeOfflineMap,
 } from '@/lib/navigation/offline-map-data';
 import type { OverpassElement } from '@/lib/navigation/offline-map-data';
@@ -146,16 +147,22 @@ async function downloadOfflineMapFromDevice(route: PlannedRoute): Promise<Offlin
       }
       return payload.elements as OverpassElement[];
     }));
-    let elements: OverpassElement[];
+    let elements: OverpassElement[] | null = null;
     try {
       elements = await fetchElements(buildOverpassMapQuery(route.points));
     } catch {
-      elements = await fetchElements(buildOverpassTrailOnlyQuery(route.points));
+      try {
+        elements = await fetchElements(buildOverpassTrailOnlyQuery(route.points));
+      } catch {
+        // Keep the planned line usable offline even when both public
+        // Overpass instances are saturated or temporarily unreachable.
+      }
     }
-    const trails = overpassElementsToGeoJson(elements);
-    if (trails.features.length === 0) {
-      throw new Error('No se encontraron caminos cartografiados alrededor de esta ruta.');
-    }
+    const overpassTrails = elements ? overpassElementsToGeoJson(elements) : null;
+    const trails = overpassTrails?.features.length
+      ? overpassTrails
+      : routeToOfflineGeoJson(route.points, route.name);
+    const source = overpassTrails?.features.length ? 'overpass' as const : 'route-only' as const;
     return {
       version: OFFLINE_MAP_VERSION,
       routeFingerprint: offlineRouteFingerprint(route.points),
@@ -164,7 +171,10 @@ async function downloadOfflineMapFromDevice(route: PlannedRoute): Promise<Offlin
       trails,
       summary: summarizeOfflineMap(trails),
       fetchedAt: new Date().toISOString(),
-      attribution: '© colaboradores de OpenStreetMap · datos obtenidos mediante Overpass API',
+      source,
+      attribution: source === 'overpass'
+        ? '© colaboradores de OpenStreetMap · datos obtenidos mediante Overpass API'
+        : 'Trazado de la ruta guardado para navegación offline · cartografía contextual no disponible',
       sampleRadiusM: 800,
     };
   } finally {
