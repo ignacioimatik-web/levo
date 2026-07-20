@@ -1356,7 +1356,9 @@ export default function RideRecorder({
           </div>
         )}
 
-        <div className={`grid gap-5 xl:grid-cols-[1.15fr_.85fr] ${rideFocused ? 'ride-focus-grid' : ''}`}>
+        {/* A landscape iPad can show the live map and ride data together;
+            phones and portrait tablets remain a single, thumb-friendly column. */}
+        <div className={`grid gap-5 lg:grid-cols-[1.15fr_.85fr] ${rideFocused ? 'ride-focus-grid' : ''}`}>
           <section className="space-y-5">
             <RideNavigationMap
               points={points}
