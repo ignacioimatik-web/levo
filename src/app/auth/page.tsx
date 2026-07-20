@@ -2,8 +2,8 @@
 
 import { Suspense, useEffect, useState, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { signInWithGoogle, signInWithEmail, getCurrentUser } from '@/lib/supabase/auth';
-import { Loader2, AlertCircle, XCircle, WifiOff, Ban, Mail, CheckCircle2 } from 'lucide-react';
+import { signInWithGoogle, signInWithApple, signInWithEmail, getCurrentUser } from '@/lib/supabase/auth';
+import { Loader2, AlertCircle, XCircle, WifiOff, Ban, Mail, CheckCircle2, Apple } from 'lucide-react';
 import {
   getAuthProviderAvailability,
 } from '@/lib/supabase/provider-status';
@@ -19,6 +19,10 @@ const ERROR_MESSAGES: Record<string, string> = {
   'invalid_code': 'El enlace de inicio de sesión no es válido o ha expirado. Vuelve a iniciar sesión.',
   'session_not_found': 'No se ha podido iniciar la sesión. Inténtalo de nuevo.',
   'auth_exchange_failed': 'No se ha podido completar el acceso. Vuelve a intentarlo desde este dispositivo.',
+  'redirect_uri_mismatch': 'Google ha rechazado la dirección de retorno. En Google Cloud debe estar autorizada esta URL: https://tofcpitggqibbqemsowi.supabase.co/auth/v1/callback',
+  'invalid_client': 'Las credenciales OAuth de Google en Supabase no son válidas. Hay que revisar el Client ID y el secreto del proveedor.',
+  'provider is not enabled': 'Este proveedor está desactivado en Supabase. Actívalo y guarda sus credenciales en Authentication → Providers.',
+  'unsupported provider': 'Este proveedor está desactivado en Supabase. Actívalo y guarda sus credenciales en Authentication → Providers.',
 };
 
 function getErrorMessage(raw: string): string {
@@ -51,7 +55,7 @@ function AuthForm() {
 
   const next = normalizeAuthNextPath(searchParams.get('next'));
   const unavailableProviders = providers
-    ? [!providers.google && 'Google'].filter(Boolean)
+    ? [!providers.google && 'Google', !providers.apple && 'Apple'].filter(Boolean)
     : [];
 
   useEffect(() => {
@@ -89,6 +93,16 @@ function AuthForm() {
     setLoading('google');
     setError(null);
     const { error: err } = await signInWithGoogle(next);
+    if (err) {
+      setError(getErrorMessage(err.message));
+      setLoading(null);
+    }
+  }, [next]);
+
+  const handleApple = useCallback(async () => {
+    setLoading('apple');
+    setError(null);
+    const { error: err } = await signInWithApple(next);
     if (err) {
       setError(getErrorMessage(err.message));
       setLoading(null);
@@ -180,6 +194,16 @@ function AuthForm() {
                 </svg>
               )}
               <span>{providers?.google === false ? 'Google no configurado' : 'Continuar con Google'}</span>
+            </button>
+
+            <button
+              onClick={handleApple}
+              disabled={loading !== null || providers?.apple !== true}
+              className="group relative flex w-full items-center justify-center gap-3 rounded-xl border border-white/10 bg-slate-950 px-4 py-3 font-semibold text-white transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-55"
+              title={providers?.apple === true ? 'Continuar con Apple' : 'Apple requiere credenciales de Apple Developer en Supabase'}
+            >
+              {loading === 'apple' ? <Loader2 className="h-5 w-5 animate-spin" /> : <Apple className="h-5 w-5" />}
+              <span>{providers?.apple === true ? 'Continuar con Apple' : 'Apple no configurado'}</span>
             </button>
 
             {unavailableProviders.length > 0 && (

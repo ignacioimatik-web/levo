@@ -1,7 +1,7 @@
 const DEFAULT_AUTH_DESTINATION = '/account';
 const DEFAULT_SITE_ORIGIN = 'https://levo-eta.vercel.app';
 const AUTH_FLOW_PATHS = ['/auth', '/onboarding'] as const;
-const AUTH_PROVIDERS = ['google', 'email'] as const;
+const AUTH_PROVIDERS = ['google', 'apple', 'email'] as const;
 
 export type AuthProvider = (typeof AUTH_PROVIDERS)[number];
 

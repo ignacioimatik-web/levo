@@ -2282,7 +2282,7 @@ test('el callback de acceso solo acepta destinos internos seguros', () => {
     getPostAuthDestination('/planifica?ruta=abc', null, 'provider-inventado'),
     '/onboarding?next=%2Fplanifica%3Fruta%3Dabc',
   );
-  assert.equal(normalizeAuthProvider('apple'), null);
+  assert.equal(normalizeAuthProvider('apple'), 'apple');
   assert.equal(normalizeAuthProvider('provider-inventado'), null);
   assert.equal(
     getPostAuthDestination('/planifica?ruta=abc', '2026-07-18T17:35:00Z'),
@@ -2336,10 +2336,12 @@ test('la pantalla de acceso refleja los proveedores realmente activados', () => 
   }), {
     email: true,
     google: false,
+    apple: true,
   });
   assert.deepEqual(normalizeProviderAvailability(null), {
     email: false,
     google: false,
+    apple: false,
   });
 });
 

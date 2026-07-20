@@ -25,6 +25,18 @@ export async function signInWithGoogle(next?: string) {
   return { error };
 }
 
+export async function signInWithApple(next?: string) {
+  const supabase = createClient();
+  if (!supabase) return { error: AUTH_UNAVAILABLE };
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'apple',
+    options: {
+      redirectTo: getRedirectTo(next),
+    },
+  });
+  return { error };
+}
+
 export async function signInWithEmail(email: string, next?: string) {
   const supabase = createClient();
   if (!supabase) return { error: AUTH_UNAVAILABLE };

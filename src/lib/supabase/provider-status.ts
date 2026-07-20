@@ -1,6 +1,7 @@
 export interface AuthProviderAvailability {
   email: boolean;
   google: boolean;
+  apple: boolean;
 }
 
 export function normalizeProviderAvailability(input: unknown): AuthProviderAvailability {
@@ -13,6 +14,7 @@ export function normalizeProviderAvailability(input: unknown): AuthProviderAvail
   return {
     email: values.email === true,
     google: values.google === true,
+    apple: values.apple === true,
   };
 }
 
