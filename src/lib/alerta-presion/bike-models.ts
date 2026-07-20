@@ -1,0 +1,136 @@
+/** Catálogo de bicicletas MTB/Enduro (2023–2025) con especificaciones de serie */
+export interface BikeModelSpec {
+  name: string;
+  year: number;
+  weightKg: number;
+  wheelFront: '29' | '27.5' | '26';
+  wheelRear: '29' | '27.5' | '26';
+  tireWidthFrontInch: number;
+  tireWidthRearInch: number;
+  tireModelFront: string;
+  tireModelRear: string;
+  tubeless: boolean;
+}
+
+export const BIKE_MODELS: BikeModelSpec[] = [
+  {
+    name: 'Specialized Turbo Levo Carbon',
+    year: 2023,
+    weightKg: 22,
+    wheelFront: '29',
+    wheelRear: '29',
+    tireWidthFrontInch: 2.3,
+    tireWidthRearInch: 2.3,
+    tireModelFront: 'Butcher T9 GRID TRAIL',
+    tireModelRear: 'Eliminator T7 GRID TRAIL',
+    tubeless: true,
+  },
+  {
+    name: 'Specialized Turbo Levo Comp',
+    year: 2023,
+    weightKg: 24,
+    wheelFront: '29',
+    wheelRear: '29',
+    tireWidthFrontInch: 2.3,
+    tireWidthRearInch: 2.3,
+    tireModelFront: 'Butcher T9 GRID TRAIL',
+    tireModelRear: 'Eliminator T7 GRID TRAIL',
+    tubeless: true,
+  },
+  {
+    name: 'Specialized Levo SL',
+    year: 2024,
+    weightKg: 18,
+    wheelFront: '29',
+    wheelRear: '29',
+    tireWidthFrontInch: 2.3,
+    tireWidthRearInch: 2.3,
+    tireModelFront: 'Eliminator T7 GRID TRAIL',
+    tireModelRear: 'Eliminator T7 GRID TRAIL',
+    tubeless: true,
+  },
+  {
+    name: 'Trek Slash 9.9',
+    year: 2024,
+    weightKg: 16,
+    wheelFront: '29',
+    wheelRear: '29',
+    tireWidthFrontInch: 2.5,
+    tireWidthRearInch: 2.4,
+    tireModelFront: 'Bontrager SE5 Team Issue',
+    tireModelRear: 'Bontrager SE6 Team Issue',
+    tubeless: true,
+  },
+  {
+    name: 'Trek Rail 9.8',
+    year: 2024,
+    weightKg: 24,
+    wheelFront: '29',
+    wheelRear: '29',
+    tireWidthFrontInch: 2.5,
+    tireWidthRearInch: 2.5,
+    tireModelFront: 'Bontrager SE5 Team Issue',
+    tireModelRear: 'Bontrager SE6 Team Issue',
+    tubeless: true,
+  },
+  {
+    name: 'Santa Cruz Megatower',
+    year: 2024,
+    weightKg: 16,
+    wheelFront: '29',
+    wheelRear: '29',
+    tireWidthFrontInch: 2.5,
+    tireWidthRearInch: 2.4,
+    tireModelFront: 'Maxxis Assegai EXO+',
+    tireModelRear: 'Maxxis Minion DHR II EXO+',
+    tubeless: true,
+  },
+  {
+    name: 'Santa Cruz Bullit',
+    year: 2023,
+    weightKg: 25,
+    wheelFront: '29',
+    wheelRear: '29',
+    tireWidthFrontInch: 2.5,
+    tireWidthRearInch: 2.5,
+    tireModelFront: 'Maxxis Assegai EXO+',
+    tireModelRear: 'Maxxis Minion DHR II EXO+',
+    tubeless: true,
+  },
+  {
+    name: 'Yeti 160E',
+    year: 2024,
+    weightKg: 24,
+    wheelFront: '29',
+    wheelRear: '29',
+    tireWidthFrontInch: 2.5,
+    tireWidthRearInch: 2.5,
+    tireModelFront: 'Maxxis Assegai EXO+',
+    tireModelRear: 'Maxxis Minion DHR II EXO+',
+    tubeless: true,
+  },
+  {
+    name: 'Transition Relay (mullet)',
+    year: 2024,
+    weightKg: 23,
+    wheelFront: '29',
+    wheelRear: '27.5',
+    tireWidthFrontInch: 2.5,
+    tireWidthRearInch: 2.5,
+    tireModelFront: 'Maxxis Assegai EXO+',
+    tireModelRear: 'Maxxis Minion DHR II EXO+',
+    tubeless: true,
+  },
+  {
+    name: 'Orbea Wild',
+    year: 2024,
+    weightKg: 24,
+    wheelFront: '29',
+    wheelRear: '29',
+    tireWidthFrontInch: 2.5,
+    tireWidthRearInch: 2.5,
+    tireModelFront: 'Schwalbe Magic Mary Super Trail',
+    tireModelRear: 'Schwalbe Nobby Nic Super Trail',
+    tubeless: true,
+  },
+];

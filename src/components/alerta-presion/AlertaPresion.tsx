@@ -7,8 +7,10 @@ import type { BikeProfile, PressureRecommendation, DescentInfo } from '@/lib/ale
 import { loadTrackPoints, getCachedTrackPoints } from '@/lib/forfait/track-points-cache';
 import { splitIntoSendas } from '@/lib/forfait/senda-utils';
 import type { TrackMTB } from '@/lib/forfait/types';
-import { Loader2, Gauge, Thermometer, Droplets, Bike, AlertTriangle } from 'lucide-react';
+import { Loader2, Gauge, Thermometer, Droplets, Bike, AlertTriangle, TrendingDown } from 'lucide-react';
 import Link from 'next/link';
+import { BIKE_MODELS } from '@/lib/alerta-presion/bike-models';
+import type { BikeModelSpec } from '@/lib/alerta-presion/bike-models';
 
 const DEFAULT_PROFILE: BikeProfile = {
   riderWeightKg: 75,
@@ -315,14 +317,32 @@ export default function AlertaPresionPage() {
                 {/* Modelo bici */}
                 <div>
                   <label className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">Modelo bicicleta</label>
-                  <select value={profile.bikeModel} onChange={e => setProfile(p => ({ ...p, bikeModel: e.target.value }))}
+                  <select value={profile.bikeModel} onChange={e => {
+                    const model = e.target.value;
+                    const spec = BIKE_MODELS.find(m => m.name === model);
+                    if (spec) {
+                      setProfile({
+                        ...profile,
+                        bikeModel: model,
+                        bikeWeightKg: spec.weightKg,
+                        wheelFront: spec.wheelFront,
+                        wheelRear: spec.wheelRear,
+                        tireWidthFrontInch: spec.tireWidthFrontInch,
+                        tireWidthRearInch: spec.tireWidthRearInch,
+                        tireModelFront: spec.tireModelFront,
+                        tireModelRear: spec.tireModelRear,
+                        tubeless: spec.tubeless,
+                      });
+                    } else {
+                      setProfile(p => ({ ...p, bikeModel: model }));
+                    }
+                  }}
                     className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer"
                   >
-                    <option>Turbo Levo Carbono 2023</option>
-                    <option>Turbo Levo Comp 2023</option>
-                    <option>Stumpjumper EVO</option>
-                    <option>Enduro Comp</option>
-                    <option>Other</option>
+                    {BIKE_MODELS.map(m => (
+                      <option key={m.name} value={m.name}>{m.name} ({m.year})</option>
+                    ))}
+                    <option value="">— Personalizado —</option>
                   </select>
                 </div>
                 {/* Rueda delantera */}
@@ -453,8 +473,47 @@ export default function AlertaPresionPage() {
               )}
 
               {/* ─── RESULTADOS ─── */}
-              {selectedOnlyCalc && descentResults.size > 0 && (
+              {selectedOnlyCalc && descentResults.size > 0 && (() => {
+                // Compute average of all descent recommendations
+                const values = Array.from(descentResults.values());
+                const avgFrontBar = values.reduce((s, v) => s + v.recommendation.recommendedFrontBar, 0) / values.length;
+                const avgRearBar  = values.reduce((s, v) => s + v.recommendation.recommendedRearBar, 0) / values.length;
+                const avgFrontPsi = values.reduce((s, v) => s + v.recommendation.recommendedFrontPsi, 0) / values.length;
+                const avgRearPsi  = values.reduce((s, v) => s + v.recommendation.recommendedRearPsi, 0) / values.length;
+                const firstWeather = values[0]?.weather;
+
+                return (
                 <div className="mt-6 space-y-6">
+                  {/* ─── PROMEDIO GENERAL ─── */}
+                  <div className="bg-gradient-to-br from-slate-900 to-slate-950 border border-orange-500/20 rounded-2xl p-6 shadow-lg shadow-orange-500/5">
+                    <div className="flex items-center gap-2 mb-4">
+                      <TrendingDown className="w-5 h-5 text-orange-500" />
+                      <h2 className="text-sm font-bold text-white">Presión media recomendada</h2>
+                    </div>
+
+                    {firstWeather && (
+                      <div className="flex items-center gap-3 mb-4 text-[10px] text-slate-400 bg-slate-950/50 rounded-lg px-3 py-2">
+                        <span className="flex items-center gap-1"><Thermometer className="w-3 h-3 text-orange-400" /> {firstWeather.temperatureC}°C</span>
+                        <span className="flex items-center gap-1"><Droplets className="w-3 h-3 text-blue-400" /> {firstWeather.humidityPct}% HR</span>
+                        <span className="text-slate-600">{descents.length} descenso{descents.length !== 1 ? 's' : ''}</span>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="text-center p-4 bg-slate-950/60 border border-white/5 rounded-xl">
+                        <p className="text-[9px] text-slate-500 uppercase tracking-widest mb-2">Delantera</p>
+                        <p className="text-5xl font-black text-orange-500">{avgFrontBar.toFixed(1)}</p>
+                        <p className="text-xs text-slate-400 mt-1">{Math.round(avgFrontPsi)} PSI</p>
+                      </div>
+                      <div className="text-center p-4 bg-slate-950/60 border border-white/5 rounded-xl">
+                        <p className="text-[9px] text-slate-500 uppercase tracking-widest mb-2">Trasera</p>
+                        <p className="text-5xl font-black text-orange-500">{avgRearBar.toFixed(1)}</p>
+                        <p className="text-xs text-slate-400 mt-1">{Math.round(avgRearPsi)} PSI</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ─── POR CADA DESCENSO ─── */}
                   {descents.map(descent => {
                     const result = descentResults.get(descent.id);
                     if (!result) return null;
@@ -515,7 +574,7 @@ export default function AlertaPresionPage() {
                     );
                   })}
                 </div>
-              )}
+              )})()}
             </section>
           </>
         )}
