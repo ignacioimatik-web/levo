@@ -4,10 +4,13 @@ import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/browser';
 import type { User } from '@supabase/supabase-js';
 import type { BikeProfile, PressureRecommendation } from '@/lib/alerta-presion/types';
-import { Loader2, Gauge, Thermometer, Droplets, Bike, AlertTriangle, TrendingDown, MapPin, Mountain } from 'lucide-react';
+import { Loader2, Gauge, Thermometer, Droplets, Bike, AlertTriangle, TrendingDown, MapPin, Mountain, Crosshair } from 'lucide-react';
 import Link from 'next/link';
 import { BIKE_MODELS } from '@/lib/alerta-presion/bike-models';
 import type { BikeModelSpec } from '@/lib/alerta-presion/bike-models';
+import { Map, Marker, Popup, NavigationControl } from 'react-map-gl/mapbox';
+import type { MapMouseEvent } from 'react-map-gl/mapbox';
+import 'mapbox-gl/dist/mapbox-gl.css';
 
 // Sector definitions with representative weather coordinates
 const SECTORS: Array<{ id: string; name: string; description: string; image: string; lat: number; lng: number }> = [
@@ -44,6 +47,9 @@ export default function AlertaPresionPage() {
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved' | 'error'>('idle');
   const [selectedSector, setSelectedSector] = useState<string | null>(null);
+  const [mapPoint, setMapPoint] = useState<{ lat: number; lng: number } | null>(null);
+  const [mapResult, setMapResult] = useState<{ recommendation: PressureRecommendation; weather: any } | null>(null);
+  const [mapCalculating, setMapCalculating] = useState(false);
   const [result, setResult] = useState<{ recommendation: PressureRecommendation; weather: any } | null>(null);
   const [calculating, setCalculating] = useState(false);
   const [error, setError] = useState('');
@@ -153,6 +159,30 @@ export default function AlertaPresionPage() {
       }
     } catch { setError('Error de conexión'); }
     setCalculating(false);
+  };
+
+  // Calculate pressure for map click point
+  const handleMapCalculate = async (lat: number, lng: number) => {
+    setMapPoint({ lat, lng });
+    setMapResult(null);
+    setMapCalculating(true);
+    try {
+      const res = await fetch('/api/alerta-presion/calculate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          profile,
+          lat,
+          lng,
+          descent: { id: 'map-point', name: 'Punto en mapa', trackName: '', distanceKm: 0, elevationLoss: 0, elevationGain: 0, midpoint: { lat, lng } },
+        }),
+      });
+      const data = await res.json();
+      if (data.recommendation) {
+        setMapResult({ recommendation: data.recommendation, weather: data.weather });
+      }
+    } catch {}
+    setMapCalculating(false);
   };
 
   // Save profile
@@ -510,76 +540,116 @@ export default function AlertaPresionPage() {
               </div>
             </details>
 
-            {/* CALCULADORA POR SECTOR - TARJETAS GRAFICAS */}
+            {/* CALCULADORA POR SECTOR + MAPA 3D */}
             <section className="bg-slate-900/20 border border-white/5 rounded-2xl p-5">
-              <details open={!result}>
+              <details open={!result && !mapResult}>
                 <summary className="flex items-center gap-2 cursor-pointer text-slate-400 hover:text-white transition-colors list-none">
                   <Mountain className="w-4 h-4 text-orange-500/70" />
-                  <span className="text-xs font-bold uppercase tracking-widest">Elige un sector</span>
-                  <span className="ml-auto text-[9px] text-slate-600">{selectedSector ? SECTORS.find(s => s.id === selectedSector)?.name : 'Toca para calcular'}</span>
+                  <span className="text-xs font-bold uppercase tracking-widest">Seleccionar zona</span>
+                  <span className="ml-auto text-[9px] text-slate-600">{selectedSector ? SECTORS.find(s => s.id === selectedSector)?.name : mapPoint ? 'Punto en mapa' : 'Sectores o mapa'}</span>
                   <svg className="w-3 h-3 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                   </svg>
                 </summary>
-                <div className="mt-4 space-y-4">
-                  {/* Grid de tarjetas de sector */}
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                    {SECTORS.map(s => {
-                      const isSelected = selectedSector === s.id;
-                      return (
-                        <button
-                          key={s.id}
-                          onClick={() => { setSelectedSector(s.id); setResult(null); setError(''); }}
-                          className={`relative group overflow-hidden rounded-2xl border-2 transition-all duration-200 text-left ${
-                            isSelected
-                              ? 'border-orange-500 ring-2 ring-orange-500/30 shadow-lg shadow-orange-500/20'
-                              : 'border-white/10 hover:border-orange-500/50'
-                          }`}
-                        >
-                          {/* Imagen de fondo */}
-                          <div className="aspect-[4/3] relative">
-                            <img
-                              src={s.image}
-                              alt={s.name}
-                              className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            />
-                            <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
-                            {/* Check de seleccion */}
-                            {isSelected && (
-                              <div className="absolute top-2 right-2 w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center shadow-lg">
-                                <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                </svg>
+                <div className="mt-4">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* COLUMNA IZQUIERDA: Tarjetas de sector */}
+                    <div className="space-y-4">
+                      <p className="text-[10px] text-orange-400 uppercase tracking-widest font-bold flex items-center gap-2">
+                        <Mountain className="w-3.5 h-3.5" /> Sectores conocidos
+                      </p>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {SECTORS.map(s => {
+                          const isSelected = selectedSector === s.id;
+                          return (
+                            <button
+                              key={s.id}
+                              onClick={() => { setSelectedSector(s.id); setResult(null); setError(''); setMapPoint(null); setMapResult(null); }}
+                              className={`relative group overflow-hidden rounded-xl border-2 transition-all duration-200 text-left ${
+                                isSelected
+                                  ? 'border-orange-500 ring-2 ring-orange-500/30 shadow-lg shadow-orange-500/20'
+                                  : 'border-white/10 hover:border-orange-500/50'
+                              }`}
+                            >
+                              <div className="aspect-[4/3] relative">
+                                <img src={s.image} alt={s.name} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
+                                {isSelected && (
+                                  <div className="absolute top-1.5 right-1.5 w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center shadow-lg">
+                                    <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                  </div>
+                                )}
                               </div>
-                            )}
-                          </div>
-                          {/* Nombre del sector */}
-                          <div className={`p-3 ${isSelected ? 'bg-orange-500/10' : 'bg-slate-900'}`}>
-                            <p className={`text-xs font-bold uppercase tracking-wider ${
-                              isSelected ? 'text-orange-400' : 'text-white'
-                            }`}>
-                              {s.name}
-                            </p>
-                            <p className="text-[9px] text-slate-500 mt-0.5 leading-tight line-clamp-2">{s.description}</p>
-                          </div>
+                              <div className={`p-2 ${isSelected ? 'bg-orange-500/10' : 'bg-slate-900'}`}>
+                                <p className={`text-[10px] font-bold uppercase tracking-wider ${isSelected ? 'text-orange-400' : 'text-white'}`}>{s.name}</p>
+                                <p className="text-[8px] text-slate-500 mt-0.5 leading-tight line-clamp-1">{s.description}</p>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {selectedSector && (
+                        <button onClick={handleCalculate} disabled={calculating}
+                          className="w-full py-2.5 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white rounded-xl font-bold text-xs transition-all shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2">
+                          {calculating ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Consultando AEMET...</>
+                          : <><Gauge className="w-3.5 h-3.5" /> Calcular presión</>}
                         </button>
-                      );
-                    })}
+                      )}
+                    </div>
+
+                    {/* COLUMNA DERECHA: Mapa 3D interactivo */}
+                    <div className="space-y-4">
+                      <p className="text-[10px] text-orange-400 uppercase tracking-widest font-bold flex items-center gap-2">
+                        <Crosshair className="w-3.5 h-3.5" /> Mapa libre — haz clic donde quieras
+                      </p>
+                      <div className="relative w-full h-[320px] lg:h-[400px] rounded-xl overflow-hidden border border-white/5">
+                        <Map
+                          mapStyle={{ version: 8, sources: { 'mapbox-dem': { type: 'raster-dem', url: 'mapbox://mapbox.mapbox-terrain-dem-v1', tileSize: 512, maxzoom: 14 } }, layers: [{ id: 'background', type: 'background', paint: { 'background-color': '#0a0e1a' } }, { id: 'terrain', type: 'hillshade', source: 'mapbox-dem' }], terrain: { source: 'mapbox-dem', exaggeration: 1.5 } } as any}
+                          mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
+                          initialViewState={{ latitude: 40.62, longitude: -0.125, zoom: 11, pitch: 50 }}
+                          onClick={(e: MapMouseEvent) => {
+                            const { lat, lng } = e.lngLat;
+                            setSelectedSector(null);
+                            setResult(null);
+                            setError('');
+                            handleMapCalculate(lat, lng);
+                          }}
+                          style={{ width: '100%', height: '100%' }}
+                        >
+                          <NavigationControl position="top-right" />
+                          {mapPoint && (
+                            <>
+                              <Marker latitude={mapPoint.lat} longitude={mapPoint.lng} color="#f97316" scale={0.8} />
+                              {mapResult && (
+                                <Popup latitude={mapPoint.lat} longitude={mapPoint.lng} closeButton={false} offset={[0, -20]} maxWidth="200px">
+                                  <div className="bg-slate-950 text-white p-2 min-w-[140px]">
+                                    <p className="text-[9px] text-orange-400 uppercase tracking-widest font-bold mb-1">Presión</p>
+                                    <div className="flex gap-3 text-xs">
+                                      <div><span className="text-slate-400">Del.</span> <span className="font-bold text-orange-400">{mapResult.recommendation.recommendedFrontBar.toFixed(1)}</span></div>
+                                      <div><span className="text-slate-400">Tras.</span> <span className="font-bold text-orange-400">{mapResult.recommendation.recommendedRearBar.toFixed(1)}</span></div>
+                                    </div>
+                                    {mapResult.weather && (
+                                      <p className="text-[9px] text-slate-500 mt-1">{mapResult.weather.temperatureC}°C · {mapResult.weather.humidityPct}%</p>
+                                    )}
+                                  </div>
+                                </Popup>
+                              )}
+                            </>
+                          )}
+                          {mapCalculating && (
+                            <div className="absolute top-2 left-2 z-10 bg-slate-950/90 border border-white/10 rounded-lg px-3 py-2 flex items-center gap-2 text-[10px] text-slate-300">
+                              <Loader2 className="w-3 h-3 animate-spin text-orange-400" /> Calculando...
+                            </div>
+                          )}
+                        </Map>
+                      </div>
+                      <p className="text-[9px] text-slate-600 leading-relaxed">Haz clic en cualquier punto del mapa 3D para obtener la presión recomendada según las condiciones meteorológicas de esa zona.</p>
+                    </div>
                   </div>
 
-                  {error && <div className="p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-[11px] text-red-400">{error}</div>}
-
-                  {/* Boton calcular */}
-                  {selectedSector && (
-                    <button onClick={handleCalculate} disabled={calculating}
-                      className="w-full py-3 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white rounded-xl font-bold text-sm transition-all shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2">
-                      {calculating ? (
-                        <><Loader2 className="w-4 h-4 animate-spin" /> Consultando AEMET...</>
-                      ) : (
-                        <><Gauge className="w-4 h-4" /> Calcular presión recomendada</>
-                      )}
-                    </button>
-                  )}
+                  {error && <div className="mt-3 p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-[11px] text-red-400">{error}</div>}
                 </div>
               </details>
             </section>
