@@ -70,20 +70,24 @@ export default function AlertaPresionPage() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Load ALL profiles for the user
+  // Load ALL profiles for the user (browser client direct)
   const loadProfiles = useCallback(async () => {
     if (!user) return;
     try {
       setProfileLoadError('');
-      const res = await fetch('/api/alerta-presion/profile');
-      const data = await res.json();
-      if (data.error) {
-        setProfileLoadError(data.error);
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from('bike_profiles')
+        .select('*')
+        .order('updated_at', { ascending: false });
+
+      if (error) {
+        setProfileLoadError(error.message);
         setSavedProfiles([]);
-      } else if (data.profiles && data.profiles.length > 0) {
-        setSavedProfiles(data.profiles);
+      } else if (data && data.length > 0) {
+        setSavedProfiles(data);
         // Auto-select the first one
-        selectProfile(data.profiles[0]);
+        selectProfile(data[0]);
       } else {
         setSavedProfiles([]);
         setProfile({ ...DEFAULT_PROFILE });
@@ -238,47 +242,66 @@ export default function AlertaPresionPage() {
     setCalculating(false);
   };
 
-  // Save profile (creates new or updates existing)
+  // Save profile (creates new or updates existing) - browser client direct
   const handleSaveProfile = async () => {
     setSaving(true);
     setSaveStatus('idle');
     try {
-      const isUpdate = !!selectedProfileId;
-      const res = await fetch(`/api/alerta-presion/profile${isUpdate ? `?id=${selectedProfileId}` : ''}`, {
-        method: isUpdate ? 'PATCH' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          profile_name: profileName,
-          rider_weight_kg: profile.riderWeightKg,
-          bike_weight_kg: profile.bikeWeightKg,
-          bike_model: profile.bikeModel,
-          wheel_front: profile.wheelFront,
-          wheel_rear: profile.wheelRear,
-          tire_model_front: profile.tireModelFront,
-          tire_model_rear: profile.tireModelRear,
-          tire_width_front_inch: profile.tireWidthFrontInch,
-          tire_width_rear_inch: profile.tireWidthRearInch,
-          initial_pressure_front_bar: profile.initialPressureFrontBar,
-          initial_pressure_rear_bar: profile.initialPressureRearBar,
-          tubeless: profile.tubeless,
-        }),
-      });
-      if (res.ok) {
-        setSaveStatus('saved');
-        await loadProfiles(); // Reload the list
+      const supabase = createClient();
+      const payload = {
+        profile_name: profileName,
+        rider_weight_kg: profile.riderWeightKg,
+        bike_weight_kg: profile.bikeWeightKg,
+        bike_model: profile.bikeModel,
+        wheel_front: profile.wheelFront,
+        wheel_rear: profile.wheelRear,
+        tire_model_front: profile.tireModelFront,
+        tire_model_rear: profile.tireModelRear,
+        tire_width_front_inch: profile.tireWidthFrontInch,
+        tire_width_rear_inch: profile.tireWidthRearInch,
+        initial_pressure_front_bar: profile.initialPressureFrontBar,
+        initial_pressure_rear_bar: profile.initialPressureRearBar,
+        tubeless: profile.tubeless,
+      };
+
+      let result;
+      if (selectedProfileId) {
+        // Update existing
+        result = await supabase
+          .from('bike_profiles')
+          .update({ ...payload, updated_at: new Date().toISOString() })
+          .eq('id', selectedProfileId)
+          .select()
+          .single();
       } else {
+        // Insert new
+        result = await supabase
+          .from('bike_profiles')
+          .insert(payload)
+          .select()
+          .single();
+      }
+
+      if (result.error) {
         setSaveStatus('error');
+      } else {
+        setSaveStatus('saved');
+        if (result.data) {
+          setSelectedProfileId(result.data.id);
+        }
+        await loadProfiles();
       }
     } catch { setSaveStatus('error'); }
     setSaving(false);
     setTimeout(() => setSaveStatus('idle'), 3000);
   };
 
-  // Delete profile
+  // Delete profile - browser client direct
   const handleDeleteProfile = async (id: string) => {
     if (!confirm('¿Eliminar este perfil?')) return;
     try {
-      await fetch(`/api/alerta-presion/profile?id=${id}`, { method: 'DELETE' });
+      const supabase = createClient();
+      await supabase.from('bike_profiles').delete().eq('id', id);
       if (selectedProfileId === id) {
         setProfile({ ...DEFAULT_PROFILE });
         setProfileName('Mi perfil');
