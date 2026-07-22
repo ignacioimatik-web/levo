@@ -477,7 +477,7 @@ export default function AlertaPresionPage() {
                 <div>
                   <label className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">Peso ciclista (kg)</label>
                   <Select value={profile.riderWeightKg} onChange={v => setProfile(p => ({ ...p, riderWeightKg: v }))}
-                    options={Array.from({ length: 28 }, (_, i) => 68 + i)} />
+                    options={Array.from({ length: 33 }, (_, i) => 68 + i)} />
                 </div>
                 {/* Peso bici */}
                 <div>
@@ -524,7 +524,6 @@ export default function AlertaPresionPage() {
                   >
                     <option value="29">29"</option>
                     <option value="27.5">27.5"</option>
-                    <option value="26">26"</option>
                   </select>
                 </div>
                 {/* Rueda trasera */}
@@ -535,26 +534,25 @@ export default function AlertaPresionPage() {
                   >
                     <option value="29">29"</option>
                     <option value="27.5">27.5"</option>
-                    <option value="26">26"</option>
                   </select>
                 </div>
                 {/* Ancho neumático del. (pulgadas) */}
                 <div>
-                  <label className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">Ancho neumático del. (")</label>
-                  <select value={profile.tireWidthFrontInch} onChange={e => setProfile(p => ({ ...p, tireWidthFrontInch: Number(e.target.value) }))}
-                    className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer"
-                  >
-                    {[2.1, 2.2, 2.3, 2.4, 2.5].map(v => <option key={v} value={v}>{v.toFixed(1)}"</option>)}
-                  </select>
+                <label className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">Ancho neumático del. (")</label>
+                <select value={profile.tireWidthFrontInch} onChange={e => setProfile(p => ({ ...p, tireWidthFrontInch: Number(e.target.value) }))}
+                  className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer"
+                >
+                  {[2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8].map(v => <option key={v} value={v}>{v.toFixed(1)}"</option>)}
+                </select>
                 </div>
                 {/* Ancho neumático tras. (pulgadas) */}
                 <div>
-                  <label className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">Ancho neumático tras. (")</label>
-                  <select value={profile.tireWidthRearInch} onChange={e => setProfile(p => ({ ...p, tireWidthRearInch: Number(e.target.value) }))}
-                    className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer"
-                  >
-                    {[2.1, 2.2, 2.3, 2.4, 2.5].map(v => <option key={v} value={v}>{v.toFixed(1)}"</option>)}
-                  </select>
+                <label className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">Ancho neumático tras. (")</label>
+                <select value={profile.tireWidthRearInch} onChange={e => setProfile(p => ({ ...p, tireWidthRearInch: Number(e.target.value) }))}
+                  className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer"
+                >
+                  {[2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8].map(v => <option key={v} value={v}>{v.toFixed(1)}"</option>)}
+                </select>
                 </div>
                 {/* Presión inicial del. */}
                 <div>
