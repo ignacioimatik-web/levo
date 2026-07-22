@@ -47,6 +47,9 @@ export default function AlertaPresionPage() {
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved' | 'error'>('idle');
   const [selectedSector, setSelectedSector] = useState<string | null>(null);
+  const [stations, setStations] = useState<any[]>([]);
+  const [stationsLoading, setStationsLoading] = useState(false);
+  const [selectedStation, setSelectedStation] = useState<any | null>(null);
   const [mapPoint, setMapPoint] = useState<{ lat: number; lng: number } | null>(null);
   const [mapResult, setMapResult] = useState<{ recommendation: PressureRecommendation; weather: any } | null>(null);
   const [mapCalculating, setMapCalculating] = useState(false);
