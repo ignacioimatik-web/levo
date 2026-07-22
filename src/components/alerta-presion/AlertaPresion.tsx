@@ -764,49 +764,70 @@ export default function AlertaPresionPage() {
 
                   {/* DATOS METEOROLOGICOS (PROMINENTES) */}
                   {weather && (
-                    <div className={`border rounded-2xl p-6 ${weatherBadge.bg}`}>
-                      <div className="flex items-center gap-2 mb-5">
-                        <Thermometer className={`w-5 h-5 ${weatherBadge.color}`} />
-                        <span className="text-xs font-bold uppercase tracking-widest text-slate-300">Meteo en la ruta</span>
-                        <span className={`ml-auto text-[10px] font-bold uppercase ${weatherBadge.color}`}>
-                          {weatherBadge.label}
-                        </span>
+                    <div className="border border-white/5 rounded-2xl overflow-hidden">
+                      {/* Cabecera con estado del tiempo - GRANDE y visible */}
+                      <div className={`px-6 py-4 flex items-center gap-3 ${weatherBadge.bg.replace('rounded-2xl', '')}`}>
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                          weatherBadge.label === 'Favorable' ? 'bg-green-500/20' 
+                          : weatherBadge.label === 'Lluvia ligera' ? 'bg-yellow-500/20' 
+                          : 'bg-red-500/20'
+                        }`}>
+                          <svg className={`w-5 h-5 ${weatherBadge.color}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            {weatherBadge.label === 'Favorable' ? (
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                            ) : (
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                            )}
+                          </svg>
+                        </div>
+                        <div className="flex-1">
+                          <p className={`text-lg font-black uppercase tracking-tight ${weatherBadge.color}`}>
+                            {weatherBadge.label}
+                          </p>
+                          <p className="text-[11px] text-slate-400">
+                            {weather.temperatureC}°C · {weather.humidityPct}% HR · {weather.windKmh ?? '—'} km/h viento
+                          </p>
+                        </div>
+                        <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Meteo</span>
                       </div>
 
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        <div className="text-center p-4 bg-slate-950/50 rounded-xl border border-white/5">
-                          <Thermometer className="w-5 h-5 text-orange-400 mx-auto mb-2" />
-                          <p className="text-3xl font-black text-white">{weather.temperatureC}°</p>
-                          <p className="text-[9px] text-slate-500 uppercase tracking-widest mt-1">Temperatura</p>
+                      {/* Métricas - ligeramente más pequeñas */}
+                      <div className="p-4 bg-slate-900/30">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                          <div className="text-center p-3 bg-slate-950/60 rounded-xl border border-white/5">
+                            <Thermometer className="w-4 h-4 text-orange-400 mx-auto mb-1.5" />
+                            <p className="text-2xl font-black text-white">{weather.temperatureC}°</p>
+                            <p className="text-[8px] text-slate-500 uppercase tracking-widest mt-0.5">Temperatura</p>
+                          </div>
+                          <div className="text-center p-3 bg-slate-950/60 rounded-xl border border-white/5">
+                            <Droplets className="w-4 h-4 text-blue-400 mx-auto mb-1.5" />
+                            <p className="text-2xl font-black text-white">{weather.humidityPct}%</p>
+                            <p className="text-[8px] text-slate-500 uppercase tracking-widest mt-0.5">Humedad</p>
+                          </div>
+                          <div className="text-center p-3 bg-slate-950/60 rounded-xl border border-white/5">
+                            <svg className="w-4 h-4 text-cyan-400 mx-auto mb-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                            </svg>
+                            <p className="text-2xl font-black text-white">{weather.precipitationMm ?? 0} mm</p>
+                            <p className="text-[8px] text-slate-500 uppercase tracking-widest mt-0.5">Precipitación</p>
+                          </div>
+                          <div className="text-center p-3 bg-slate-950/60 rounded-xl border border-white/5">
+                            <svg className="w-4 h-4 text-emerald-400 mx-auto mb-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                            </svg>
+                            <p className="text-2xl font-black text-white">{weather.windKmh ?? '—'}</p>
+                            <p className="text-[8px] text-slate-500 uppercase tracking-widest mt-0.5">Viento km/h</p>
+                          </div>
                         </div>
-                        <div className="text-center p-4 bg-slate-950/50 rounded-xl border border-white/5">
-                          <Droplets className="w-5 h-5 text-blue-400 mx-auto mb-2" />
-                          <p className="text-3xl font-black text-white">{weather.humidityPct}%</p>
-                          <p className="text-[9px] text-slate-500 uppercase tracking-widest mt-1">Humedad</p>
-                        </div>
-                        <div className="text-center p-4 bg-slate-950/50 rounded-xl border border-white/5">
-                          <svg className="w-5 h-5 text-cyan-400 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
-                          </svg>
-                          <p className="text-3xl font-black text-white">{weather.precipitationMm ?? 0} mm</p>
-                          <p className="text-[9px] text-slate-500 uppercase tracking-widest mt-1">Precipitación</p>
-                        </div>
-                        <div className="text-center p-4 bg-slate-950/50 rounded-xl border border-white/5">
-                          <svg className="w-5 h-5 text-emerald-400 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-                          </svg>
-                          <p className="text-3xl font-black text-white">{weather.windKmh ?? '—'}</p>
-                          <p className="text-[9px] text-slate-500 uppercase tracking-widest mt-1">Viento km/h</p>
-                        </div>
-                      </div>
 
-                      {weather.stationName && (
-                        <div className="mt-4 text-[10px] text-slate-600 bg-slate-950/30 rounded-lg px-3 py-2 text-center">
-                          Datos de estación {weather.stationName}
-                          {weather.stationDistanceKm && <> · a {weather.stationDistanceKm} km</>}
-                        </div>
-                      )}
+                        {weather.stationName && (
+                          <div className="mt-3 text-[9px] text-slate-600 bg-slate-950/30 rounded-lg px-3 py-2 text-center">
+                            Datos de estación {weather.stationName}
+                            {weather.stationDistanceKm && <> · a {weather.stationDistanceKm} km</>}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
 
