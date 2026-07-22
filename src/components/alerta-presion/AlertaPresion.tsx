@@ -30,7 +30,7 @@ const DEFAULT_PROFILE: BikeProfile = {
   rimWidthMm: 30,
   ridingStyle: 'moderado' as const,
   riderExperience: 'intermedio' as const,
-  terrainType: 'mixto' as const,
+  terrainTypes: [] as string[],
   groundCondition: 'mixto' as const,
   casingType: 'estandar' as const,
 };
@@ -123,7 +123,7 @@ export default function AlertaPresionPage() {
 
   const selectProfile = (p: any) => {
     setSelectedProfileId(p.id); setProfileName(p.profile_name || 'Mi perfil');
-    setProfile({ riderWeightKg: p.rider_weight_kg, bikeWeightKg: p.bike_weight_kg, bikeModel: p.bike_model || '', wheelFront: p.wheel_front || '27.5', wheelRear: p.wheel_rear || '27.5', tireModelFront: p.tire_model_front || '', tireModelRear: p.tire_model_rear || '', tireWidthFrontInch: p.tire_width_front_inch || 2.3, tireWidthRearInch: p.tire_width_rear_inch || 2.3, initialPressureFrontBar: p.initial_pressure_front_bar || 1.8, initialPressureRearBar: p.initial_pressure_rear_bar || 2.0, tubeless: p.tubeless ?? true, rimWidthMm: p.rim_width_mm ?? 30, ridingStyle: p.riding_style || 'moderado', riderExperience: p.rider_experience || 'intermedio', terrainType: p.terrain_type || 'mixto', groundCondition: p.ground_condition || 'mixto', casingType: p.casing_type || 'estandar' });
+    setProfile({ riderWeightKg: p.rider_weight_kg, bikeWeightKg: p.bike_weight_kg, bikeModel: p.bike_model || '', wheelFront: p.wheel_front || '27.5', wheelRear: p.wheel_rear || '27.5', tireModelFront: p.tire_model_front || '', tireModelRear: p.tire_model_rear || '', tireWidthFrontInch: p.tire_width_front_inch || 2.3, tireWidthRearInch: p.tire_width_rear_inch || 2.3, initialPressureFrontBar: p.initial_pressure_front_bar || 1.8, initialPressureRearBar: p.initial_pressure_rear_bar || 2.0, tubeless: p.tubeless ?? true, rimWidthMm: p.rim_width_mm ?? 30, ridingStyle: p.riding_style || 'moderado', riderExperience: p.rider_experience || 'intermedio', terrainTypes: Array.isArray(p.terrain_types) ? p.terrain_types : [], groundCondition: p.ground_condition || 'mixto', casingType: p.casing_type || 'estandar' });
   };
 
   useEffect(() => { if (user) loadProfiles(); else { setProfileLoaded(true); setSavedProfiles([]); } }, [user, loadProfiles]);
@@ -195,7 +195,7 @@ export default function AlertaPresionPage() {
     setSaving(true); setSaveStatus('idle');
     try {
       const supabase = createClient();
-      const payload = { profile_name: profileName, rider_weight_kg: profile.riderWeightKg, bike_weight_kg: profile.bikeWeightKg, bike_model: profile.bikeModel, wheel_front: profile.wheelFront, wheel_rear: profile.wheelRear, tire_model_front: profile.tireModelFront, tire_model_rear: profile.tireModelRear, tire_width_front_inch: profile.tireWidthFrontInch, tire_width_rear_inch: profile.tireWidthRearInch, initial_pressure_front_bar: profile.initialPressureFrontBar, initial_pressure_rear_bar: profile.initialPressureRearBar, tubeless: profile.tubeless };
+      const payload = { profile_name: profileName, rider_weight_kg: profile.riderWeightKg, bike_weight_kg: profile.bikeWeightKg, bike_model: profile.bikeModel, wheel_front: profile.wheelFront, wheel_rear: profile.wheelRear, tire_model_front: profile.tireModelFront, tire_model_rear: profile.tireModelRear, tire_width_front_inch: profile.tireWidthFrontInch, tire_width_rear_inch: profile.tireWidthRearInch, initial_pressure_front_bar: profile.initialPressureFrontBar, initial_pressure_rear_bar: profile.initialPressureRearBar, tubeless: profile.tubeless, terrain_types: profile.terrainTypes || [] };
       const result = selectedProfileId
         ? await supabase.rpc('update_bike_profile', { p_id: selectedProfileId, ...Object.fromEntries(Object.entries(payload).map(([k, v]) => ['p_' + k, v])) })
         : await supabase.rpc('insert_bike_profile', { ...Object.fromEntries(Object.entries(payload).map(([k, v]) => ['p_' + k, v])) });
@@ -328,11 +328,23 @@ export default function AlertaPresionPage() {
                       className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer">
                       {[25, 27, 30, 32, 35, 38, 40].map(v => <option key={v} value={v}>{v}mm</option>)}
                     </select></div>
-                  <div><label className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">Tipo de terreno</label>
-                    <select value={profile.terrainType || 'mixto'} onChange={e => setProfile(p => ({ ...p, terrainType: e.target.value as any }))}
-                      className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer">
-                      <option value="mixto">Mixto</option><option value="raices">Raíces</option><option value="arcilloso">Arcilloso/blando</option><option value="duro">Duro (hard pack)</option><option value="rocoso">Rocoso</option>
-                    </select></div>
+                  <div><label className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">Tipo de terreno (elige varios)</label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[['mixto', 'Mixto'], ['raices', 'Raíces'], ['arcilloso', 'Arcilloso'], ['duro', 'Duro'], ['rocoso', 'Rocoso']].map(([val, label]) => {
+                        const sel = profile.terrainTypes?.includes(val) || false;
+                        return (
+                          <button key={val} onClick={() => setProfile(p => ({
+                            ...p,
+                            terrainTypes: sel ? (p.terrainTypes || []).filter(v => v !== val) : [...(p.terrainTypes || []), val],
+                          }))}
+                            className={`px-2.5 py-1.5 rounded-lg border text-[10px] font-bold transition-all ${
+                              sel ? 'bg-orange-500/20 border-orange-500 text-orange-400' : 'bg-slate-950 border-white/10 text-slate-400 hover:border-orange-500/50'
+                            }`}>
+                            {sel && '✓ '}{label}
+                          </button>
+                        );
+                      })}
+                    </div></div>
                   <div><label className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">Condición del terreno</label>
                     <select value={profile.groundCondition || 'mixto'} onChange={e => setProfile(p => ({ ...p, groundCondition: e.target.value as any }))}
                       className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer">

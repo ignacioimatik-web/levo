@@ -17,7 +17,7 @@ export interface BikeProfile {
   rimWidthMm?: number;
   ridingStyle?: 'conservador' | 'moderado' | 'agresivo';
   riderExperience?: 'principiante' | 'intermedio' | 'avanzado' | 'experto';
-  terrainType?: 'mixto' | 'raices' | 'arcilloso' | 'duro' | 'rocoso';
+  terrainTypes?: string[];
   groundCondition?: 'humedo' | 'mixto' | 'seco';
   casingType?: 'ligera' | 'estandar' | 'reforzada';
   createdAt?: string;

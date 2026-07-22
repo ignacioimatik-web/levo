@@ -102,9 +102,16 @@ export function calculatePressure(input: CalculationInput): PressureRecommendati
   frontPsi -= 2.0;
   rearPsi  -= 1.0;
 
-  // --- Terrain type ---
-  const terrain = profile.terrainType ? TERRAIN_ADJ[profile.terrainType] : null;
-  if (terrain) { frontPsi += terrain.front; rearPsi += terrain.rear; }
+  // --- Terrain types (multiple allowed) ---
+  if (profile.terrainTypes && profile.terrainTypes.length > 0) {
+    const validTerrain = profile.terrainTypes.filter(t => TERRAIN_ADJ[t]);
+    if (validTerrain.length > 0) {
+      const avgFront = validTerrain.reduce((sum, t) => sum + TERRAIN_ADJ[t].front, 0) / validTerrain.length;
+      const avgRear = validTerrain.reduce((sum, t) => sum + TERRAIN_ADJ[t].rear, 0) / validTerrain.length;
+      frontPsi += avgFront;
+      rearPsi += avgRear;
+    }
+  }
 
   // --- Ground conditions ---
   const ground = profile.groundCondition ? GROUND_ADJ[profile.groundCondition] : null;
@@ -156,7 +163,10 @@ export function calculatePressure(input: CalculationInput): PressureRecommendati
     `${profile.tireWidthFrontInch.toFixed(1)}" del. / ${profile.tireWidthRearInch.toFixed(1)}" tras.`,
   ].filter(Boolean);
   if (profile.rimWidthMm) parts.push(`llanta ${profile.rimWidthMm}mm`);
-  if (terrain && terrain.label) parts.push(terrain.label);
+  if (profile.terrainTypes && profile.terrainTypes.length > 0) {
+    const labels = profile.terrainTypes.filter(t => TERRAIN_ADJ[t]).map(t => TERRAIN_ADJ[t].label);
+    if (labels.length > 0) parts.push(labels.join(' + '));
+  }
   if (ground && ground.label) parts.push(ground.label);
   if (style && style.label) parts.push(style.label);
   if (exp && exp.label) parts.push(exp.label);
