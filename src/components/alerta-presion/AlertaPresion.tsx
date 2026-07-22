@@ -51,6 +51,7 @@ export default function AlertaPresionPage() {
   const [calculating, setCalculating] = useState(false);
   const [selectedOnlyCalc, setSelectedOnlyCalc] = useState(false);
   const [error, setError] = useState('');
+  const [profileExpanded, setProfileExpanded] = useState(true);
 
   // Auth
   useEffect(() => {
@@ -196,6 +197,7 @@ export default function AlertaPresionPage() {
     setCalculating(true);
     setError('');
     setSelectedOnlyCalc(true);
+    setProfileExpanded(false); // collapse profile to make room for results
 
     const results = new Map<string, { recommendation: PressureRecommendation; weather: any }>();
     // Only calculate for the first descent - results are representative of all
@@ -325,12 +327,19 @@ export default function AlertaPresionPage() {
           </div>
         ) : (
           <>
-            {/* PERFIL */}
-            <section className="bg-slate-900/40 border border-white/5 rounded-2xl p-6">
-              <div className="flex items-center gap-2 mb-4">
+            {/* PERFIL (colapsable) */}
+            <details open={profileExpanded} className="bg-slate-900/40 border border-white/5 rounded-2xl">
+              <summary className="flex items-center gap-2 p-6 cursor-pointer text-slate-400 hover:text-white transition-colors list-none">
                 <Bike className="w-5 h-5 text-orange-500" />
                 <h2 className="text-base font-bold text-white">Perfil del ciclista</h2>
-              </div>
+                <span className="ml-auto text-[9px] text-slate-600">
+                  {profileExpanded ? 'Contraer' : 'Expandir'}
+                </span>
+                <svg className={`w-3 h-3 text-slate-600 transition-transform ${profileExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </summary>
+              <div className="px-6 pb-6 space-y-4">
 
               {/* Selector de perfil guardado */}
               {savedProfiles.length > 0 && (
@@ -492,7 +501,8 @@ export default function AlertaPresionPage() {
                   </button>
                 </div>
               </div>
-            </section>
+            </div>
+            </details>
 
             {/* CALCULADORA COMPACTA (SEGUNDO PLANO) */}
             <section className="bg-slate-900/20 border border-white/5 rounded-2xl p-5">
@@ -613,6 +623,35 @@ export default function AlertaPresionPage() {
                       </p>
                     )}
                   </div>
+
+                  {/* RUTA SELECCIONADA */}
+                  {(() => {
+                    const track = allTracks.find(t => t.id === selectedTrackId);
+                    if (!track) return null;
+                    const totalLoss = descents.reduce((s, d) => s + d.elevationLoss, 0);
+                    const totalDist = descents.reduce((s, d) => s + d.distanceKm, 0);
+                    return (
+                      <div className="bg-slate-900/30 border border-white/5 rounded-2xl p-5">
+                        <div className="flex items-center gap-2 mb-3">
+                          <svg className="w-4 h-4 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                          </svg>
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-orange-400">Ruta seleccionada</span>
+                        </div>
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <div>
+                            <h3 className="text-base font-bold text-white">{track.name}</h3>
+                            <p className="text-[11px] text-slate-500">{track.sector}</p>
+                          </div>
+                          <div className="flex items-center gap-4 text-[10px] text-slate-400">
+                            <span>{descents.length} descenso{descents.length !== 1 ? 's' : ''}</span>
+                            {totalDist > 0 && <span>{totalDist.toFixed(1)} km</span>}
+                            {totalLoss > 0 && <span>-{totalLoss} m</span>}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {/* DATOS METEOROLOGICOS (PROMINENTES) */}
                   {weather && (
