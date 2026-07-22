@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, Component } from 'react';
 import { createClient } from '@/lib/supabase/browser';
 import type { User } from '@supabase/supabase-js';
 import type { BikeProfile, PressureRecommendation } from '@/lib/alerta-presion/types';
@@ -9,7 +9,13 @@ import { Loader2, Gauge, Thermometer, Droplets, Bike, AlertTriangle, TrendingDow
 import Link from 'next/link';
 import { BIKE_MODELS } from '@/lib/alerta-presion/bike-models';
 import type { BikeModelSpec } from '@/lib/alerta-presion/bike-models';
-import { Map, Marker, Popup, NavigationControl } from 'react-map-gl/mapbox';
+import dynamic from 'next/dynamic';
+
+// Dynamically import mapbox components to avoid server-side rendering issues
+const Map = dynamic(() => import('react-map-gl/mapbox').then(m => m.Map), { ssr: false });
+const Marker = dynamic(() => import('react-map-gl/mapbox').then(m => m.Marker), { ssr: false });
+const Popup = dynamic(() => import('react-map-gl/mapbox').then(m => m.Popup), { ssr: false });
+const NavigationControl = dynamic(() => import('react-map-gl/mapbox').then(m => m.NavigationControl), { ssr: false });
 import type { MapMouseEvent } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
@@ -398,7 +404,7 @@ export default function AlertaPresionPage() {
                       <div className="relative w-full h-[400px] lg:h-[550px] rounded-xl overflow-hidden border border-white/5">
                         <Map
                           mapStyle="mapbox://styles/mapbox/outdoors-v12"
-                          mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
+                          mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN || ''}
                           initialViewState={{ latitude: 40.62, longitude: -0.125, zoom: 11, pitch: 50 }}
                           onClick={(e: MapMouseEvent) => {
                             // Get elevation from terrain
