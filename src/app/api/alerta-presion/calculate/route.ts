@@ -30,6 +30,7 @@ export async function POST(request: NextRequest) {
       weather: {
         stationName: weather?.stationName ?? null,
         stationDistanceKm: weather?.stationDistanceKm ?? null,
+        stationAltitude: weather?.stationAltitude ?? null,
         temperatureC,
         humidityPct,
         windKmh: weather?.windKmh ?? null,

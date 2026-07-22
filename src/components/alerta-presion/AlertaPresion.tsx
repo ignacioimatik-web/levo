@@ -52,11 +52,15 @@ export default function AlertaPresionPage() {
   const [profileLoadError, setProfileLoadError] = useState('');
 
   // Weather & calculation state
-  const [baseTemp, setBaseTemp] = useState(20);
-  const [baseHumidity, setBaseHumidity] = useState(60);
+  const [baseTemp, setBaseTemp] = useState<number | null>(null);
+  const [baseHumidity, setBaseHumidity] = useState<number | null>(null);
+  const [altitudeAdjusted, setAltitudeAdjusted] = useState(false);
   const [weatherSource, setWeatherSource] = useState('');
   const [weatherLoaded, setWeatherLoaded] = useState(false);
   const [weatherLoading, setWeatherLoading] = useState(false);
+  const [clickAltitude, setClickAltitude] = useState<number | null>(null);
+  const [stationMarkers, setStationMarkers] = useState<any[]>([]);
+  const [stationsLoading, setStationsLoading] = useState(false);
 
   // Manual adjustments
   const [adjustTemp, setAdjustTemp] = useState(0);
@@ -66,18 +70,19 @@ export default function AlertaPresionPage() {
   // Map
   const [mapPoint, setMapPoint] = useState<{ lat: number; lng: number } | null>(null);
 
-  // Computed values
-  const effectiveTemp = baseTemp + adjustTemp;
-  const effectiveHumidity = Math.max(10, Math.min(100, baseHumidity + adjustHumidity));
+  // Computed values (only when weather loaded)
+  const effectiveTemp = baseTemp != null ? baseTemp + adjustTemp : 20;
+  const effectiveHumidity = baseHumidity != null ? Math.max(10, Math.min(100, baseHumidity + adjustHumidity)) : 60;
 
   const getRecommendation = useCallback(() => {
+    if (baseTemp == null || baseHumidity == null) return null;
     return calculatePressure({
       profile,
       temperatureC: effectiveTemp,
       humidityPct: effectiveHumidity,
       descent: { id: 'calc', name: '', trackName: '', distanceKm: 0, elevationLoss: 0, elevationGain: 0, midpoint: { lat: 0, lng: 0 } },
     });
-  }, [profile, effectiveTemp, effectiveHumidity]);
+  }, [profile, effectiveTemp, effectiveHumidity, baseTemp, baseHumidity]);
 
   // Auth
   useEffect(() => {
@@ -118,9 +123,17 @@ export default function AlertaPresionPage() {
 
   useEffect(() => { if (user) loadProfiles(); else { setProfileLoaded(true); setSavedProfiles([]); } }, [user, loadProfiles]);
 
-  // Fetch weather from AEMET for a location
-  const fetchWeather = async (lat: number, lng: number) => {
+  // Fetch weather + nearby stations for a location
+  const fetchWeather = async (lat: number, lng: number, altitude?: number) => {
     setWeatherLoading(true); setError('');
+    setAltitudeAdjusted(false);
+    // Also fetch stations
+    setStationsLoading(true);
+    fetch(`/api/alerta-presion/stations?lat=${lat}&lng=${lng}`).then(r => r.json()).then(d => {
+      if (d.stations) setStationMarkers(d.stations);
+      setStationsLoading(false);
+    }).catch(() => setStationsLoading(false));
+
     try {
       const res = await fetch('/api/alerta-presion/calculate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -131,12 +144,31 @@ export default function AlertaPresionPage() {
       });
       const data = await res.json();
       if (data.weather) {
-        setBaseTemp(data.weather.temperatureC ?? 20);
+        let temp = data.weather.temperatureC ?? 20;
+        let source = data.weather.stationName || 'Estación AEMET';
+        let adjAltitude = altitude || null;
+
+        // Apply altitude adjustment if we know the click altitude
+        if (altitude != null && data.weather.stationAltitude != null) {
+          const altDiff = altitude - data.weather.stationAltitude;
+          if (Math.abs(altDiff) > 50) {
+            // Lapse rate: -0.65°C per 100m
+            const lapseAdjust = -(altDiff * 0.65 / 100);
+            const tempBefore = temp;
+            temp = Math.round((temp + lapseAdjust) * 10) / 10;
+            if (Math.abs(temp - tempBefore) >= 0.5) {
+              setAltitudeAdjusted(true);
+              source += ` (ajustado: ${data.weather.stationAltitude}m → ${Math.round(altitude)}m)`;
+            }
+          }
+        }
+
+        setBaseTemp(temp);
         setBaseHumidity(data.weather.humidityPct ?? 60);
-        setWeatherSource(data.weather.stationName || 'Estación AEMET');
+        setWeatherSource(source);
         setWeatherLoaded(true);
         setMapPoint({ lat, lng });
-        // Reset adjustments when weather changes
+        setClickAltitude(altitude || null);
         setAdjustTemp(0); setAdjustHumidity(0); setSelectedPreset(null);
       } else { setError('No se pudieron obtener datos meteorológicos'); }
     } catch { setError('Error de conexión con AEMET'); }
@@ -295,29 +327,64 @@ export default function AlertaPresionPage() {
                 </summary>
                 <div className="mt-4">
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* MAPA 3D */}
+                    {/* MAPA 3D con estaciones */}
                     <div className="space-y-3">
                       <p className="text-[10px] text-orange-400 uppercase tracking-widest font-bold flex items-center gap-2">
-                        <Crosshair className="w-3.5 h-3.5" /> Haz clic en el mapa para obtener datos AEMET
+                        <Crosshair className="w-3.5 h-3.5" /> Haz clic — datos reales de estaciones AEMET con altitud
                       </p>
-                      <div className="relative w-full h-[320px] lg:h-[400px] rounded-xl overflow-hidden border border-white/5">
+                      <div className="relative w-full h-[400px] lg:h-[550px] rounded-xl overflow-hidden border border-white/5">
                         <Map
                           mapStyle="mapbox://styles/mapbox/outdoors-v12"
                           mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
                           initialViewState={{ latitude: 40.62, longitude: -0.125, zoom: 11, pitch: 50 }}
-                          onClick={(e: MapMouseEvent) => fetchWeather(e.lngLat.lat, e.lngLat.lng)}
+                          onClick={(e: MapMouseEvent) => {
+                            // Get elevation from terrain
+                            const map = e.target;
+                            let altitude: number | undefined;
+                            try {
+                              altitude = map.queryTerrainElevation?.(e.lngLat) ?? undefined;
+                            } catch {}
+                            fetchWeather(e.lngLat.lat, e.lngLat.lng, altitude);
+                          }}
                           style={{ width: '100%', height: '100%' }}
                         >
                           <NavigationControl position="top-right" />
-                          {mapPoint && <Marker latitude={mapPoint.lat} longitude={mapPoint.lng} color="#f97316" scale={0.8} />}
-                          {weatherLoading && (
+                          {/* Click marker */}
+                          {mapPoint && <Marker latitude={mapPoint.lat} longitude={mapPoint.lng} color="#f97316" scale={0.9} />}
+                          {/* Station markers */}
+                          {stationMarkers.filter(s => s.lat && s.lng).map(st => (
+                            <Marker key={st.code} latitude={st.lat} longitude={st.lng} scale={0.5}>
+                              <div className="flex flex-col items-center cursor-pointer"
+                                onClick={(e) => { e.stopPropagation(); fetchWeather(st.lat, st.lng, st.altitudeM); }}>
+                                <div className={`px-1.5 py-0.5 rounded text-[8px] font-bold text-white whitespace-nowrap shadow-lg border ${
+                                  st.temperatureC != null
+                                    ? 'bg-slate-950/90 border-orange-500/50'
+                                    : 'bg-slate-950/70 border-white/10'
+                                }`}>
+                                  {st.temperatureC != null ? `${st.temperatureC}°` : st.name?.substring(0, 6) || '?'}
+                                </div>
+                                <div className="w-2 h-2 bg-orange-500 rounded-full mt-0.5 shadow-lg shadow-orange-500/50" />
+                              </div>
+                            </Marker>
+                          ))}
+                          {stationsLoading && (
                             <div className="absolute top-2 left-2 z-10 bg-slate-950/90 border border-white/10 rounded-lg px-3 py-2 flex items-center gap-2 text-[10px] text-slate-300">
-                              <Loader2 className="w-3 h-3 animate-spin text-orange-400" /> Obteniendo datos AEMET...
+                              <Loader2 className="w-3 h-3 animate-spin text-orange-400" /> Localizando estaciones...
+                            </div>
+                          )}
+                          {weatherLoading && (
+                            <div className="absolute top-2 right-12 z-10 bg-slate-950/90 border border-white/10 rounded-lg px-3 py-2 flex items-center gap-2 text-[10px] text-slate-300">
+                              <Loader2 className="w-3 h-3 animate-spin text-orange-400" /> Consultando AEMET...
                             </div>
                           )}
                         </Map>
                       </div>
-                      <p className="text-[9px] text-slate-600 leading-relaxed">Haz clic en cualquier punto para obtener la temperatura y humedad base de las estaciones AEMET cercanas.</p>
+                      <p className="text-[9px] text-slate-600 leading-relaxed">
+                        {stationMarkers.length > 0
+                          ? `Se muestran ${stationMarkers.length} estaciones AEMET con su temperatura real. Haz clic en una estación o en cualquier punto del mapa.`
+                          : 'Haz clic en el mapa para obtener datos de las estaciones AEMET cercanas con ajuste por altitud.'}
+                        {clickAltitude != null && <span className="block text-[8px] text-slate-500 mt-0.5">Altitud del punto: {Math.round(clickAltitude)} m</span>}
+                      </p>
                     </div>
 
                     {/* CONTROLES DE AJUSTE */}
@@ -466,6 +533,9 @@ export default function AlertaPresionPage() {
                         <MapPin className="w-4 h-4 text-orange-400" />
                         <span className="text-[10px] font-bold uppercase tracking-widest text-orange-400">Datos base</span>
                         <span className="text-[9px] text-slate-500 ml-auto">{weatherSource}</span>
+                        {altitudeAdjusted && (
+                          <span className="text-[8px] bg-orange-500/15 text-orange-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Ajustado por altitud</span>
+                        )}
                       </div>
                       <div className="grid grid-cols-3 gap-3 text-center text-xs">
                         <div className="bg-slate-950/50 border border-white/5 rounded-lg p-2">
@@ -481,6 +551,13 @@ export default function AlertaPresionPage() {
                           <p className="font-bold text-orange-400">{effectiveTemp}°C</p>
                         </div>
                       </div>
+                      {clickAltitude != null && (
+                        <div className="mt-2 flex items-center gap-1.5 text-[9px] text-slate-500 bg-slate-950/30 rounded-lg px-2.5 py-1.5">
+                          <span>🏔️</span>
+                          <span>Altitud del punto: <strong className="text-slate-300">{Math.round(clickAltitude)} m</strong></span>
+                          {altitudeAdjusted && <span className="text-blue-400 ml-auto">Ajuste por gradiente térmico aplicado</span>}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

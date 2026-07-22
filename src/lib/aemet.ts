@@ -35,6 +35,7 @@ export interface AemetNow {
   stationCode: string;
   stationName: string;
   stationProvince?: string;
+  stationAltitude?: number;
   stationDistanceKm: number;
   updatedAt?: string;
   dataAgeMin?: number;
@@ -225,6 +226,7 @@ export async function getAemetNowForLocation(lat: number, lng: number): Promise<
     stationCode: nearest.indicativo,
     stationName: nearest.nombre,
     stationProvince: nearest.provincia,
+    stationAltitude: nearest.altitud,
     stationDistanceKm: Math.round(nearest.distanceKm * 10) / 10,
     updatedAt: obs.fint,
     dataAgeMin,
