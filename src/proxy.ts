@@ -5,6 +5,11 @@ import { isProtectedRoute } from '@/lib/auth/guards';
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Skip auth callback – it handles its own session exchange
+  if (pathname.startsWith('/auth/callback')) {
+    return NextResponse.next({ request });
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(

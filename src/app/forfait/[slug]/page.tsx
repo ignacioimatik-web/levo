@@ -327,12 +327,12 @@ export default async function TrailDetailPage({ params, searchParams }: PageProp
             <TrailSidebarControls />
 
             {/* Export PDF */}
-            <button
-              onClick={() => window.print()}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-800 text-white rounded-xl font-bold text-sm hover:bg-slate-700 transition-all"
+            <Link
+              href={`/forfait/${slug}?print=1`}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-800 text-white rounded-xl font-bold text-sm hover:bg-slate-700 transition-all print:hidden"
             >
               Exportar informe (PDF)
-            </button>
+            </Link>
 
             {/* Downloads */}
             <div className="bg-slate-900 border border-white/5 rounded-2xl p-6">
