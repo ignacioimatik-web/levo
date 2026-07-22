@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/browser';
 import type { User } from '@supabase/supabase-js';
 import type { BikeProfile, PressureRecommendation } from '@/lib/alerta-presion/types';
+import { calculatePressure } from '@/lib/alerta-presion/calculate';
 import { Loader2, Gauge, Thermometer, Droplets, Bike, TrendingDown, MapPin, Crosshair } from 'lucide-react';
 import Link from 'next/link';
 import { BIKE_MODELS } from '@/lib/alerta-presion/bike-models';
