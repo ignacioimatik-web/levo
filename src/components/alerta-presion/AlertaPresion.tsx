@@ -52,6 +52,7 @@ export default function AlertaPresionPage() {
   const [selectedOnlyCalc, setSelectedOnlyCalc] = useState(false);
   const [error, setError] = useState('');
   const [profileExpanded, setProfileExpanded] = useState(true);
+  const [profileLoadError, setProfileLoadError] = useState('');
 
   // Auth
   useEffect(() => {
@@ -70,9 +71,13 @@ export default function AlertaPresionPage() {
   const loadProfiles = useCallback(async () => {
     if (!user) return;
     try {
+      setProfileLoadError('');
       const res = await fetch('/api/alerta-presion/profile');
       const data = await res.json();
-      if (data.profiles && data.profiles.length > 0) {
+      if (data.error) {
+        setProfileLoadError(data.error);
+        setSavedProfiles([]);
+      } else if (data.profiles && data.profiles.length > 0) {
         setSavedProfiles(data.profiles);
         // Auto-select the first one
         selectProfile(data.profiles[0]);
@@ -83,7 +88,10 @@ export default function AlertaPresionPage() {
         setSelectedProfileId(null);
       }
       setProfileLoaded(true);
-    } catch { setProfileLoaded(true); }
+    } catch (e: any) {
+      setProfileLoadError(e?.message || 'Error al cargar perfiles');
+      setProfileLoaded(true);
+    }
   }, [user]);
 
   const selectProfile = (p: any) => {
@@ -341,30 +349,43 @@ export default function AlertaPresionPage() {
               </summary>
               <div className="px-6 pb-6 space-y-4">
 
-              {/* Selector de perfil guardado */}
+              {/* Profile load error */}
+              {profileLoadError && (
+                <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-[11px] text-red-400">
+                  Error al cargar perfiles: {profileLoadError}
+                </div>
+              )}
+
+              {/* Perfiles guardados - selector siempre visible si hay */}
               {savedProfiles.length > 0 && (
-                <div className="mb-4">
-                  <label className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">Perfiles guardados</label>
+                <div className="p-4 bg-slate-800/40 border border-orange-500/15 rounded-xl">
+                  <label className="text-[10px] text-orange-400 uppercase tracking-widest font-bold block mb-2">Tus perfiles guardados</label>
                   <div className="flex items-center gap-2">
                     <select value={selectedProfileId || ''} onChange={e => {
                       const p = savedProfiles.find(sp => sp.id === e.target.value);
                       if (p) selectProfile(p);
                     }}
-                      className="flex-1 bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer"
+                      className="flex-1 bg-slate-950 border border-white/5 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer"
                     >
                       {savedProfiles.map(p => (
                         <option key={p.id} value={p.id}>{p.profile_name || 'Sin nombre'}</option>
                       ))}
                     </select>
                     <button onClick={() => handleDeleteProfile(selectedProfileId!)}
-                      className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors text-xs"
+                      className="p-2.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors text-xs"
                       title="Eliminar perfil"
                     >🗑️</button>
                     <button onClick={() => { setProfile({ ...DEFAULT_PROFILE }); setProfileName('Mi perfil'); setSelectedProfileId(null); }}
-                      className="p-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors text-xs"
+                      className="p-2.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors text-xs"
                       title="Nuevo perfil"
                     >➕</button>
                   </div>
+                </div>
+              )}
+
+              {savedProfiles.length === 0 && profileLoaded && !profileLoadError && (
+                <div className="text-[11px] text-slate-500 bg-slate-800/20 rounded-lg px-4 py-3">
+                  No tienes perfiles guardados. Configura los datos de tu bici y guárdalos para usarlos después.
                 </div>
               )}
 
