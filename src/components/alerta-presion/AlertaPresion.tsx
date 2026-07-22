@@ -30,8 +30,6 @@ const DEFAULT_PROFILE: BikeProfile = {
 
 // Elevation-based temperature adjustments (approx -0.6°C per 100m)
 const ELEVATION_PRESETS = [
-  { label: 'Valle / zona baja', deltaTemp: 2, deltaHumidity: 5, icon: '🏞️' },
-  { label: 'Media montaña', deltaTemp: 0, deltaHumidity: 0, icon: '⛰️' },
   { label: 'Alta montaña', deltaTemp: -5, deltaHumidity: 10, icon: '🏔️' },
   { label: 'Bosque cerrado', deltaTemp: -3, deltaHumidity: 15, icon: '🌲' },
   { label: 'Solana / seco', deltaTemp: 4, deltaHumidity: -10, icon: '☀️' },
@@ -407,61 +405,53 @@ export default function AlertaPresionPage() {
 
                       {weatherLoaded && (
                         <>
-                          {/* Temperatura base + ajuste */}
-                          <div className="bg-slate-900/60 border border-white/5 rounded-xl p-4">
-                            <div className="flex items-center justify-between mb-3">
-                              <span className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Temperatura</span>
-                              <span className="text-xs text-slate-400">{weatherSource}</span>
+                          {/* Temperatura y Humedad en horizontal */}
+                          <div className="bg-slate-900/60 border border-white/5 rounded-xl p-5">
+                            <div className="flex items-center justify-between mb-4">
+                              <span className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Datos actuales</span>
+                              <span className="text-xs text-slate-400 truncate max-w-[180px]">{weatherSource}</span>
                             </div>
-                            <div className="flex items-center gap-4">
-                              <button onClick={() => setAdjustTemp(a => a - 1)} className="w-9 h-9 rounded-lg bg-slate-800 hover:bg-slate-700 border border-white/10 flex items-center justify-center text-white transition-colors">
-                                <Minus className="w-4 h-4" />
-                              </button>
-                              <div className="flex-1 text-center">
-                                <div className="flex items-baseline justify-center gap-1">
-                                  <span className="text-sm text-slate-400">Base</span>
-                                  <span className="text-xl font-black text-white">{baseTemp}°</span>
-                                  {adjustTemp !== 0 && (
-                                    <span className={`text-lg font-black ${adjustTemp > 0 ? 'text-red-400' : 'text-blue-400'}`}>
-                                      {adjustTemp > 0 ? '+' : ''}{adjustTemp}°
-                                    </span>
-                                  )}
+                            <div className="grid grid-cols-2 gap-6">
+                              {/* Temperatura */}
+                              <div className="text-center">
+                                <p className="text-[9px] text-slate-500 uppercase tracking-widest mb-1">Temperatura</p>
+                                <div className="flex items-baseline justify-center gap-2">
+                                  <span className="text-5xl md:text-6xl font-black text-orange-500">{effectiveTemp}</span>
+                                  <span className="text-xl text-orange-500/70 font-black">°C</span>
                                 </div>
-                                <p className="text-3xl md:text-4xl font-black text-orange-500 mt-1">{effectiveTemp}°</p>
-                                <p className="text-[9px] text-slate-500">Temperatura efectiva</p>
-                              </div>
-                              <button onClick={() => setAdjustTemp(a => a + 1)} className="w-9 h-9 rounded-lg bg-slate-800 hover:bg-slate-700 border border-white/10 flex items-center justify-center text-white transition-colors">
-                                <Plus className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Humedad base + ajuste */}
-                          <div className="bg-slate-900/60 border border-white/5 rounded-xl p-4">
-                            <div className="flex items-center justify-between mb-3">
-                              <span className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Humedad</span>
-                              <span className="text-xs text-slate-400">HR</span>
-                            </div>
-                            <div className="flex items-center gap-4">
-                              <button onClick={() => setAdjustHumidity(a => a - 5)} className="w-9 h-9 rounded-lg bg-slate-800 hover:bg-slate-700 border border-white/10 flex items-center justify-center text-white transition-colors">
-                                <Minus className="w-4 h-4" />
-                              </button>
-                              <div className="flex-1 text-center">
-                                <div className="flex items-baseline justify-center gap-1">
-                                  <span className="text-sm text-slate-400">Base</span>
-                                  <span className="text-xl font-black text-white">{baseHumidity}%</span>
-                                  {adjustHumidity !== 0 && (
-                                    <span className={`text-lg font-black ${adjustHumidity > 0 ? 'text-blue-400' : 'text-yellow-400'}`}>
-                                      {adjustHumidity > 0 ? '+' : ''}{adjustHumidity}%
+                                {adjustTemp !== 0 && (
+                                  <p className="text-[9px] text-slate-500 mt-1">
+                                    Base <span className="font-bold text-white">{baseTemp}°</span>
+                                    <span className={`ml-1 font-bold ${adjustTemp > 0 ? 'text-red-400' : 'text-blue-400'}`}>
+                                      ({adjustTemp > 0 ? '+' : ''}{adjustTemp}°)
                                     </span>
-                                  )}
-                                </div>
-                                <p className="text-3xl md:text-4xl font-black text-blue-400 mt-1">{effectiveHumidity}%</p>
-                                <p className="text-[9px] text-slate-500">Humedad efectiva</p>
+                                  </p>
+                                )}
                               </div>
-                              <button onClick={() => setAdjustHumidity(a => a + 5)} className="w-9 h-9 rounded-lg bg-slate-800 hover:bg-slate-700 border border-white/10 flex items-center justify-center text-white transition-colors">
-                                <Plus className="w-4 h-4" />
-                              </button>
+                              {/* Humedad */}
+                              <div className="text-center">
+                                <p className="text-[9px] text-slate-500 uppercase tracking-widest mb-1">Humedad</p>
+                                <div className="flex items-baseline justify-center gap-2">
+                                  <span className="text-5xl md:text-6xl font-black text-blue-400">{effectiveHumidity}</span>
+                                  <span className="text-xl text-blue-400/70 font-black">%</span>
+                                </div>
+                                {adjustHumidity !== 0 && (
+                                  <p className="text-[9px] text-slate-500 mt-1">
+                                    Base <span className="font-bold text-white">{baseHumidity}%</span>
+                                    <span className={`ml-1 font-bold ${adjustHumidity > 0 ? 'text-blue-400' : 'text-yellow-400'}`}>
+                                      ({adjustHumidity > 0 ? '+' : ''}{adjustHumidity}%)
+                                    </span>
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            {/* Ajustes +/- simplificados */}
+                            <div className="flex items-center justify-center gap-4 mt-4 pt-4 border-t border-white/5">
+                              <p className="text-[9px] text-slate-500">Ajustar:</p>
+                              <button onClick={() => setAdjustTemp(a => a - 1)} className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-white/10 text-[10px] text-slate-300 transition-colors">Temp -1°</button>
+                              <button onClick={() => setAdjustTemp(a => a + 1)} className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-white/10 text-[10px] text-slate-300 transition-colors">Temp +1°</button>
+                              <button onClick={() => setAdjustHumidity(a => a - 5)} className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-white/10 text-[10px] text-slate-300 transition-colors">HR -5%</button>
+                              <button onClick={() => setAdjustHumidity(a => a + 5)} className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-white/10 text-[10px] text-slate-300 transition-colors">HR +5%</button>
                             </div>
                           </div>
 
