@@ -3,8 +3,8 @@ export interface BikeModelSpec {
   name: string;
   year: number;
   weightKg: number;
-  wheelFront: '29' | '27.5' | '26';
-  wheelRear: '29' | '27.5' | '26';
+  wheelFront: '29' | '27.5';
+  wheelRear: '29' | '27.5';
   tireWidthFrontInch: number;
   tireWidthRearInch: number;
   tireModelFront: string;
