@@ -559,46 +559,83 @@ export default function AlertaPresionPage() {
                     {/* COLUMNA IZQUIERDA: Tarjetas de sector */}
                     <div className="space-y-4">
                       <p className="text-[10px] text-orange-400 uppercase tracking-widest font-bold flex items-center gap-2">
-                        <Mountain className="w-3.5 h-3.5" /> Sectores conocidos
+                        <Thermometer className="w-3.5 h-3.5" /> Estaciones AEMET cercanas
                       </p>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {SECTORS.map(s => {
-                          const isSelected = selectedSector === s.id;
-                          return (
-                            <button
-                              key={s.id}
-                              onClick={() => { setSelectedSector(s.id); setResult(null); setError(''); setMapPoint(null); setMapResult(null); }}
-                              className={`relative group overflow-hidden rounded-xl border-2 transition-all duration-200 text-left ${
-                                isSelected
-                                  ? 'border-orange-500 ring-2 ring-orange-500/30 shadow-lg shadow-orange-500/20'
-                                  : 'border-white/10 hover:border-orange-500/50'
-                              }`}
-                            >
-                              <div className="aspect-[4/3] relative">
-                                <img src={s.image} alt={s.name} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
-                                {isSelected && (
-                                  <div className="absolute top-1.5 right-1.5 w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center shadow-lg">
-                                    <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                    </svg>
-                                  </div>
-                                )}
-                              </div>
-                              <div className={`p-2 ${isSelected ? 'bg-orange-500/10' : 'bg-slate-900'}`}>
-                                <p className={`text-[10px] font-bold uppercase tracking-wider ${isSelected ? 'text-orange-400' : 'text-white'}`}>{s.name}</p>
-                                <p className="text-[8px] text-slate-500 mt-0.5 leading-tight line-clamp-1">{s.description}</p>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                      {selectedSector && (
-                        <button onClick={handleCalculate} disabled={calculating}
-                          className="w-full py-2.5 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white rounded-xl font-bold text-xs transition-all shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2">
-                          {calculating ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Consultando AEMET...</>
-                          : <><Gauge className="w-3.5 h-3.5" /> Calcular presión</>}
+                      {stations.length === 0 && !stationsLoading && (
+                        <button onClick={async () => {
+                          setStationsLoading(true);
+                          try {
+                            const res = await fetch('/api/alerta-presion/stations?lat=40.62&lng=-0.10');
+                            const data = await res.json();
+                            if (data.stations) setStations(data.stations);
+                          } catch {}
+                          setStationsLoading(false);
+                        }} className="w-full py-2 px-3 bg-slate-800 hover:bg-slate-700 border border-white/10 rounded-lg text-[11px] text-slate-300 transition-colors">
+                          Cargar estaciones meteorológicas disponibles
                         </button>
+                      )}
+                      {stationsLoading && (
+                        <div className="flex items-center gap-2 text-[11px] text-slate-400 py-3">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Buscando estaciones AEMET...
+                        </div>
+                      )}
+                      {stations.length > 0 && (
+                        <div className="space-y-2">
+                          <div className="grid grid-cols-1 gap-2">
+                            {stations.map(st => {
+                              const isSelected = selectedStation?.code === st.code;
+                              return (
+                                <button
+                                  key={st.code}
+                                  onClick={() => {
+                                    setSelectedStation(st);
+                                    setSelectedSector(null);
+                                    setResult(null);
+                                    setError('');
+                                    setMapPoint(null);
+                                    setMapResult(null);
+                                    handleMapCalculate(st.lat || 40.62, st.lng || -0.10);
+                                  }}
+                                  className={`text-left p-3 rounded-xl border transition-all ${
+                                    isSelected
+                                      ? 'border-orange-500 bg-orange-500/10 ring-1 ring-orange-500/30'
+                                      : 'border-white/10 bg-slate-900/60 hover:border-orange-500/50'
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="min-w-0">
+                                      <p className={`text-xs font-bold truncate ${isSelected ? 'text-orange-400' : 'text-white'}`}>
+                                        {st.name || st.code}
+                                      </p>
+                                      <p className="text-[9px] text-slate-500">{st.distanceKm ? `${st.distanceKm} km` : '—'}</p>
+                                    </div>
+                                    <div className="flex items-center gap-3 text-right flex-shrink-0">
+                                      {st.temperatureC != null && (
+                                        <div>
+                                          <p className={`text-sm font-black ${isSelected ? 'text-orange-400' : 'text-white'}`}>{st.temperatureC}°</p>
+                                          <p className="text-[8px] text-slate-500">Temp</p>
+                                        </div>
+                                      )}
+                                      {st.humidityPct != null && (
+                                        <div>
+                                          <p className="text-sm font-black text-blue-400">{st.humidityPct}%</p>
+                                          <p className="text-[8px] text-slate-500">HR</p>
+                                        </div>
+                                      )}
+                                      {st.windKmh != null && (
+                                        <div>
+                                          <p className="text-sm font-black text-emerald-400">{st.windKmh}</p>
+                                          <p className="text-[8px] text-slate-500">Viento</p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <p className="text-[8px] text-slate-600">Estaciones en un radio de 25 km. Haz clic en una para calcular presión.</p>
+                        </div>
                       )}
                     </div>
 
