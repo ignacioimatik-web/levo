@@ -401,52 +401,8 @@ export default function AlertaPresionPage() {
                       <p className="text-[10px] text-orange-400 uppercase tracking-widest font-bold flex items-center gap-2">
                         <Crosshair className="w-3.5 h-3.5" /> Haz clic — datos reales de estaciones AEMET con altitud
                       </p>
-                      <div className="relative w-full h-[400px] lg:h-[550px] rounded-xl overflow-hidden border border-white/5">
-                        <Map
-                          mapStyle="mapbox://styles/mapbox/outdoors-v12"
-                          mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN || ''}
-                          initialViewState={{ latitude: 40.62, longitude: -0.125, zoom: 11, pitch: 50 }}
-                          onClick={(e: MapMouseEvent) => {
-                            // Get elevation from terrain
-                            const map = e.target;
-                            let altitude: number | undefined;
-                            try {
-                              altitude = map.queryTerrainElevation?.(e.lngLat) ?? undefined;
-                            } catch {}
-                            fetchWeather(e.lngLat.lat, e.lngLat.lng, altitude);
-                          }}
-                          style={{ width: '100%', height: '100%' }}
-                        >
-                          <NavigationControl position="top-right" />
-                          {/* Click marker */}
-                          {mapPoint && <Marker latitude={mapPoint.lat} longitude={mapPoint.lng} color="#f97316" scale={0.9} />}
-                          {/* Station markers */}
-                          {stationMarkers.filter(s => s.lat && s.lng).map(st => (
-                            <Marker key={st.code} latitude={st.lat} longitude={st.lng} scale={0.5}>
-                              <div className="flex flex-col items-center cursor-pointer"
-                                onClick={(e) => { e.stopPropagation(); fetchWeather(st.lat, st.lng, st.altitudeM); }}>
-                                <div className={`px-1.5 py-0.5 rounded text-[8px] font-bold text-white whitespace-nowrap shadow-lg border ${
-                                  st.temperatureC != null
-                                    ? 'bg-slate-950/90 border-orange-500/50'
-                                    : 'bg-slate-950/70 border-white/10'
-                                }`}>
-                                  {st.temperatureC != null ? `${st.temperatureC}°` : st.name?.substring(0, 6) || '?'}
-                                </div>
-                                <div className="w-2 h-2 bg-orange-500 rounded-full mt-0.5 shadow-lg shadow-orange-500/50" />
-                              </div>
-                            </Marker>
-                          ))}
-                          {stationsLoading && (
-                            <div className="absolute top-2 left-2 z-10 bg-slate-950/90 border border-white/10 rounded-lg px-3 py-2 flex items-center gap-2 text-[10px] text-slate-300">
-                              <Loader2 className="w-3 h-3 animate-spin text-orange-400" /> Localizando estaciones...
-                            </div>
-                          )}
-                          {weatherLoading && (
-                            <div className="absolute top-2 right-12 z-10 bg-slate-950/90 border border-white/10 rounded-lg px-3 py-2 flex items-center gap-2 text-[10px] text-slate-300">
-                              <Loader2 className="w-3 h-3 animate-spin text-orange-400" /> Consultando AEMET...
-                            </div>
-                          )}
-                        </Map>
+                      <div className="relative w-full h-[400px] lg:h-[550px] rounded-xl overflow-hidden border border-white/5 bg-slate-900/50 flex items-center justify-center">
+                        <p className="text-[11px] text-slate-500">Selecciona un punto en el mapa</p>
                       </div>
                       <p className="text-[9px] text-slate-600 leading-relaxed">
                         {stationMarkers.length > 0
