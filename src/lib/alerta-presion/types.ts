@@ -4,8 +4,8 @@ export interface BikeProfile {
   riderWeightKg: number;
   bikeWeightKg: number;
   bikeModel: string;
-  wheelFront: '29' | '27.5' | '26';
-  wheelRear: '29' | '27.5' | '26';
+  wheelFront: '29' | '27.5';
+  wheelRear: '29' | '27.5';
   tireModelFront: string;
   tireModelRear: string;
   tireWidthFrontInch: number;
@@ -13,6 +13,12 @@ export interface BikeProfile {
   initialPressureFrontBar: number;
   initialPressureRearBar: number;
   tubeless: boolean;
+  rimWidthMm?: number;
+  ridingStyle?: 'conservador' | 'moderado' | 'agresivo';
+  riderExperience?: 'principiante' | 'intermedio' | 'avanzado' | 'experto';
+  terrainType?: 'mixto' | 'raices' | 'arcilloso' | 'duro' | 'rocoso';
+  groundCondition?: 'humedo' | 'mixto' | 'seco';
+  casingType?: 'ligera' | 'estandar' | 'reforzada';
   createdAt?: string;
   updatedAt?: string;
 }

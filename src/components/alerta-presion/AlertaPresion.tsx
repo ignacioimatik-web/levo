@@ -26,6 +26,12 @@ const DEFAULT_PROFILE: BikeProfile = {
   initialPressureFrontBar: 1.8,
   initialPressureRearBar: 2.0,
   tubeless: true,
+  rimWidthMm: 30,
+  ridingStyle: 'moderado' as const,
+  riderExperience: 'intermedio' as const,
+  terrainType: 'mixto' as const,
+  groundCondition: 'mixto' as const,
+  casingType: 'estandar' as const,
 };
 
 // Elevation-based temperature adjustments (approx -0.6°C per 100m)
@@ -116,7 +122,7 @@ export default function AlertaPresionPage() {
 
   const selectProfile = (p: any) => {
     setSelectedProfileId(p.id); setProfileName(p.profile_name || 'Mi perfil');
-    setProfile({ riderWeightKg: p.rider_weight_kg, bikeWeightKg: p.bike_weight_kg, bikeModel: p.bike_model || '', wheelFront: p.wheel_front || '27.5', wheelRear: p.wheel_rear || '27.5', tireModelFront: p.tire_model_front || '', tireModelRear: p.tire_model_rear || '', tireWidthFrontInch: p.tire_width_front_inch || 2.3, tireWidthRearInch: p.tire_width_rear_inch || 2.3, initialPressureFrontBar: p.initial_pressure_front_bar || 1.8, initialPressureRearBar: p.initial_pressure_rear_bar || 2.0, tubeless: p.tubeless ?? true });
+    setProfile({ riderWeightKg: p.rider_weight_kg, bikeWeightKg: p.bike_weight_kg, bikeModel: p.bike_model || '', wheelFront: p.wheel_front || '27.5', wheelRear: p.wheel_rear || '27.5', tireModelFront: p.tire_model_front || '', tireModelRear: p.tire_model_rear || '', tireWidthFrontInch: p.tire_width_front_inch || 2.3, tireWidthRearInch: p.tire_width_rear_inch || 2.3, initialPressureFrontBar: p.initial_pressure_front_bar || 1.8, initialPressureRearBar: p.initial_pressure_rear_bar || 2.0, tubeless: p.tubeless ?? true, rimWidthMm: p.rim_width_mm ?? 30, ridingStyle: p.riding_style || 'moderado', riderExperience: p.rider_experience || 'intermedio', terrainType: p.terrain_type || 'mixto', groundCondition: p.ground_condition || 'mixto', casingType: p.casing_type || 'estandar' });
   };
 
   useEffect(() => { if (user) loadProfiles(); else { setProfileLoaded(true); setSavedProfiles([]); } }, [user, loadProfiles]);
@@ -187,7 +193,7 @@ export default function AlertaPresionPage() {
     setSaving(true); setSaveStatus('idle');
     try {
       const supabase = createClient();
-      const payload = { profile_name: profileName, rider_weight_kg: profile.riderWeightKg, bike_weight_kg: profile.bikeWeightKg, bike_model: profile.bikeModel, wheel_front: profile.wheelFront, wheel_rear: profile.wheelRear, tire_model_front: profile.tireModelFront, tire_model_rear: profile.tireModelRear, tire_width_front_inch: profile.tireWidthFrontInch, tire_width_rear_inch: profile.tireWidthRearInch, initial_pressure_front_bar: profile.initialPressureFrontBar, initial_pressure_rear_bar: profile.initialPressureRearBar, tubeless: profile.tubeless };
+      const payload = { profile_name: profileName, rider_weight_kg: profile.riderWeightKg, bike_weight_kg: profile.bikeWeightKg, bike_model: profile.bikeModel, wheel_front: profile.wheelFront, wheel_rear: profile.wheelRear, tire_model_front: profile.tireModelFront, tire_model_rear: profile.tireModelRear, tire_width_front_inch: profile.tireWidthFrontInch, tire_width_rear_inch: profile.tireWidthRearInch, initial_pressure_front_bar: profile.initialPressureFrontBar, initial_pressure_rear_bar: profile.initialPressureRearBar, tubeless: profile.tubeless, rim_width_mm: profile.rimWidthMm ?? 30, riding_style: profile.ridingStyle || 'moderado', rider_experience: profile.riderExperience || 'intermedio', terrain_type: profile.terrainType || 'mixto', ground_condition: profile.groundCondition || 'mixto', casing_type: profile.casingType || 'estandar' };
       const result = selectedProfileId
         ? await supabase.rpc('update_bike_profile', { p_id: selectedProfileId, ...Object.fromEntries(Object.entries(payload).map(([k, v]) => ['p_' + k, v])) })
         : await supabase.rpc('insert_bike_profile', { ...Object.fromEntries(Object.entries(payload).map(([k, v]) => ['p_' + k, v])) });
@@ -308,6 +314,39 @@ export default function AlertaPresionPage() {
                       <div className={`w-5 h-5 bg-white rounded-full shadow-md transform transition-transform ${profile.tubeless ? 'translate-x-6' : 'translate-x-0.5'}`} />
                     </button>
                   </div>
+                </div>
+                {/* NUEVOS PARAMETROS SCHWALBE */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div><label className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">Ancho llanta (mm int.)</label>
+                    <select value={profile.rimWidthMm || 30} onChange={e => setProfile(p => ({ ...p, rimWidthMm: Number(e.target.value) }))}
+                      className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer">
+                      {[25, 27, 30, 32, 35, 38, 40].map(v => <option key={v} value={v}>{v}mm</option>)}
+                    </select></div>
+                  <div><label className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">Tipo de terreno</label>
+                    <select value={profile.terrainType || 'mixto'} onChange={e => setProfile(p => ({ ...p, terrainType: e.target.value as any }))}
+                      className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer">
+                      <option value="mixto">Mixto</option><option value="raices">Raíces</option><option value="arcilloso">Arcilloso/blando</option><option value="duro">Duro (hard pack)</option><option value="rocoso">Rocoso</option>
+                    </select></div>
+                  <div><label className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">Condición del terreno</label>
+                    <select value={profile.groundCondition || 'mixto'} onChange={e => setProfile(p => ({ ...p, groundCondition: e.target.value as any }))}
+                      className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer">
+                      <option value="humedo">Húmedo</option><option value="mixto">Mixto</option><option value="seco">Seco</option>
+                    </select></div>
+                  <div><label className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">Estilo de conducción</label>
+                    <select value={profile.ridingStyle || 'moderado'} onChange={e => setProfile(p => ({ ...p, ridingStyle: e.target.value as any }))}
+                      className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer">
+                      <option value="conservador">Conservador</option><option value="moderado">Moderado</option><option value="agresivo">Agresivo</option>
+                    </select></div>
+                  <div><label className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">Experiencia del rider</label>
+                    <select value={profile.riderExperience || 'intermedio'} onChange={e => setProfile(p => ({ ...p, riderExperience: e.target.value as any }))}
+                      className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer">
+                      <option value="principiante">Principiante</option><option value="intermedio">Intermedio</option><option value="avanzado">Avanzado</option><option value="experto">Experto</option>
+                    </select></div>
+                  <div><label className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">Tipo de carcasa</label>
+                    <select value={profile.casingType || 'estandar'} onChange={e => setProfile(p => ({ ...p, casingType: e.target.value as any }))}
+                      className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer">
+                      <option value="ligera">Ligera</option><option value="estandar">Estándar</option><option value="reforzada">Reforzada</option>
+                    </select></div>
                 </div>
               </div>
             </details>
