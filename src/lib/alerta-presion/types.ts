@@ -13,6 +13,7 @@ export interface BikeProfile {
   initialPressureFrontBar: number;
   initialPressureRearBar: number;
   tubeless: boolean;
+  hasInsert?: boolean;
   rimWidthMm?: number;
   ridingStyle?: 'conservador' | 'moderado' | 'agresivo';
   riderExperience?: 'principiante' | 'intermedio' | 'avanzado' | 'experto';

@@ -26,6 +26,7 @@ const DEFAULT_PROFILE: BikeProfile = {
   initialPressureFrontBar: 1.8,
   initialPressureRearBar: 2.0,
   tubeless: true,
+  hasInsert: false,
   rimWidthMm: 30,
   ridingStyle: 'moderado' as const,
   riderExperience: 'intermedio' as const,
@@ -312,6 +313,10 @@ export default function AlertaPresionPage() {
                     <label className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Tubeless</label>
                     <button onClick={() => setProfile(p => ({ ...p, tubeless: !p.tubeless }))} className={`w-12 h-6 rounded-full transition-colors ${profile.tubeless ? 'bg-orange-500' : 'bg-slate-700'}`}>
                       <div className={`w-5 h-5 bg-white rounded-full shadow-md transform transition-transform ${profile.tubeless ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                    </button>
+                    <label className="text-[10px] text-slate-500 uppercase tracking-widest font-bold ml-4">Insert</label>
+                    <button onClick={() => setProfile(p => ({ ...p, hasInsert: !p.hasInsert }))} className={`w-12 h-6 rounded-full transition-colors ${profile.hasInsert ? 'bg-orange-500' : 'bg-slate-700'}`}>
+                      <div className={`w-5 h-5 bg-white rounded-full shadow-md transform transition-transform ${profile.hasInsert ? 'translate-x-6' : 'translate-x-0.5'}`} />
                     </button>
                   </div>
                 </div>

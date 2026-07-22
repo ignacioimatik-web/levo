@@ -95,6 +95,8 @@ export function calculatePressure(input: CalculationInput): PressureRecommendati
 
   // --- Tubeless / system ---
   if (profile.tubeless) { frontPsi -= 2.5; rearPsi -= 2.0; }
+  // --- Insert (foam insert allows lower pressure safely) ---
+  if (profile.hasInsert) { frontPsi -= 1.5; rearPsi -= 1.0; }
 
   // --- Technical descent (grip baseline) ---
   frontPsi -= 2.0;
@@ -150,8 +152,9 @@ export function calculatePressure(input: CalculationInput): PressureRecommendati
   const parts: string[] = [
     `${totalKg}kg totales`,
     profile.tubeless ? 'tubeless' : 'cámara',
+    profile.hasInsert ? 'con insert' : '',
     `${profile.tireWidthFrontInch.toFixed(1)}" del. / ${profile.tireWidthRearInch.toFixed(1)}" tras.`,
-  ];
+  ].filter(Boolean);
   if (profile.rimWidthMm) parts.push(`llanta ${profile.rimWidthMm}mm`);
   if (terrain && terrain.label) parts.push(terrain.label);
   if (ground && ground.label) parts.push(ground.label);
