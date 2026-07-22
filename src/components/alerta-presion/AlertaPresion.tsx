@@ -599,9 +599,10 @@ export default function AlertaPresionPage() {
                   ? { label: 'Lluvia ligera', color: 'text-yellow-400', bg: 'border-yellow-500/20 bg-yellow-500/5' }
                   : { label: 'Favorable', color: 'text-green-400', bg: 'border-green-500/20 bg-green-500/5' };
 
-              function AnimatedTire({ side }: { side: 'front' | 'rear' }) {
+              function AnimatedTire({ side, compact }: { side: 'front' | 'rear'; compact?: boolean }) {
                 const pulseSpeed = side === 'front' ? '3s' : '3.4s';
                 const delay = side === 'front' ? '0s' : '0.5s';
+                const size = compact ? 'w-14 h-14 md:w-16 md:h-16' : 'w-20 h-20 md:w-24 md:h-24';
                 return (
                   <>
                     <style>{`
@@ -611,11 +612,11 @@ export default function AlertaPresionPage() {
                         55% { transform: scale(0.96) rotate(-1deg); }
                         80% { transform: scale(1.03) rotate(1deg); }
                       }
-                      @keyframes knob-pop-${side} {
-                        0%, 100% { opacity: 0.5; transform: scale(0.7); }
-                        50% { opacity: 1; transform: scale(1.3); }
+                      @keyframes tknob-pop-${side} {
+                        0%, 100% { opacity: 0.4; transform: scale(0.8); }
+                        50% { opacity: 1; transform: scale(1.2); }
                       }
-                      @keyframes rim-spin-${side} {
+                      @keyframes tspoke-spin-${side} {
                         0% { transform: rotate(0deg); }
                         100% { transform: rotate(360deg); }
                       }
@@ -624,48 +625,60 @@ export default function AlertaPresionPage() {
                         transform-origin: center;
                         animation-delay: ${delay};
                       }
-                      .knob-${side} {
-                        animation: knob-pop-${side} 2s ease-in-out infinite;
+                      .tknob-${side} {
+                        animation: tknob-pop-${side} 2s ease-in-out infinite;
                         animation-delay: ${delay};
+                        transform-origin: center;
                       }
-                      .knob-${side}:nth-child(2n) { animation-delay: ${delay + 0.3}s; }
-                      .knob-${side}:nth-child(3n) { animation-delay: ${delay + 0.6}s; }
-                      .spoke-${side} {
-                        animation: rim-spin-${side} 8s linear infinite;
+                      .tknob-${side}:nth-child(2n) { animation-delay: ${delay + 0.25}s; }
+                      .tknob-${side}:nth-child(3n) { animation-delay: ${delay + 0.5}s; }
+                      .tspoke-${side} {
+                        animation: tspoke-spin-${side} 8s linear infinite;
                         transform-origin: 60px 60px;
                         animation-delay: ${delay};
                       }
                     `}</style>
-                    <svg viewBox="0 0 120 120" className="w-20 h-20 md:w-24 md:h-24 mx-auto">
+                    <svg viewBox="0 0 120 120" className={`${size} flex-shrink-0`}>
                       <g className={`tire-breathe-${side}`}>
                         {/* Outer tire carcass */}
                         <circle cx="60" cy="60" r="48" fill="none" stroke="#334155" strokeWidth="10" />
                         {/* Inner tire wall highlight */}
                         <circle cx="60" cy="60" r="43" fill="none" stroke="#1e293b" strokeWidth="1.5" />
-                        {/* Tire sidewall subtle line */}
+                        {/* Tire sidewall textury */}
                         <circle cx="60" cy="60" r="39" fill="none" stroke="#475569" strokeWidth="0.5" strokeDasharray="3 3" />
-                        {/* Tread knobs around perimeter */}
-                        {Array.from({ length: 14 }).map((_, i) => {
-                          const angle = (i * (360 / 14) * Math.PI) / 180;
-                          const x = 60 + 48 * Math.cos(angle);
-                          const y = 60 + 48 * Math.sin(angle);
+                        {/* MTB tread knobs - rectangular tacos around perimeter */}
+                        {Array.from({ length: 16 }).map((_, i) => {
+                          const angle = (i * (360 / 16) * Math.PI) / 180;
+                          const r = 48;
+                          const cx = 60 + r * Math.cos(angle);
+                          const cy = 60 + r * Math.sin(angle);
+                          // Rotate each knob to face outward
+                          const rot = (i * (360 / 16));
                           return (
-                            <circle key={i} cx={x} cy={y} r="4" fill="#475569" className={`knob-${side}`} />
+                            <g key={i} className={`tknob-${side}`} style={{ transformOrigin: `${cx}px ${cy}px` }}>
+                              <rect
+                                x={cx - 3} y={cy - 6}
+                                width="6" height="10"
+                                rx="1.5"
+                                fill="#475569"
+                                transform={`rotate(${rot}, ${cx}, ${cy})`}
+                              />
+                            </g>
                           );
                         })}
                         {/* Rim */}
                         <circle cx="60" cy="60" r="28" fill="none" stroke="#64748b" strokeWidth="3" />
                         <circle cx="60" cy="60" r="26" fill="none" stroke="#94a3b8" strokeWidth="0.5" />
-                        {/* Spokes */}
-                        <g className={`spoke-${side}`}>
-                          {Array.from({ length: 6 }).map((_, i) => {
-                            const angle = (i * 60 * Math.PI) / 180;
+                        {/* Spokes - bicycle style (thin, many) */}
+                        <g className={`tspoke-${side}`}>
+                          {Array.from({ length: 8 }).map((_, i) => {
+                            const angle = (i * 45 * Math.PI) / 180;
                             const x1 = 60 + 8 * Math.cos(angle);
                             const y1 = 60 + 8 * Math.sin(angle);
                             const x2 = 60 + 28 * Math.cos(angle);
                             const y2 = 60 + 28 * Math.sin(angle);
                             return (
-                              <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#64748b" strokeWidth="1.5" />
+                              <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#64748b" strokeWidth="1.2" />
                             );
                           })}
                         </g>
@@ -673,12 +686,12 @@ export default function AlertaPresionPage() {
                         <circle cx="60" cy="60" r="8" fill="#94a3b8" />
                         <circle cx="60" cy="60" r="4" fill="#cbd5e1" />
                         {/* Air pressure indicator dots inside */}
-                        <circle cx="60" cy="36" r="1.5" fill="#f97316" className={`knob-${side}`} style={{ animationDelay: delay }} />
-                        <circle cx="72" cy="48" r="1" fill="#fb923c" className={`knob-${side}`} style={{ animationDelay: `${delay + 0.4}s` }} />
-                        <circle cx="72" cy="68" r="1.2" fill="#f97316" className={`knob-${side}`} style={{ animationDelay: `${delay + 0.8}s` }} />
-                        <circle cx="60" cy="80" r="1.5" fill="#fb923c" className={`knob-${side}`} style={{ animationDelay: `${delay + 0.2}s` }} />
-                        <circle cx="46" cy="72" r="1" fill="#f97316" className={`knob-${side}`} style={{ animationDelay: `${delay + 0.6}s` }} />
-                        <circle cx="46" cy="48" r="1.2" fill="#fb923c" className={`knob-${side}`} style={{ animationDelay: `${delay + 1.0}s` }} />
+                        <circle cx="60" cy="36" r="1.5" fill="#f97316" className={`tknob-${side}`} style={{ animationDelay: delay }} />
+                        <circle cx="72" cy="48" r="1" fill="#fb923c" className={`tknob-${side}`} style={{ animationDelay: `${delay + 0.35}s` }} />
+                        <circle cx="72" cy="68" r="1.2" fill="#f97316" className={`tknob-${side}`} style={{ animationDelay: `${delay + 0.7}s` }} />
+                        <circle cx="60" cy="80" r="1.5" fill="#fb923c" className={`tknob-${side}`} style={{ animationDelay: `${delay + 0.15}s` }} />
+                        <circle cx="46" cy="72" r="1" fill="#f97316" className={`tknob-${side}`} style={{ animationDelay: `${delay + 0.5}s` }} />
+                        <circle cx="46" cy="48" r="1.2" fill="#fb923c" className={`tknob-${side}`} style={{ animationDelay: `${delay + 0.85}s` }} />
                       </g>
                     </svg>
                   </>
@@ -695,35 +708,43 @@ export default function AlertaPresionPage() {
                       <span className="text-[10px] font-bold uppercase tracking-widest">Presión recomendada</span>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-8 max-w-lg mx-auto mt-6">
-                      {/* Delantera */}
-                      <div>
-                        <AnimatedTire side="front" />
-                        <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-2 font-bold mt-3">Delantera</p>
-                        <p className="text-7xl md:text-8xl font-black text-orange-500 leading-none tracking-tighter">
+                    <div className="flex items-center justify-center gap-3 md:gap-6 mt-6">
+                      {/* Tire delantera (izquierda) */}
+                      <AnimatedTire side="front" compact />
+
+                      {/* Columna Delantera */}
+                      <div className="text-center min-w-[100px]">
+                        <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-1 font-bold">Delantera</p>
+                        <p className="text-6xl md:text-7xl font-black text-orange-500 leading-none tracking-tighter">
                           {avgFrontBar.toFixed(1)}
                         </p>
-                        <p className="text-sm text-slate-400 mt-2">
-                          <span className="text-base font-bold text-white">{Math.round(avgFrontPsi)}</span> PSI
+                        <p className="text-xs text-slate-400 mt-1">
+                          <span className="text-sm font-bold text-white">{Math.round(avgFrontPsi)}</span> PSI
                         </p>
-                        <p className="text-[10px] text-slate-600 mt-1">
-                          ({firstRec.currentFrontBar.toFixed(1)} bar actual)
+                        <p className="text-[9px] text-slate-600 mt-0.5">
+                          ({firstRec.currentFrontBar.toFixed(1)} actual)
                         </p>
                       </div>
-                      {/* Trasera */}
-                      <div>
-                        <AnimatedTire side="rear" />
-                        <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-2 font-bold mt-3">Trasera</p>
-                        <p className="text-7xl md:text-8xl font-black text-orange-500 leading-none tracking-tighter">
+
+                      {/* Separador */}
+                      <div className="w-px h-20 bg-white/10 hidden sm:block" />
+
+                      {/* Columna Trasera */}
+                      <div className="text-center min-w-[100px]">
+                        <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-1 font-bold">Trasera</p>
+                        <p className="text-6xl md:text-7xl font-black text-orange-500 leading-none tracking-tighter">
                           {avgRearBar.toFixed(1)}
                         </p>
-                        <p className="text-sm text-slate-400 mt-2">
-                          <span className="text-base font-bold text-white">{Math.round(avgRearPsi)}</span> PSI
+                        <p className="text-xs text-slate-400 mt-1">
+                          <span className="text-sm font-bold text-white">{Math.round(avgRearPsi)}</span> PSI
                         </p>
-                        <p className="text-[10px] text-slate-600 mt-1">
-                          ({firstRec.currentRearBar.toFixed(1)} bar actual)
+                        <p className="text-[9px] text-slate-600 mt-0.5">
+                          ({firstRec.currentRearBar.toFixed(1)} actual)
                         </p>
                       </div>
+
+                      {/* Tire trasera (derecha) */}
+                      <AnimatedTire side="rear" compact />
                     </div>
 
                     {firstRec && (
