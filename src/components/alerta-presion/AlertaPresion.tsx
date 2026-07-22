@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@/lib/supabase/browser';
 import type { User } from '@supabase/supabase-js';
 import type { BikeProfile, PressureRecommendation } from '@/lib/alerta-presion/types';
@@ -74,6 +74,7 @@ export default function AlertaPresionPage() {
 
   // Map
   const [mapPoint, setMapPoint] = useState<{ lat: number; lng: number } | null>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
 
   // Computed values (only when weather loaded)
   const effectiveTemp = baseTemp != null ? baseTemp + adjustTemp : 20;
@@ -219,6 +220,13 @@ export default function AlertaPresionPage() {
   );
 
   const recommendation = weatherLoaded ? getRecommendation() : null;
+
+  // Scroll results into view when recommendation appears
+  useEffect(() => {
+    if (recommendation && resultsRef.current) {
+      resultsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [recommendation]);
 
   return (
     <div className="min-h-screen bg-slate-950">
@@ -548,7 +556,7 @@ export default function AlertaPresionPage() {
             {recommendation && (() => {
               const r = recommendation;
               return (
-                <div className="space-y-6">
+                <div ref={resultsRef} className="space-y-6">
                   <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-orange-950/30 border border-orange-500/30 rounded-3xl p-6 md:p-8 shadow-2xl shadow-orange-500/10 text-center">
                     <div className="flex items-center justify-center gap-2 text-orange-500 mb-4">
                       <TrendingDown className="w-5 h-5" />
