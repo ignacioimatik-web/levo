@@ -70,29 +70,51 @@ export default function AlertaPresionPage() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Load ALL profiles for the user (browser client direct)
+  // Load ALL profiles for the user (REST API direct with auth token)
   const loadProfiles = useCallback(async () => {
     if (!user) return;
     try {
       setProfileLoadError('');
       const supabase = createClient();
-      const { data, error } = await supabase
-        .from('bike_profiles')
-        .select('*')
-        .order('updated_at', { ascending: false });
+      // Get the auth session token
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
 
-      if (error) {
-        setProfileLoadError(error.message);
+      if (!token) {
+        setProfileLoadError('No hay sesión activa');
         setSavedProfiles([]);
-      } else if (data && data.length > 0) {
-        setSavedProfiles(data);
-        // Auto-select the first one
-        selectProfile(data[0]);
+        setProfileLoaded(true);
+        return;
+      }
+
+      // Use REST API directly with the auth token to bypass client auth issues
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+      const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+      const res = await fetch(
+        `${supabaseUrl}/rest/v1/bike_profiles?select=*&order=updated_at.desc`,
+        {
+          headers: {
+            apikey: anonKey,
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        setProfileLoadError(errText || `HTTP ${res.status}`);
+        setSavedProfiles([]);
       } else {
-        setSavedProfiles([]);
-        setProfile({ ...DEFAULT_PROFILE });
-        setProfileName('Mi perfil');
-        setSelectedProfileId(null);
+        const data = await res.json();
+        if (data && data.length > 0) {
+          setSavedProfiles(data);
+          selectProfile(data[0]);
+        } else {
+          setSavedProfiles([]);
+          setProfile({ ...DEFAULT_PROFILE });
+          setProfileName('Mi perfil');
+          setSelectedProfileId(null);
+        }
       }
       setProfileLoaded(true);
     } catch (e: any) {
