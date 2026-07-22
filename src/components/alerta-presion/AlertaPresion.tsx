@@ -132,6 +132,7 @@ export default function AlertaPresionPage() {
   const fetchWeather = async (lat: number, lng: number, altitude?: number) => {
     setWeatherLoading(true); setError('');
     setAltitudeAdjusted(false);
+    setProfileExpanded(false);
     // Also fetch stations
     setStationsLoading(true);
     fetch(`/api/alerta-presion/stations?lat=${lat}&lng=${lng}`).then(r => r.json()).then(d => {
