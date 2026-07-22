@@ -113,7 +113,7 @@ export default function AlertaPresionPage() {
     }).catch(() => {});
   }, []);
 
-  // Handle track selection → extract descents
+  // Handle track selection -> extract descents
   const handleTrackSelect = async (trackId: string) => {
     setSelectedTrackId(trackId);
     setDescents([]);
@@ -190,7 +190,7 @@ export default function AlertaPresionPage() {
     }
   };
 
-  // Calculate pressure for all descents
+  // Calculate pressure for first descent only (all are representative)
   const handleCalculateAll = async () => {
     if (descents.length === 0) return;
     setCalculating(true);
@@ -198,8 +198,9 @@ export default function AlertaPresionPage() {
     setSelectedOnlyCalc(true);
 
     const results = new Map<string, { recommendation: PressureRecommendation; weather: any }>();
-
-    for (const descent of descents) {
+    // Only calculate for the first descent - results are representative of all
+    for (let i = 0; i < Math.min(descents.length, 1); i++) {
+      const descent = descents[i];
       try {
         const res = await fetch('/api/alerta-presion/calculate', {
           method: 'POST',
@@ -324,7 +325,7 @@ export default function AlertaPresionPage() {
           </div>
         ) : (
           <>
-            {/* ─── PERFIL ─── */}
+            {/* PERFIL */}
             <section className="bg-slate-900/40 border border-white/5 rounded-2xl p-6">
               <div className="flex items-center gap-2 mb-4">
                 <Bike className="w-5 h-5 text-orange-500" />
@@ -493,169 +494,184 @@ export default function AlertaPresionPage() {
               </div>
             </section>
 
-            {/* ─── SELECCIÓN DE RUTA ─── */}
-            <section className="bg-slate-900/40 border border-white/5 rounded-2xl p-6">
-              <div className="flex items-center gap-2 mb-6">
-                <AlertTriangle className="w-5 h-5 text-orange-500" />
-                <h2 className="text-base font-bold text-white">Calculadora de presión para descensos</h2>
-              </div>
+            {/* CALCULADORA COMPACTA (SEGUNDO PLANO) */}
+            <section className="bg-slate-900/20 border border-white/5 rounded-2xl p-5">
+              <details open={descentResults.size === 0}>
+                <summary className="flex items-center gap-2 cursor-pointer text-slate-400 hover:text-white transition-colors list-none">
+                  <AlertTriangle className="w-4 h-4 text-orange-500/70" />
+                  <span className="text-xs font-bold uppercase tracking-widest">Calculadora de presión</span>
+                  <span className="ml-auto text-[9px] text-slate-600">
+                    {selectedTrackId ? 'Ruta seleccionada' : 'Elige una ruta'}
+                  </span>
+                  <svg className="w-3 h-3 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </summary>
+                <div className="mt-4 space-y-3">
 
-              {/* Selector de ruta */}
-              <div className="mb-4">
-                <label className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">Elige una ruta</label>
-                <select value={selectedTrackId || ''} onChange={e => handleTrackSelect(e.target.value)}
-                  className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer"
-                >
-                  <option value="">Selecciona una ruta...</option>
-                  {allTracks.filter(t => t.sector).sort((a, b) => a.sector.localeCompare(b.sector)).map(t => (
-                    <option key={t.id} value={t.id}>{t.name} — {t.sector}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Descensos detectados */}
-              {descents.length > 0 && (
-                <div className="space-y-2 mb-4">
-                  <p className="text-[11px] text-slate-400 font-bold">
-                    {descents.length} descenso{descents.length !== 1 ? 's' : ''} detectado{descents.length !== 1 ? 's' : ''}
-                  </p>
-                  {descents.map(d => (
-                    <div key={d.id} className="flex items-center justify-between px-3 py-2 bg-slate-950/50 border border-white/5 rounded-lg">
-                      <div>
-                        <span className="text-xs font-bold text-white">{d.name}</span>
-                        <span className="text-[10px] text-slate-500 ml-2">{d.distanceKm.toFixed(1)} km · -{d.elevationLoss}m</span>
-                      </div>
-                      {descentResults.has(d.id) && (
-                        <span className="text-[10px] text-orange-400 font-bold">
-                          {descentResults.get(d.id)!.recommendation.recommendedFrontBar.toFixed(1)} bar
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {error && (
-                <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-400">{error}</div>
-              )}
-
-              {/* Botón calcular */}
-              {descents.length > 0 && (
-                <button onClick={handleCalculateAll} disabled={calculating}
-                  className="w-full py-3 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white rounded-xl font-bold text-sm transition-all shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2"
-                >
-                  {calculating ? (
-                    <><Loader2 className="w-4 h-4 animate-spin" /> Calculando presión con AEMET...</>
-                  ) : (
-                    <><Gauge className="w-4 h-4" /> Calcular presión para {descents.length} descenso{descents.length !== 1 ? 's' : ''}</>
-                  )}
-                </button>
-              )}
-
-              {/* ─── RESULTADOS ─── */}
-              {selectedOnlyCalc && descentResults.size > 0 && (() => {
-                // Compute average of all descent recommendations
-                const values = Array.from(descentResults.values());
-                const avgFrontBar = values.reduce((s, v) => s + v.recommendation.recommendedFrontBar, 0) / values.length;
-                const avgRearBar  = values.reduce((s, v) => s + v.recommendation.recommendedRearBar, 0) / values.length;
-                const avgFrontPsi = values.reduce((s, v) => s + v.recommendation.recommendedFrontPsi, 0) / values.length;
-                const avgRearPsi  = values.reduce((s, v) => s + v.recommendation.recommendedRearPsi, 0) / values.length;
-                const firstWeather = values[0]?.weather;
-
-                return (
-                <div className="mt-6 space-y-6">
-                  {/* ─── PROMEDIO GENERAL ─── */}
-                  <div className="bg-gradient-to-br from-slate-900 to-slate-950 border border-orange-500/20 rounded-2xl p-6 shadow-lg shadow-orange-500/5">
-                    <div className="flex items-center gap-2 mb-4">
-                      <TrendingDown className="w-5 h-5 text-orange-500" />
-                      <h2 className="text-sm font-bold text-white">Presión media recomendada</h2>
-                    </div>
-
-                    {firstWeather && (
-                      <div className="flex items-center gap-3 mb-4 text-[10px] text-slate-400 bg-slate-950/50 rounded-lg px-3 py-2">
-                        <span className="flex items-center gap-1"><Thermometer className="w-3 h-3 text-orange-400" /> {firstWeather.temperatureC}°C</span>
-                        <span className="flex items-center gap-1"><Droplets className="w-3 h-3 text-blue-400" /> {firstWeather.humidityPct}% HR</span>
-                        <span className="text-slate-600">{descents.length} descenso{descents.length !== 1 ? 's' : ''}</span>
-                      </div>
-                    )}
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="text-center p-4 bg-slate-950/60 border border-white/5 rounded-xl">
-                        <p className="text-[9px] text-slate-500 uppercase tracking-widest mb-2">Delantera</p>
-                        <p className="text-5xl font-black text-orange-500">{avgFrontBar.toFixed(1)}</p>
-                        <p className="text-xs text-slate-400 mt-1">{Math.round(avgFrontPsi)} PSI</p>
-                      </div>
-                      <div className="text-center p-4 bg-slate-950/60 border border-white/5 rounded-xl">
-                        <p className="text-[9px] text-slate-500 uppercase tracking-widest mb-2">Trasera</p>
-                        <p className="text-5xl font-black text-orange-500">{avgRearBar.toFixed(1)}</p>
-                        <p className="text-xs text-slate-400 mt-1">{Math.round(avgRearPsi)} PSI</p>
-                      </div>
-                    </div>
+                  {/* Selector de ruta */}
+                  <div>
+                    <label className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">Ruta</label>
+                    <select value={selectedTrackId || ''} onChange={e => handleTrackSelect(e.target.value)}
+                      className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer"
+                    >
+                      <option value="">Selecciona una ruta...</option>
+                      {allTracks.filter(t => t.sector).sort((a, b) => a.sector.localeCompare(b.sector)).map(t => (
+                        <option key={t.id} value={t.id}>{t.name} — {t.sector}</option>
+                      ))}
+                    </select>
                   </div>
 
-                  {/* ─── POR CADA DESCENSO ─── */}
-                  {descents.map(descent => {
-                    const result = descentResults.get(descent.id);
-                    if (!result) return null;
-                    const { recommendation, weather } = result;
-                    return (
-                      <div key={descent.id} className="bg-slate-950/60 border border-white/5 rounded-2xl p-5">
-                        <div className="flex items-center justify-between mb-3">
-                          <h3 className="text-sm font-bold text-white">{descent.name}</h3>
-                          <span className="text-[10px] text-slate-500">{descent.distanceKm.toFixed(1)} km · -{descent.elevationLoss}m</span>
-                        </div>
+                  {error && (
+                    <div className="p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-[11px] text-red-400">{error}</div>
+                  )}
 
-                        {/* Weather */}
-                        {weather && (
-                          <div className="flex items-center gap-3 mb-4 text-[10px] text-slate-400 bg-slate-950/50 rounded-lg px-3 py-2">
-                            <span className="flex items-center gap-1"><Thermometer className="w-3 h-3 text-orange-400" /> {weather.temperatureC}°C</span>
-                            <span className="flex items-center gap-1"><Droplets className="w-3 h-3 text-blue-400" /> {weather.humidityPct}% HR</span>
-                          </div>
-                        )}
+                  {selectedTrackId && descents.length > 0 && (
+                    <div className="text-[10px] text-slate-500 bg-slate-950/30 rounded-lg px-3 py-2">
+                      {descents.length} descenso{descents.length !== 1 ? 's' : ''} detectado{descents.length !== 1 ? 's' : ''}
+                      {' — la presión se calcula para la primera zona representativa'}
+                    </div>
+                  )}
 
-                        {/* Pressure comparison */}
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="text-center p-3 bg-slate-950/40 rounded-xl border border-white/5">
-                            <p className="text-[9px] text-slate-600 uppercase tracking-widest mb-1">Delantera</p>
-                            <div className="flex items-center justify-center gap-3">
-                              <div>
-                                <p className="text-[8px] text-slate-600">Actual</p>
-                                <p className="text-lg font-black text-slate-500">{recommendation.currentFrontBar.toFixed(1)}</p>
-                                <p className="text-[9px] text-slate-600">{recommendation.currentFrontPsi} PSI</p>
-                              </div>
-                              <span className="text-orange-500 text-lg">→</span>
-                              <div>
-                                <p className="text-[8px] text-orange-400">Recomendada</p>
-                                <p className="text-2xl font-black text-orange-500">{recommendation.recommendedFrontBar.toFixed(1)}</p>
-                                <p className="text-[9px] text-slate-400">{recommendation.recommendedFrontPsi} PSI</p>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="text-center p-3 bg-slate-950/40 rounded-xl border border-white/5">
-                            <p className="text-[9px] text-slate-600 uppercase tracking-widest mb-1">Trasera</p>
-                            <div className="flex items-center justify-center gap-3">
-                              <div>
-                                <p className="text-[8px] text-slate-600">Actual</p>
-                                <p className="text-lg font-black text-slate-500">{recommendation.currentRearBar.toFixed(1)}</p>
-                                <p className="text-[9px] text-slate-600">{recommendation.currentRearPsi} PSI</p>
-                              </div>
-                              <span className="text-orange-500 text-lg">→</span>
-                              <div>
-                                <p className="text-[8px] text-orange-400">Recomendada</p>
-                                <p className="text-2xl font-black text-orange-500">{recommendation.recommendedRearBar.toFixed(1)}</p>
-                                <p className="text-[9px] text-slate-400">{recommendation.recommendedRearPsi} PSI</p>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        <p className="mt-3 text-[9px] text-slate-500 leading-relaxed">{recommendation.reason}</p>
-                      </div>
-                    );
-                  })}
+                  {/* Botón calcular */}
+                  {descents.length > 0 && (
+                    <button onClick={handleCalculateAll} disabled={calculating}
+                      className="w-full py-2.5 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white rounded-xl font-bold text-xs transition-all shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2"
+                    >
+                      {calculating ? (
+                        <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Consultando AEMET y calculando presión...</>
+                      ) : (
+                        <><Gauge className="w-3.5 h-3.5" /> Calcular presión recomendada</>
+                      )}
+                    </button>
+                  )}
                 </div>
-              )})()}
+              </details>
             </section>
+
+            {/* RESULTADOS */}
+            {selectedOnlyCalc && descentResults.size > 0 && (() => {
+              const values = Array.from(descentResults.values());
+              const avgFrontBar = values.reduce((s, v) => s + v.recommendation.recommendedFrontBar, 0) / values.length;
+              const avgRearBar  = values.reduce((s, v) => s + v.recommendation.recommendedRearBar, 0) / values.length;
+              const avgFrontPsi = values.reduce((s, v) => s + v.recommendation.recommendedFrontPsi, 0) / values.length;
+              const avgRearPsi  = values.reduce((s, v) => s + v.recommendation.recommendedRearPsi, 0) / values.length;
+              const weather = values[0]?.weather;
+              const firstRec = values[0]?.recommendation;
+
+              // Weather severity
+              const isSevere = weather?.windKmh && weather.windKmh >= 45;
+              const hasRain = weather?.precipitationMm && weather.precipitationMm > 0;
+              const weatherBadge = isSevere
+                ? { label: 'Condiciones adversas', color: 'text-red-400', bg: 'border-red-500/20 bg-red-500/5' }
+                : hasRain
+                  ? { label: 'Lluvia ligera', color: 'text-yellow-400', bg: 'border-yellow-500/20 bg-yellow-500/5' }
+                  : { label: 'Favorable', color: 'text-green-400', bg: 'border-green-500/20 bg-green-500/5' };
+
+              return (
+                <div className="space-y-6">
+
+                  {/* PRESION RECOMENDADA (HERO) */}
+                  <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-orange-950/30 border border-orange-500/30 rounded-3xl p-8 shadow-2xl shadow-orange-500/10 text-center">
+                    <div className="flex items-center justify-center gap-2 text-orange-500 mb-2">
+                      <TrendingDown className="w-5 h-5" />
+                      <span className="text-[10px] font-bold uppercase tracking-widest">Presión recomendada</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-8 max-w-md mx-auto mt-6">
+                      {/* Delantera */}
+                      <div>
+                        <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-2 font-bold">Delantera</p>
+                        <p className="text-7xl md:text-8xl font-black text-orange-500 leading-none tracking-tighter">
+                          {avgFrontBar.toFixed(1)}
+                        </p>
+                        <p className="text-sm text-slate-400 mt-2">
+                          <span className="text-base font-bold text-white">{Math.round(avgFrontPsi)}</span> PSI
+                        </p>
+                        <p className="text-[10px] text-slate-600 mt-1">
+                          ({firstRec.currentFrontBar.toFixed(1)} bar actual)
+                        </p>
+                      </div>
+                      {/* Trasera */}
+                      <div>
+                        <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-2 font-bold">Trasera</p>
+                        <p className="text-7xl md:text-8xl font-black text-orange-500 leading-none tracking-tighter">
+                          {avgRearBar.toFixed(1)}
+                        </p>
+                        <p className="text-sm text-slate-400 mt-2">
+                          <span className="text-base font-bold text-white">{Math.round(avgRearPsi)}</span> PSI
+                        </p>
+                        <p className="text-[10px] text-slate-600 mt-1">
+                          ({firstRec.currentRearBar.toFixed(1)} bar actual)
+                        </p>
+                      </div>
+                    </div>
+
+                    {firstRec && (
+                      <p className="mt-6 text-[11px] text-slate-500 leading-relaxed max-w-lg mx-auto">
+                        {firstRec.reason}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* DATOS METEOROLOGICOS (PROMINENTES) */}
+                  {weather && (
+                    <div className={`border rounded-2xl p-6 ${weatherBadge.bg}`}>
+                      <div className="flex items-center gap-2 mb-5">
+                        <Thermometer className={`w-5 h-5 ${weatherBadge.color}`} />
+                        <span className="text-xs font-bold uppercase tracking-widest text-slate-300">Meteo en la ruta</span>
+                        <span className={`ml-auto text-[10px] font-bold uppercase ${weatherBadge.color}`}>
+                          {weatherBadge.label}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="text-center p-4 bg-slate-950/50 rounded-xl border border-white/5">
+                          <Thermometer className="w-5 h-5 text-orange-400 mx-auto mb-2" />
+                          <p className="text-3xl font-black text-white">{weather.temperatureC}°</p>
+                          <p className="text-[9px] text-slate-500 uppercase tracking-widest mt-1">Temperatura</p>
+                        </div>
+                        <div className="text-center p-4 bg-slate-950/50 rounded-xl border border-white/5">
+                          <Droplets className="w-5 h-5 text-blue-400 mx-auto mb-2" />
+                          <p className="text-3xl font-black text-white">{weather.humidityPct}%</p>
+                          <p className="text-[9px] text-slate-500 uppercase tracking-widest mt-1">Humedad</p>
+                        </div>
+                        <div className="text-center p-4 bg-slate-950/50 rounded-xl border border-white/5">
+                          <svg className="w-5 h-5 text-cyan-400 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                          </svg>
+                          <p className="text-3xl font-black text-white">{weather.precipitationMm ?? 0} mm</p>
+                          <p className="text-[9px] text-slate-500 uppercase tracking-widest mt-1">Precipitación</p>
+                        </div>
+                        <div className="text-center p-4 bg-slate-950/50 rounded-xl border border-white/5">
+                          <svg className="w-5 h-5 text-emerald-400 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                          </svg>
+                          <p className="text-3xl font-black text-white">{weather.windKmh ?? '—'}</p>
+                          <p className="text-[9px] text-slate-500 uppercase tracking-widest mt-1">Viento km/h</p>
+                        </div>
+                      </div>
+
+                      {weather.stationName && (
+                        <div className="mt-4 text-[10px] text-slate-600 bg-slate-950/30 rounded-lg px-3 py-2 text-center">
+                          Datos de estación {weather.stationName}
+                          {weather.stationDistanceKm && <> · a {weather.stationDistanceKm} km</>}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Nota informativa */}
+                  <div className="text-center">
+                    <p className="text-[10px] text-slate-600">
+                      Presión calculada para el primer descenso de la ruta — los resultados son representativos
+                      para todos los descensos de la misma zona.
+                    </p>
+                  </div>
+                </div>
+              );
+            })()}
           </>
         )}
       </div>
