@@ -14,6 +14,11 @@ DROP POLICY IF EXISTS "Enable insert for own profiles" ON bike_profiles;
 DROP POLICY IF EXISTS "Enable update for own profiles" ON bike_profiles;
 DROP POLICY IF EXISTS "Enable delete for own profiles" ON bike_profiles;
 
+-- Grant base table permissions (required even with RLS — policies further restrict)
+GRANT USAGE ON SCHEMA public TO authenticated, anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON bike_profiles TO authenticated;
+GRANT SELECT ON bike_profiles TO anon;
+
 -- Recreate with simpler, more explicit names
 CREATE POLICY "Enable read for own profiles"
   ON bike_profiles FOR SELECT

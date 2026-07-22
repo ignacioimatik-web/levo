@@ -8,8 +8,8 @@ import { loadTrackPoints, getCachedTrackPoints } from '@/lib/forfait/track-point
 import { splitIntoSendas } from '@/lib/forfait/senda-utils';
 import type { TrackMTB, TrackPoint } from '@/lib/forfait/types';
 import { buildProfileSeries } from '@/lib/forfait/geo-utils';
-import ElevationProfile from '@/components/forfait/ElevationProfile';
-import { Loader2, Gauge, Thermometer, Droplets, Bike, AlertTriangle, TrendingDown } from 'lucide-react';
+import ContinuousProfile from '@/components/ContinuousProfile';
+import { Loader2, Gauge, Thermometer, Droplets, Bike, AlertTriangle, TrendingDown, MapPin } from 'lucide-react';
 import Link from 'next/link';
 import { BIKE_MODELS } from '@/lib/alerta-presion/bike-models';
 import type { BikeModelSpec } from '@/lib/alerta-presion/bike-models';
@@ -86,10 +86,7 @@ export default function AlertaPresionPage() {
         return;
       }
 
-      const { data, error } = await supabase
-        .from('bike_profiles')
-        .select('*')
-        .order('updated_at', { ascending: false });
+      const { data, error } = await supabase.rpc('get_my_bike_profiles');
 
       if (error) {
         setProfileLoadError(`${error.message} (code: ${error.code})`);
@@ -275,29 +272,54 @@ export default function AlertaPresionPage() {
 
       let result;
       if (selectedProfileId) {
-        // Update existing
-        result = await supabase
-          .from('bike_profiles')
-          .update({ ...payload, updated_at: new Date().toISOString() })
-          .eq('id', selectedProfileId)
-          .select()
-          .single();
+        // Update existing via RPC
+        result = await supabase.rpc('update_bike_profile', {
+          p_id: selectedProfileId,
+          p_profile_name: payload.profile_name,
+          p_rider_weight_kg: payload.rider_weight_kg,
+          p_bike_weight_kg: payload.bike_weight_kg,
+          p_bike_model: payload.bike_model,
+          p_wheel_front: payload.wheel_front,
+          p_wheel_rear: payload.wheel_rear,
+          p_tire_model_front: payload.tire_model_front,
+          p_tire_model_rear: payload.tire_model_rear,
+          p_tire_width_front_inch: payload.tire_width_front_inch,
+          p_tire_width_rear_inch: payload.tire_width_rear_inch,
+          p_initial_pressure_front_bar: payload.initial_pressure_front_bar,
+          p_initial_pressure_rear_bar: payload.initial_pressure_rear_bar,
+          p_tubeless: payload.tubeless,
+        });
       } else {
-        // Insert new
-        result = await supabase
-          .from('bike_profiles')
-          .insert(payload)
-          .select()
-          .single();
+        // Insert new via RPC
+        result = await supabase.rpc('insert_bike_profile', {
+          p_profile_name: payload.profile_name,
+          p_rider_weight_kg: payload.rider_weight_kg,
+          p_bike_weight_kg: payload.bike_weight_kg,
+          p_bike_model: payload.bike_model,
+          p_wheel_front: payload.wheel_front,
+          p_wheel_rear: payload.wheel_rear,
+          p_tire_model_front: payload.tire_model_front,
+          p_tire_model_rear: payload.tire_model_rear,
+          p_tire_width_front_inch: payload.tire_width_front_inch,
+          p_tire_width_rear_inch: payload.tire_width_rear_inch,
+          p_initial_pressure_front_bar: payload.initial_pressure_front_bar,
+          p_initial_pressure_rear_bar: payload.initial_pressure_rear_bar,
+          p_tubeless: payload.tubeless,
+        });
       }
 
       if (result.error) {
         setSaveStatus('error');
+      } else if (result.data && Array.isArray(result.data) && result.data.length > 0) {
+        setSaveStatus('saved');
+        setSelectedProfileId(result.data[0].id);
+        await loadProfiles();
+      } else if (result.data && !Array.isArray(result.data)) {
+        setSaveStatus('saved');
+        setSelectedProfileId(result.data.id);
+        await loadProfiles();
       } else {
         setSaveStatus('saved');
-        if (result.data) {
-          setSelectedProfileId(result.data.id);
-        }
         await loadProfiles();
       }
     } catch { setSaveStatus('error'); }
@@ -310,7 +332,8 @@ export default function AlertaPresionPage() {
     if (!confirm('¿Eliminar este perfil?')) return;
     try {
       const supabase = createClient();
-      await supabase.from('bike_profiles').delete().eq('id', id);
+      const { error } = await supabase.rpc('delete_bike_profile', { p_id: id });
+      if (error) console.error('Delete profile error:', error);
       if (selectedProfileId === id) {
         setProfile({ ...DEFAULT_PROFILE });
         setProfileName('Mi perfil');
@@ -639,7 +662,7 @@ export default function AlertaPresionPage() {
               function AnimatedTire({ side, compact }: { side: 'front' | 'rear'; compact?: boolean }) {
                 const pulseSpeed = side === 'front' ? '3s' : '3.4s';
                 const delay = side === 'front' ? '0s' : '0.5s';
-                const size = compact ? 'w-14 h-14 md:w-16 md:h-16' : 'w-20 h-20 md:w-24 md:h-24';
+                const size = compact ? 'w-20 h-20 md:w-28 md:h-28' : 'w-20 h-20 md:w-24 md:h-24';
                 return (
                   <>
                     <style>{`
@@ -677,58 +700,70 @@ export default function AlertaPresionPage() {
                     `}</style>
                     <svg viewBox="0 0 120 120" className={`${size} flex-shrink-0`}>
                       <g className={`tire-breathe-${side}`}>
-                        {/* Outer tire carcass */}
-                        <circle cx="60" cy="60" r="48" fill="none" stroke="#334155" strokeWidth="10" />
-                        {/* Inner tire wall highlight */}
-                        <circle cx="60" cy="60" r="43" fill="none" stroke="#1e293b" strokeWidth="1.5" />
-                        {/* Tire sidewall textury */}
-                        <circle cx="60" cy="60" r="39" fill="none" stroke="#475569" strokeWidth="0.5" strokeDasharray="3 3" />
-                        {/* MTB tread knobs - rectangular tacos around perimeter */}
-                        {Array.from({ length: 16 }).map((_, i) => {
-                          const angle = (i * (360 / 16) * Math.PI) / 180;
-                          const r = 48;
-                          const cx = 60 + r * Math.cos(angle);
-                          const cy = 60 + r * Math.sin(angle);
-                          // Rotate each knob to face outward
-                          const rot = (i * (360 / 16));
+                        {/* Outer tire carcass - thinner for bicycle look */}
+                        <circle cx="60" cy="60" r="48" fill="none" stroke="#334155" strokeWidth="8" />
+                        {/* Inner tire wall */}
+                        <circle cx="60" cy="60" r="44" fill="none" stroke="#1e293b" strokeWidth="1" />
+                        {/* Tire sidewall branding line */}
+                        <circle cx="60" cy="60" r="40" fill="none" stroke="#475569" strokeWidth="0.5" strokeDasharray="2 4" />
+                        {/* MTB tread knobs - rectangular chunky tacos */}
+                        {Array.from({ length: 18 }).map((_, i) => {
+                          const angle = (i * (360 / 18) * Math.PI) / 180;
+                          const rOuter = 48;
+                          const rInner = 44;
+                          const cxOuter = 60 + rOuter * Math.cos(angle);
+                          const cyOuter = 60 + rOuter * Math.sin(angle);
+                          const cxInner = 60 + rInner * Math.cos(angle);
+                          const cyInner = 60 + rInner * Math.sin(angle);
+                          const midX = (cxOuter + cxInner) / 2;
+                          const midY = (cyOuter + cyInner) / 2;
+                          const rot = (i * (360 / 18));
+                          // Alternating big/small knobs like real MTB tires
+                          const isBig = i % 2 === 0;
                           return (
-                            <g key={i} className={`tknob-${side}`} style={{ transformOrigin: `${cx}px ${cy}px` }}>
+                            <g key={i} className={`tknob-${side}`} style={{ transformOrigin: `${midX}px ${midY}px` }}>
                               <rect
-                                x={cx - 3} y={cy - 6}
-                                width="6" height="10"
-                                rx="1.5"
-                                fill="#475569"
-                                transform={`rotate(${rot}, ${cx}, ${cy})`}
+                                x={isBig ? midX - 3.5 : midX - 2.5}
+                                y={isBig ? midY - 6 : midY - 4.5}
+                                width={isBig ? 7 : 5}
+                                height={isBig ? 10 : 7}
+                                rx="1"
+                                fill={isBig ? '#52525b' : '#3f3f46'}
+                                transform={`rotate(${rot}, ${midX}, ${midY})`}
                               />
                             </g>
                           );
                         })}
-                        {/* Rim */}
-                        <circle cx="60" cy="60" r="28" fill="none" stroke="#64748b" strokeWidth="3" />
-                        <circle cx="60" cy="60" r="26" fill="none" stroke="#94a3b8" strokeWidth="0.5" />
-                        {/* Spokes - bicycle style (thin, many) */}
+                        {/* Rim - bicycle style */}
+                        <circle cx="60" cy="60" r="28" fill="none" stroke="#64748b" strokeWidth="2.5" />
+                        <circle cx="60" cy="60" r="27" fill="none" stroke="#94a3b8" strokeWidth="0.5" />
+                        {/* Spokes - many thin spokes like a bicycle wheel */}
                         <g className={`tspoke-${side}`}>
-                          {Array.from({ length: 8 }).map((_, i) => {
-                            const angle = (i * 45 * Math.PI) / 180;
-                            const x1 = 60 + 8 * Math.cos(angle);
-                            const y1 = 60 + 8 * Math.sin(angle);
-                            const x2 = 60 + 28 * Math.cos(angle);
-                            const y2 = 60 + 28 * Math.sin(angle);
+                          {Array.from({ length: 12 }).map((_, i) => {
+                            const angle = (i * 30 * Math.PI) / 180;
+                            const x1 = 60 + 7 * Math.cos(angle);
+                            const y1 = 60 + 7 * Math.sin(angle);
+                            const x2 = 60 + 27.5 * Math.cos(angle);
+                            const y2 = 60 + 27.5 * Math.sin(angle);
                             return (
-                              <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#64748b" strokeWidth="1.2" />
+                              <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#64748b" strokeWidth="0.8" />
                             );
                           })}
                         </g>
+                        {/* Disc brake rotor */}
+                        <circle cx="60" cy="60" r="14" fill="none" stroke="#52525b" strokeWidth="1" strokeDasharray="3 2" />
+                        <circle cx="60" cy="60" r="12" fill="none" stroke="#52525b" strokeWidth="0.5" />
                         {/* Hub */}
-                        <circle cx="60" cy="60" r="8" fill="#94a3b8" />
-                        <circle cx="60" cy="60" r="4" fill="#cbd5e1" />
-                        {/* Air pressure indicator dots inside */}
-                        <circle cx="60" cy="36" r="1.5" fill="#f97316" className={`tknob-${side}`} style={{ animationDelay: delay }} />
-                        <circle cx="72" cy="48" r="1" fill="#fb923c" className={`tknob-${side}`} style={{ animationDelay: `${delay + 0.35}s` }} />
-                        <circle cx="72" cy="68" r="1.2" fill="#f97316" className={`tknob-${side}`} style={{ animationDelay: `${delay + 0.7}s` }} />
-                        <circle cx="60" cy="80" r="1.5" fill="#fb923c" className={`tknob-${side}`} style={{ animationDelay: `${delay + 0.15}s` }} />
-                        <circle cx="46" cy="72" r="1" fill="#f97316" className={`tknob-${side}`} style={{ animationDelay: `${delay + 0.5}s` }} />
-                        <circle cx="46" cy="48" r="1.2" fill="#fb923c" className={`tknob-${side}`} style={{ animationDelay: `${delay + 0.85}s` }} />
+                        <circle cx="60" cy="60" r="7" fill="#71717a" />
+                        <circle cx="60" cy="60" r="4" fill="#a1a1aa" />
+                        <circle cx="60" cy="60" r="2" fill="#d4d4d8" />
+                        {/* Air molecules inside */}
+                        <circle cx="60" cy="34" r="1.5" fill="#f97316" className={`tknob-${side}`} style={{ animationDelay: delay }} />
+                        <circle cx="73" cy="48" r="1" fill="#fb923c" className={`tknob-${side}`} style={{ animationDelay: `${delay + 0.3}s` }} />
+                        <circle cx="74" cy="66" r="1.2" fill="#f97316" className={`tknob-${side}`} style={{ animationDelay: `${delay + 0.6}s` }} />
+                        <circle cx="62" cy="80" r="1.5" fill="#fb923c" className={`tknob-${side}`} style={{ animationDelay: `${delay + 0.15}s` }} />
+                        <circle cx="44" cy="70" r="1" fill="#f97316" className={`tknob-${side}`} style={{ animationDelay: `${delay + 0.45}s` }} />
+                        <circle cx="46" cy="46" r="1.2" fill="#fb923c" className={`tknob-${side}`} style={{ animationDelay: `${delay + 0.75}s` }} />
                       </g>
                     </svg>
                   </>
@@ -820,10 +855,46 @@ export default function AlertaPresionPage() {
                     );
                   })()}
 
-                  {/* PERFIL DE ELEVACION */}
-                  {trackPoints.length > 0 && (
-                    <ElevationProfile points={trackPoints} />
-                  )}
+                  {/* PERFIL DE ELEVACION INTERACTIVO */}
+                  {trackPoints.length > 0 && (() => {
+                    const series = buildProfileSeries(trackPoints);
+                    if (!series.length) return null;
+                    const startEle = series[0].elevationM.toFixed(0);
+                    const endEle = series[series.length - 1].elevationM.toFixed(0);
+                    const minEle = Math.min(...series.map(p => p.elevationM)).toFixed(0);
+                    const maxEle = Math.max(...series.map(p => p.elevationM)).toFixed(0);
+                    const maxKm = Math.max(...series.map(p => p.km), 1).toFixed(1);
+                    return (
+                      <div className="space-y-3">
+                        <ContinuousProfile series={series} />
+                        <div className="grid grid-cols-4 gap-2 text-[10px]">
+                          <div className="bg-slate-900/40 border border-white/5 rounded-lg px-3 py-2 text-center">
+                            <span className="text-slate-500">Inicio</span>
+                            <p className="text-white font-bold">{startEle} m</p>
+                          </div>
+                          <div className="bg-slate-900/40 border border-white/5 rounded-lg px-3 py-2 text-center">
+                            <span className="text-slate-500">Final</span>
+                            <p className="text-white font-bold">{endEle} m</p>
+                          </div>
+                          <div className="bg-slate-900/40 border border-white/5 rounded-lg px-3 py-2 text-center">
+                            <span className="text-slate-500">Rango</span>
+                            <p className="text-white font-bold">{(Number(maxEle) - Number(minEle)).toFixed(0)} m</p>
+                          </div>
+                          <div className="bg-slate-900/40 border border-white/5 rounded-lg px-3 py-2 text-center">
+                            <span className="text-slate-500">Distancia</span>
+                            <p className="text-white font-bold">{maxKm} km</p>
+                          </div>
+                        </div>
+                        {weather && (
+                          <div className="flex items-center gap-3 text-[10px] text-slate-400 bg-slate-900/30 border border-white/5 rounded-lg px-4 py-2">
+                            <MapPin className="w-3 h-3 text-orange-400" />
+                            <span>{weather.temperatureC}°C · {weather.humidityPct}% HR · {weather.windKmh ?? '—'} km/h</span>
+                            <span className="ml-auto text-slate-600">Condiciones en ruta</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   {/* DATOS METEOROLOGICOS (PROMINENTES) */}
                   {weather && (
