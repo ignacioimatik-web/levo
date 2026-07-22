@@ -550,30 +550,43 @@ export default function AlertaPresionPage() {
               return (
                 <div className="space-y-6">
                   <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-orange-950/30 border border-orange-500/30 rounded-3xl p-6 md:p-8 shadow-2xl shadow-orange-500/10 text-center">
-                    <div className="flex items-center justify-center gap-2 text-orange-500 mb-2">
+                    <div className="flex items-center justify-center gap-2 text-orange-500 mb-4">
                       <TrendingDown className="w-5 h-5" />
                       <span className="text-[10px] font-bold uppercase tracking-widest">Presión recomendada</span>
                       <span className="text-[9px] text-slate-600 ml-2">({effectiveTemp}°C · {effectiveHumidity}% HR)</span>
                     </div>
 
-                    {/* PRESION RECOMENDADA - NUMEROS GRANDES */}
-                    <div className="flex items-center justify-center gap-3 md:gap-6 mt-6">
-                      <div>
-                        <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-1 font-bold">Delantera</p>
-                        <p className="text-6xl md:text-7xl font-black text-orange-500 leading-none tracking-tighter">{r.recommendedFrontBar.toFixed(1)}</p>
-                        <p className="text-xs text-slate-400 mt-1"><span className="text-sm font-bold text-white">{Math.round(r.recommendedFrontPsi)}</span> PSI</p>
-                        <p className="text-[9px] text-slate-600 mt-0.5">({r.currentFrontBar.toFixed(1)} actual)</p>
+                    {/* IMAGEN BICI + PRESIONES */}
+                    <div className="relative mx-auto max-w-[500px]">
+                      {/* Imagen con blend-mode para quitar fondo blanco */}
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="w-full h-auto bg-gradient-to-r from-transparent via-orange-500/5 to-transparent" />
                       </div>
-                      <div className="w-px h-20 bg-white/10 hidden sm:block" />
-                      <div>
-                        <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-1 font-bold">Trasera</p>
-                        <p className="text-6xl md:text-7xl font-black text-orange-500 leading-none tracking-tighter">{r.recommendedRearBar.toFixed(1)}</p>
-                        <p className="text-xs text-slate-400 mt-1"><span className="text-sm font-bold text-white">{Math.round(r.recommendedRearPsi)}</span> PSI</p>
-                        <p className="text-[9px] text-slate-600 mt-0.5">({r.currentRearBar.toFixed(1)} actual)</p>
+                      <img
+                        src="/102350-Cube-Stereo-Hybrid-ONE44-HPC-Race-800-blackline-2026-EBike-Fully-Mountainbike-00.jpg"
+                        alt="Cube Stereo Hybrid e-MTB"
+                        className="w-full h-auto"
+                        style={{ mixBlendMode: 'multiply' }}
+                      />
+
+                      {/* PRESION TRASERA (izquierda en imagen) */}
+                      <div className="absolute left-[8%] top-1/2 -translate-y-1/2 bg-slate-950/90 border border-orange-500/40 rounded-xl px-3 py-2 text-center min-w-[90px] shadow-xl shadow-orange-500/10">
+                        <p className="text-[8px] text-orange-400 uppercase tracking-widest font-bold">Trasera</p>
+                        <p className="text-3xl md:text-4xl font-black text-orange-500 leading-none mt-0.5">{r.recommendedRearBar.toFixed(1)}</p>
+                        <p className="text-[9px] text-slate-400"><span className="font-bold text-white">{Math.round(r.recommendedRearPsi)}</span> PSI</p>
+                        <p className="text-[7px] text-slate-600">({r.currentRearBar.toFixed(1)} actual)</p>
+                      </div>
+
+                      {/* PRESION DELANTERA (derecha en imagen) */}
+                      <div className="absolute right-[8%] top-1/2 -translate-y-1/2 bg-slate-950/90 border border-orange-500/40 rounded-xl px-3 py-2 text-center min-w-[90px] shadow-xl shadow-orange-500/10">
+                        <p className="text-[8px] text-orange-400 uppercase tracking-widest font-bold">Delantera</p>
+                        <p className="text-3xl md:text-4xl font-black text-orange-500 leading-none mt-0.5">{r.recommendedFrontBar.toFixed(1)}</p>
+                        <p className="text-[9px] text-slate-400"><span className="font-bold text-white">{Math.round(r.recommendedFrontPsi)}</span> PSI</p>
+                        <p className="text-[7px] text-slate-600">({r.currentFrontBar.toFixed(1)} actual)</p>
                       </div>
                     </div>
 
-                    <p className="text-[11px] text-slate-500 leading-relaxed max-w-lg mx-auto">{r.reason}</p>
+                    <p className="mt-4 text-[11px] text-slate-500 leading-relaxed max-w-lg mx-auto">{r.reason}</p>
                   </div>
 
                   {/* Weather info card */}
