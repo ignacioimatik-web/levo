@@ -279,6 +279,25 @@ export default function AlertaPresionPage() {
 
             {/* PASO 2: MAPA + AJUSTES */}
             {step === 2 && <div className="fade-in space-y-4">
+              {/* BARRA DATOS + AJUSTES */}
+              {weatherLoaded && <div className="bg-slate-900/60 border border-white/5 rounded-xl p-4">
+                <div className="flex items-center flex-wrap gap-4 md:gap-6">
+                  <div className="text-center flex-shrink-0"><p className="text-[8px] text-slate-500 uppercase tracking-widest font-bold">Temperatura</p><div className="flex items-baseline gap-1.5"><span className="text-5xl md:text-6xl font-black text-orange-500">{effectiveTemp}</span><span className="text-lg text-orange-500/70 font-black">°C</span></div>{adjustTemp!==0 && <p className="text-[8px] text-slate-500">Base <span className="font-bold text-white">{baseTemp}°</span><span className={`font-bold ${adjustTemp>0?'text-red-400':'text-blue-400'}`}>({adjustTemp>0?'+':''}{adjustTemp}°)</span></p>}</div>
+                  <div className="w-px h-16 bg-white/5 flex-shrink-0" />
+                  <div className="text-center flex-shrink-0"><p className="text-[8px] text-slate-500 uppercase tracking-widest font-bold">Humedad</p><div className="flex items-baseline gap-1.5"><span className="text-5xl md:text-6xl font-black text-blue-400">{effectiveHumidity}</span><span className="text-lg text-blue-400/70 font-black">%</span></div>{adjustHumidity!==0 && <p className="text-[8px] text-slate-500">Base <span className="font-bold text-white">{baseHumidity}%</span><span className={`font-bold ${adjustHumidity>0?'text-blue-400':'text-yellow-400'}`}>({adjustHumidity>0?'+':''}{adjustHumidity}%)</span></p>}</div>
+                  <div className="w-px h-16 bg-white/5 flex-shrink-0" />
+                  <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
+                    <p className="text-[8px] text-slate-500 uppercase tracking-widest font-bold mr-1">Ajustar</p>
+                    <button onClick={()=>setAdjustTemp(a=>a-1)} className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-white/10 text-[10px] text-slate-300 transition-colors font-bold">Temp -1°</button>
+                    <button onClick={()=>setAdjustTemp(a=>a+1)} className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-white/10 text-[10px] text-slate-300 transition-colors font-bold">Temp +1°</button>
+                    <button onClick={()=>setAdjustHumidity(a=>a-5)} className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-white/10 text-[10px] text-slate-300 transition-colors font-bold">HR -5%</button>
+                    <button onClick={()=>setAdjustHumidity(a=>a+5)} className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-white/10 text-[10px] text-slate-300 transition-colors font-bold">HR +5%</button>
+                  </div>
+                  <div className="ml-auto text-right flex-shrink-0"><p className="text-[7px] text-slate-500">{weatherSource}</p>{altitudeAdjusted && <p className="text-[7px] text-orange-400/70">Ajustado por altitud</p>}</div>
+                </div>
+              </div>}
+
+              {/* MAPA ANCHO COMPLETO */}
               <div className="bg-slate-900/20 border border-white/5 rounded-2xl p-5">
                 <details open>
                   <summary className="flex items-center gap-2 cursor-pointer text-slate-400 hover:text-white transition-colors list-none">
@@ -288,54 +307,37 @@ export default function AlertaPresionPage() {
                     <svg className="w-3 h-3 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
                   </summary>
                   <div className="mt-4">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      <div className="space-y-3">
-                        <p className="text-[10px] text-orange-400 uppercase tracking-widest font-bold flex items-center gap-2"><Crosshair className="w-3.5 h-3.5" /> Haz clic — datos AEMET con altitud</p>
-                        <div className="relative w-full h-[450px] lg:h-[500px] rounded-xl overflow-hidden border border-white/5">
-                          <Map mapStyle="mapbox://styles/mapbox/outdoors-v12" mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN} initialViewState={{ latitude:40.62, longitude:-0.125, zoom:11, pitch:50 }} onClick={(e: MapMouseEvent) => { const m=e.target; let alt; try{ alt=m.queryTerrainElevation?.(e.lngLat)??undefined; }catch{} fetchWeather(e.lngLat.lat, e.lngLat.lng, alt); }} style={{ width:'100%', height:'100%' }}>
-                            <NavigationControl position="top-right" />
-                            {mapPoint && <Marker latitude={mapPoint.lat} longitude={mapPoint.lng} color="#f97316" scale={0.9} />}
-                            {stationMarkers.filter(s=>s.lat&&s.lng).map(st => (
-                              <Marker key={st.code} latitude={st.lat} longitude={st.lng} scale={0.5}>
-                                <div className="flex flex-col items-center cursor-pointer" onClick={(e)=>{e.stopPropagation();fetchWeather(st.lat,st.lng,st.altitudeM);}}>
-                                  <div className={`px-1.5 py-0.5 rounded text-[8px] font-bold text-white whitespace-nowrap shadow-lg border ${st.temperatureC!=null?'bg-slate-950/90 border-orange-500/50':'bg-slate-950/70 border-white/10'}`}>{st.temperatureC!=null?`${st.temperatureC}°`:st.name?.substring(0,6)||'?'}</div>
-                                  <div className="w-2 h-2 bg-orange-500 rounded-full mt-0.5 shadow-lg shadow-orange-500/50" />
-                                </div>
-                              </Marker>
-                            ))}
-                            {stationsLoading && <div className="absolute top-2 left-2 z-10 bg-slate-950/90 border border-white/10 rounded-lg px-3 py-2 flex items-center gap-2 text-[10px] text-slate-300"><Loader2 className="w-3 h-3 animate-spin text-orange-400" /> Localizando estaciones...</div>}
-                            {weatherLoading && <div className="absolute top-2 right-12 z-10 bg-slate-950/90 border border-white/10 rounded-lg px-3 py-2 flex items-center gap-2 text-[10px] text-slate-300"><Loader2 className="w-3 h-3 animate-spin text-orange-400" /> Consultando AEMET...</div>}
-                          </Map>
-                        </div>
-                        <p className="text-[9px] text-slate-600 leading-relaxed">{stationMarkers.length > 0 ? `Se muestran ${stationMarkers.length} estaciones.` : 'Haz clic en el mapa para obtener datos AEMET.'}{clickAltitude != null && <span className="block text-[8px] text-slate-500 mt-0.5">Altitud: {Math.round(clickAltitude)} m</span>}</p>
-                      </div>
-                      <div className="space-y-4">
-                        <p className="text-[10px] text-orange-400 uppercase tracking-widest font-bold flex items-center gap-2"><Gauge className="w-3.5 h-3.5" /> Ajusta según tu ruta</p>
-                        {!weatherLoaded && !weatherLoading && <div className="text-[11px] text-slate-500 bg-slate-800/30 rounded-xl px-4 py-6 text-center">Haz clic en el mapa para obtener datos base.</div>}
-                        {weatherLoading && <div className="flex items-center gap-2 text-[11px] text-slate-400 bg-slate-800/30 rounded-xl px-4 py-6"><Loader2 className="w-4 h-4 animate-spin" /> Consultando AEMET...</div>}
-                        {weatherLoaded && <>
-                          <div className="bg-slate-900/60 border border-white/5 rounded-xl p-5">
-                            <div className="flex items-center justify-between mb-4"><span className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Datos</span><span className="text-xs text-slate-400 truncate max-w-[180px]">{weatherSource}</span></div>
-                            <div className="grid grid-cols-2 gap-6">
-                              <div className="text-center"><p className="text-[9px] text-slate-500 uppercase tracking-widest mb-1">Temperatura</p><div className="flex items-baseline justify-center gap-2"><span className="text-5xl md:text-6xl font-black text-orange-500">{effectiveTemp}</span><span className="text-xl text-orange-500/70 font-black">°C</span></div>{adjustTemp!==0 && <p className="text-[9px] text-slate-500 mt-1">Base <span className="font-bold text-white">{baseTemp}°</span><span className={`ml-1 font-bold ${adjustTemp>0?'text-red-400':'text-blue-400'}`}>({adjustTemp>0?'+':''}{adjustTemp}°)</span></p>}</div>
-                              <div className="text-center"><p className="text-[9px] text-slate-500 uppercase tracking-widest mb-1">Humedad</p><div className="flex items-baseline justify-center gap-2"><span className="text-5xl md:text-6xl font-black text-blue-400">{effectiveHumidity}</span><span className="text-xl text-blue-400/70 font-black">%</span></div>{adjustHumidity!==0 && <p className="text-[9px] text-slate-500 mt-1">Base <span className="font-bold text-white">{baseHumidity}%</span><span className={`ml-1 font-bold ${adjustHumidity>0?'text-blue-400':'text-yellow-400'}`}>({adjustHumidity>0?'+':''}{adjustHumidity}%)</span></p>}</div>
+                    <p className="text-[10px] text-orange-400 uppercase tracking-widest font-bold flex items-center gap-2 mb-3"><Crosshair className="w-3.5 h-3.5" /> Haz clic — datos AEMET con altitud</p>
+                    <div className="relative w-full h-[400px] lg:h-[500px] rounded-xl overflow-hidden border border-white/5">
+                      <Map mapStyle="mapbox://styles/mapbox/outdoors-v12" mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN} initialViewState={{ latitude:40.62, longitude:-0.125, zoom:11, pitch:50 }} onClick={(e: MapMouseEvent) => { const m=e.target; let alt; try{ alt=m.queryTerrainElevation?.(e.lngLat)??undefined; }catch{} fetchWeather(e.lngLat.lat, e.lngLat.lng, alt); }} style={{ width:'100%', height:'100%' }}>
+                        <NavigationControl position="top-right" />
+                        {mapPoint && <Marker latitude={mapPoint.lat} longitude={mapPoint.lng} color="#f97316" scale={0.9} />}
+                        {stationMarkers.filter(s=>s.lat&&s.lng).map(st => (
+                          <Marker key={st.code} latitude={st.lat} longitude={st.lng} scale={0.5}>
+                            <div className="flex flex-col items-center cursor-pointer" onClick={(e)=>{e.stopPropagation();fetchWeather(st.lat,st.lng,st.altitudeM);}}>
+                              <div className={`px-1.5 py-0.5 rounded text-[8px] font-bold text-white whitespace-nowrap shadow-lg border ${st.temperatureC!=null?'bg-slate-950/90 border-orange-500/50':'bg-slate-950/70 border-white/10'}`}>{st.temperatureC!=null?`${st.temperatureC}°`:st.name?.substring(0,6)||'?'}</div>
+                              <div className="w-2 h-2 bg-orange-500 rounded-full mt-0.5 shadow-lg shadow-orange-500/50" />
                             </div>
-                            <div className="flex items-center justify-center gap-4 mt-4 pt-4 border-t border-white/5">
-                              <p className="text-[9px] text-slate-500">Ajustar:</p>
-                              <button onClick={()=>setAdjustTemp(a=>a-1)} className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-white/10 text-[10px] text-slate-300 transition-colors">Temp -1°</button>
-                              <button onClick={()=>setAdjustTemp(a=>a+1)} className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-white/10 text-[10px] text-slate-300 transition-colors">Temp +1°</button>
-                              <button onClick={()=>setAdjustHumidity(a=>a-5)} className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-white/10 text-[10px] text-slate-300 transition-colors">HR -5%</button>
-                              <button onClick={()=>setAdjustHumidity(a=>a+5)} className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-white/10 text-[10px] text-slate-300 transition-colors">HR +5%</button>
-                            </div>
-                          </div>
-                          <div><p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-2">Perfiles rápidos</p><div className="grid grid-cols-2 gap-2">{ELEVATION_PRESETS.map(p => <button key={p.label} onClick={()=>applyPreset(p.label)} className={`text-left px-3 py-2 rounded-xl border transition-all text-[10px] ${selectedPreset===p.label?'border-orange-500 bg-orange-500/10 text-white':'border-white/10 bg-slate-900/60 text-slate-400 hover:border-orange-500/50'}`}><span className="text-xs mr-1">{p.icon}</span><span className="font-bold">{p.label}</span><span className="block text-[8px] text-slate-500 mt-0.5">{p.deltaTemp>0?'+':''}{p.deltaTemp}°C · {p.deltaHumidity>0?'+':''}{p.deltaHumidity}% HR</span></button>)}</div></div>
-                        </>}
-                        {error && <div className="p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-[11px] text-red-400">{error}</div>}
-                      </div>
+                          </Marker>
+                        ))}
+                        {stationsLoading && <div className="absolute top-2 left-2 z-10 bg-slate-950/90 border border-white/10 rounded-lg px-3 py-2 flex items-center gap-2 text-[10px] text-slate-300"><Loader2 className="w-3 h-3 animate-spin text-orange-400" /> Localizando estaciones...</div>}
+                        {weatherLoading && <div className="absolute top-2 right-12 z-10 bg-slate-950/90 border border-white/10 rounded-lg px-3 py-2 flex items-center gap-2 text-[10px] text-slate-300"><Loader2 className="w-3 h-3 animate-spin text-orange-400" /> Consultando AEMET...</div>}
+                      </Map>
                     </div>
+                    <p className="text-[9px] text-slate-600 mt-2">{stationMarkers.length > 0 ? `Se muestran ${stationMarkers.length} estaciones.` : 'Haz clic en el mapa para obtener datos AEMET.'}{clickAltitude != null && <span className="ml-2 text-[8px] text-slate-500">Altitud: {Math.round(clickAltitude)} m</span>}</p>
                   </div>
                 </details>
               </div>
+
+              {/* PERFILES RAPIDOS + BOTONES */}
+              {!weatherLoaded && !weatherLoading && <div className="text-[11px] text-slate-500 bg-slate-800/30 rounded-xl px-4 py-6 text-center">Haz clic en el mapa para obtener datos base.</div>}
+              {weatherLoading && <div className="flex items-center gap-2 text-[11px] text-slate-400 bg-slate-800/30 rounded-xl px-4 py-6"><Loader2 className="w-4 h-4 animate-spin" /> Consultando AEMET...</div>}
+              {weatherLoaded && <>
+                <div className="flex justify-center"><div className="grid grid-cols-3 gap-3 max-w-lg">{ELEVATION_PRESETS.map(p => <button key={p.label} onClick={()=>applyPreset(p.label)} className={`text-center px-3 py-2.5 rounded-xl border transition-all text-[10px] ${selectedPreset===p.label?'border-orange-500 bg-orange-500/10 text-white':'border-white/10 bg-slate-900/60 text-slate-400 hover:border-orange-500/50'}`}><span className="text-sm mr-1">{p.icon}</span><span className="font-bold block">{p.label}</span><span className="text-[8px] text-slate-500">{p.deltaTemp>0?'+':''}{p.deltaTemp}°C · {p.deltaHumidity>0?'+':''}{p.deltaHumidity}% HR</span></button>)}</div></div>
+              </>}
+              {error && <div className="p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-[11px] text-red-400">{error}</div>}
+
+              {/* NAVEGACION */}
               <div className="flex items-center justify-between">
                 <button onClick={() => setStep(1)} className="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-white/10 text-white rounded-xl text-[10px] font-bold transition-colors flex items-center gap-2"><span>←</span> Atrás</button>
                 {weatherLoaded && <button onClick={() => setStep(3)} className="px-6 py-3 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white rounded-xl font-bold text-xs transition-all shadow-lg shadow-orange-500/20 flex items-center gap-2">Ver resultado <span>→</span></button>}
