@@ -374,10 +374,10 @@ export default function AlertaPresionPage() {
                 {weatherLoaded && (
                   <div className="border border-white/5 rounded-2xl p-4 bg-slate-900/30">
                     <div className="flex items-center gap-2 mb-3"><MapPin className="w-4 h-4 text-orange-400" /><span className="text-[10px] font-bold uppercase tracking-widest text-orange-400">Datos base</span><span className="text-[9px] text-slate-500 ml-auto">{weatherSource}</span>{altitudeAdjusted && <span className="text-[8px] bg-orange-500/15 text-orange-400 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Ajustado por altitud</span>}</div>
-                    <div className="grid grid-cols-3 gap-3 text-center text-xs">
-                      <div className="bg-slate-950/50 border border-white/5 rounded-lg p-2"><p className="text-[9px] text-slate-500">Temp. base</p><p className="font-bold text-white">{baseTemp}°C</p></div>
-                      <div className="bg-slate-950/50 border border-white/5 rounded-lg p-2"><p className="text-[9px] text-slate-500">Ajuste</p><p className={`font-bold ${adjustTemp>=0?'text-red-400':'text-blue-400'}`}>{adjustTemp>0?'+':''}{adjustTemp}°C</p></div>
-                      <div className="bg-slate-950/50 border border-white/5 rounded-lg p-2"><p className="text-[9px] text-slate-500">Efectiva</p><p className="font-bold text-orange-400">{effectiveTemp}°C</p></div>
+                    <div className="grid grid-cols-3 gap-3 text-center">
+                      <div className="bg-slate-950/50 border border-white/5 rounded-xl p-4"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-2">Temp. base</p><p className="text-3xl md:text-4xl font-black text-white">{baseTemp}°C</p></div>
+                      <div className="bg-slate-950/50 border border-white/5 rounded-xl p-4"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-2">Ajuste</p><p className={`text-3xl md:text-4xl font-black ${adjustTemp>=0?'text-red-400':'text-blue-400'}`}>{adjustTemp>0?'+':''}{adjustTemp}°C</p></div>
+                      <div className="bg-slate-950/50 border border-white/5 rounded-xl p-4"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-2">Efectiva</p><p className="text-3xl md:text-4xl font-black text-orange-400">{effectiveTemp}°C</p></div>
                     </div>
                     {clickAltitude!=null && <div className="mt-2 flex items-center gap-1.5 text-[9px] text-slate-500 bg-slate-950/30 rounded-lg px-2.5 py-1.5"><span>🏔️</span><span>Altitud: <strong className="text-slate-300">{Math.round(clickAltitude)} m</strong></span>{altitudeAdjusted && <span className="text-blue-400 ml-auto">Ajuste por gradiente térmico</span>}</div>}
                   </div>
