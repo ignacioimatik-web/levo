@@ -10,12 +10,12 @@ import { BIKE_MODELS } from '@/lib/alerta-presion/bike-models';
 import type { BikeModelSpec } from '@/lib/alerta-presion/bike-models';
 
 // Sector definitions with representative weather coordinates
-const SECTORS: Array<{ id: string; name: string; description: string; lat: number; lng: number }> = [
-  { id: 'bergantes', name: 'Bergantes', description: 'El río Bergantes y sus espectaculares muelas.', lat: 40.62, lng: -0.10 },
-  { id: 'celumbres', name: 'Celumbres', description: 'Un abismo entre Cinctorres y Castellfort.', lat: 40.56, lng: -0.03 },
-  { id: 'el-riu-de-les-corces', name: 'El Riu de les Corces', description: 'El valle de Mundo Perdido.', lat: 40.58, lng: 0.05 },
-  { id: 'peter-rules', name: 'Peter Rules', description: 'Bosques de gran calidad y orografía quebrada.', lat: 40.60, lng: -0.07 },
-  { id: 'torre-miro-xiva', name: 'Torre Miró - Xiva', description: 'Un valle de orfebrería de roca y bosque.', lat: 40.55, lng: -0.08 },
+const SECTORS: Array<{ id: string; name: string; description: string; image: string; lat: number; lng: number }> = [
+  { id: 'bergantes', name: 'Bergantes', description: 'El río Bergantes y sus espectaculares muelas.', image: 'https://images.unsplash.com/photo-1544198365-f5d60b6d8190?auto=format&fit=crop&q=80&w=1000', lat: 40.62, lng: -0.10 },
+  { id: 'celumbres', name: 'Celumbres', description: 'Un abismo entre Cinctorres y Castellfort.', image: 'https://images.unsplash.com/photo-1575548393466-0df1618ba410?auto=format&fit=crop&q=80&w=1000', lat: 40.56, lng: -0.03 },
+  { id: 'el-riu-de-les-corces', name: 'El Riu de les Corces', description: 'El valle de Mundo Perdido.', image: 'https://images.unsplash.com/photo-1568991004407-cdd5d0930945?auto=format&fit=crop&q=80&w=1000', lat: 40.58, lng: 0.05 },
+  { id: 'peter-rules', name: 'Peter Rules', description: 'Bosques de gran calidad y orografía quebrada.', image: 'https://images.unsplash.com/photo-1633707167682-9068729bc84c?auto=format&fit=crop&q=80&w=1000', lat: 40.60, lng: -0.07 },
+  { id: 'torre-miro-xiva', name: 'Torre Miró - Xiva', description: 'Un valle de orfebrería de roca y bosque.', image: 'https://images.unsplash.com/photo-1604748954134-457791b2ce9b?auto=format&fit=crop&q=80&w=1000', lat: 40.55, lng: -0.08 },
 ];
 
 const DEFAULT_PROFILE: BikeProfile = {
@@ -510,41 +510,73 @@ export default function AlertaPresionPage() {
               </div>
             </details>
 
-            {/* CALCULADORA POR SECTOR */}
+            {/* CALCULADORA POR SECTOR - TARJETAS GRAFICAS */}
             <section className="bg-slate-900/20 border border-white/5 rounded-2xl p-5">
               <details open={!result}>
                 <summary className="flex items-center gap-2 cursor-pointer text-slate-400 hover:text-white transition-colors list-none">
                   <Mountain className="w-4 h-4 text-orange-500/70" />
-                  <span className="text-xs font-bold uppercase tracking-widest">Calculadora de presión por sector</span>
-                  <span className="ml-auto text-[9px] text-slate-600">{selectedSector ? SECTORS.find(s => s.id === selectedSector)?.name : 'Elige un sector'}</span>
+                  <span className="text-xs font-bold uppercase tracking-widest">Elige un sector</span>
+                  <span className="ml-auto text-[9px] text-slate-600">{selectedSector ? SECTORS.find(s => s.id === selectedSector)?.name : 'Toca para calcular'}</span>
                   <svg className="w-3 h-3 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                   </svg>
                 </summary>
-                <div className="mt-4 space-y-3">
-                  <div>
-                    <label className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">Sector</label>
-                    <select value={selectedSector || ''} onChange={e => { setSelectedSector(e.target.value); setResult(null); setError(''); }}
-                      className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer">
-                      <option value="">Selecciona un sector...</option>
-                      {SECTORS.map(s => (
-                        <option key={s.id} value={s.id}>{s.name} — {s.description}</option>
-                      ))}
-                    </select>
+                <div className="mt-4 space-y-4">
+                  {/* Grid de tarjetas de sector */}
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                    {SECTORS.map(s => {
+                      const isSelected = selectedSector === s.id;
+                      return (
+                        <button
+                          key={s.id}
+                          onClick={() => { setSelectedSector(s.id); setResult(null); setError(''); }}
+                          className={`relative group overflow-hidden rounded-2xl border-2 transition-all duration-200 text-left ${
+                            isSelected
+                              ? 'border-orange-500 ring-2 ring-orange-500/30 shadow-lg shadow-orange-500/20'
+                              : 'border-white/10 hover:border-orange-500/50'
+                          }`}
+                        >
+                          {/* Imagen de fondo */}
+                          <div className="aspect-[4/3] relative">
+                            <img
+                              src={s.image}
+                              alt={s.name}
+                              className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
+                            {/* Check de seleccion */}
+                            {isSelected && (
+                              <div className="absolute top-2 right-2 w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center shadow-lg">
+                                <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                              </div>
+                            )}
+                          </div>
+                          {/* Nombre del sector */}
+                          <div className={`p-3 ${isSelected ? 'bg-orange-500/10' : 'bg-slate-900'}`}>
+                            <p className={`text-xs font-bold uppercase tracking-wider ${
+                              isSelected ? 'text-orange-400' : 'text-white'
+                            }`}>
+                              {s.name}
+                            </p>
+                            <p className="text-[9px] text-slate-500 mt-0.5 leading-tight line-clamp-2">{s.description}</p>
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
-                  {selectedSector && (
-                    <div className="text-[10px] text-slate-500 bg-slate-950/30 rounded-lg px-3 py-2">
-                      Datos meteorológicos de estaciones AEMET cercanas al sector
-                    </div>
-                  )}
+
                   {error && <div className="p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-[11px] text-red-400">{error}</div>}
+
+                  {/* Boton calcular */}
                   {selectedSector && (
                     <button onClick={handleCalculate} disabled={calculating}
-                      className="w-full py-2.5 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white rounded-xl font-bold text-xs transition-all shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2">
+                      className="w-full py-3 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white rounded-xl font-bold text-sm transition-all shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2">
                       {calculating ? (
-                        <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Consultando AEMET y calculando presión...</>
+                        <><Loader2 className="w-4 h-4 animate-spin" /> Consultando AEMET...</>
                       ) : (
-                        <><Gauge className="w-3.5 h-3.5" /> Calcular presión recomendada</>
+                        <><Gauge className="w-4 h-4" /> Calcular presión recomendada</>
                       )}
                     </button>
                   )}
