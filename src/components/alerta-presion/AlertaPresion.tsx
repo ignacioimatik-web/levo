@@ -6,7 +6,9 @@ import type { User } from '@supabase/supabase-js';
 import type { BikeProfile, PressureRecommendation, DescentInfo } from '@/lib/alerta-presion/types';
 import { loadTrackPoints, getCachedTrackPoints } from '@/lib/forfait/track-points-cache';
 import { splitIntoSendas } from '@/lib/forfait/senda-utils';
-import type { TrackMTB } from '@/lib/forfait/types';
+import type { TrackMTB, TrackPoint } from '@/lib/forfait/types';
+import { buildProfileSeries } from '@/lib/forfait/geo-utils';
+import ElevationProfile from '@/components/forfait/ElevationProfile';
 import { Loader2, Gauge, Thermometer, Droplets, Bike, AlertTriangle, TrendingDown } from 'lucide-react';
 import Link from 'next/link';
 import { BIKE_MODELS } from '@/lib/alerta-presion/bike-models';
@@ -50,6 +52,7 @@ export default function AlertaPresionPage() {
   const [descentResults, setDescentResults] = useState<Map<string, { recommendation: PressureRecommendation; weather: any }>>(new Map());
   const [calculating, setCalculating] = useState(false);
   const [selectedOnlyCalc, setSelectedOnlyCalc] = useState(false);
+  const [trackPoints, setTrackPoints] = useState<TrackPoint[]>([]);
   const [error, setError] = useState('');
   const [profileExpanded, setProfileExpanded] = useState(true);
   const [profileLoadError, setProfileLoadError] = useState('');
@@ -128,6 +131,7 @@ export default function AlertaPresionPage() {
     setDescents([]);
     setDescentResults(new Map());
     setError('');
+    setTrackPoints([]);
 
     const track = allTracks.find(t => t.id === trackId);
     if (!track) return;
@@ -136,6 +140,7 @@ export default function AlertaPresionPage() {
     try {
       const points = await loadTrackPoints(track.gpxUrl);
       if (!points || points.length < 2) { setError('El track no tiene datos GPX'); return; }
+      setTrackPoints(points);
 
       // Build a minimal TrackMTB for splitIntoSendas
       const miniTrack: TrackMTB = {
@@ -782,6 +787,11 @@ export default function AlertaPresionPage() {
                       </div>
                     );
                   })()}
+
+                  {/* PERFIL DE ELEVACION */}
+                  {trackPoints.length > 0 && (
+                    <ElevationProfile points={trackPoints} />
+                  )}
 
                   {/* DATOS METEOROLOGICOS (PROMINENTES) */}
                   {weather && (
