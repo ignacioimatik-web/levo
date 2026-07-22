@@ -556,114 +556,21 @@ export default function AlertaPresionPage() {
                       <span className="text-[9px] text-slate-600 ml-2">({effectiveTemp}°C · {effectiveHumidity}% HR)</span>
                     </div>
 
-                    {/* BICICLETA MTB CON PRESIONES EN RUEDAS */}
-                    <div className="relative mt-4 mb-4 mx-auto max-w-[400px]">
-                      <svg viewBox="0 0 400 280" className="w-full h-auto">
-                        {/* RUEDA TRASERA */}
-                        <g>
-                          <circle cx="80" cy="220" r="45" fill="none" stroke="#334155" strokeWidth="5" />
-                          <circle cx="80" cy="220" r="40" fill="none" stroke="#1e293b" strokeWidth="1" />
-                          <circle cx="80" cy="220" r="35" fill="none" stroke="#475569" strokeWidth="0.5" strokeDasharray="2 4" />
-                          {/* Tacos trasera */}
-                          {Array.from({ length: 14 }).map((_, i) => {
-                            const angle = (i * (360 / 14) * Math.PI) / 180;
-                            return <line key={i} x1={80 + 45 * Math.cos(angle)} y1={220 + 45 * Math.sin(angle)} x2={80 + 42 * Math.cos(angle)} y2={220 + 42 * Math.sin(angle)} stroke="#52525b" strokeWidth="2.5" strokeLinecap="round" />;
-                          })}
-                          {/* Radios trasera */}
-                          {Array.from({ length: 10 }).map((_, i) => {
-                            const angle = (i * 36 * Math.PI) / 180;
-                            return <line key={i} x1={80 + 8 * Math.cos(angle)} y1={220 + 8 * Math.sin(angle)} x2={80 + 38 * Math.cos(angle)} y2={220 + 38 * Math.sin(angle)} stroke="#64748b" strokeWidth="0.7" />;
-                          })}
-                          <circle cx="80" cy="220" r="8" fill="none" stroke="#52525b" strokeWidth="1.5" />
-                          <circle cx="80" cy="220" r="3" fill="#71717a" />
-                          {/* Caja de presión trasera */}
-                          <rect x="30" y="240" width="100" height="50" rx="10" fill="#0f172a" stroke="#f97316" strokeWidth="1.5" opacity="0.95" />
-                          <text x="80" y="258" textAnchor="middle" fill="#f97316" fontSize="9" fontWeight="bold" fontFamily="system-ui" letterSpacing="1">TRASERA</text>
-                          <text x="80" y="278" textAnchor="middle" fill="#f97316" fontSize="26" fontWeight="900" fontFamily="system-ui">{r.recommendedRearBar.toFixed(1)}</text>
-                          <text x="112" y="278" textAnchor="start" fill="#94a3b8" fontSize="10" fontWeight="bold" fontFamily="system-ui">bar</text>
-                          <text x="80" y="289" textAnchor="middle" fill="#64748b" fontSize="8" fontFamily="system-ui">{Math.round(r.recommendedRearPsi)} PSI</text>
-                        </g>
-
-                        {/* MARCO BICICLETA */}
-                        <g stroke="#475569" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round">
-                          {/* Horquilla trasera */}
-                          <line x1="80" y1="220" x2="160" y2="170" />
-                          <line x1="80" y1="220" x2="170" y2="195" />
-                          {/* Sillín */}
-                          <line x1="160" y1="170" x2="195" y2="140" />
-                          <line x1="170" y1="195" x2="195" y2="140" />
-                          {/* Tubo superior */}
-                          <line x1="195" y1="140" x2="290" y2="105" />
-                          {/* Tubo diagonal */}
-                          <line x1="170" y1="195" x2="290" y2="105" />
-                          {/* Dirección */}
-                          <line x1="290" y1="105" x2="320" y2="120" />
-                          <line x1="290" y1="105" x2="320" y2="95" />
-                          {/* Horquilla delantera */}
-                          <line x1="320" y1="120" x2="320" y2="220" strokeWidth="4" />
-                        </g>
-
-                        {/* SUSPENSION TRASERA */}
-                        <g stroke="#f97316" strokeWidth="2.5" fill="none" strokeLinecap="round">
-                          <line x1="170" y1="195" x2="190" y2="185" />
-                          <line x1="190" y1="185" x2="195" y2="140" />
-                          <rect x="183" y="178" width="14" height="8" rx="3" fill="#f97316" opacity="0.3" stroke="none" />
-                        </g>
-
-                        {/* AMORTIGUADOR TRASERO */}
-                        <line x1="175" y1="190" x2="185" y2="165" stroke="#f97316" strokeWidth="3" strokeLinecap="round" />
-
-                        {/* SILLIN */}
-                        <ellipse cx="195" cy="137" rx="14" ry="4" fill="#334155" stroke="#475569" strokeWidth="1" />
-
-                        {/* MANILLAR */}
-                        <g stroke="#475569" strokeWidth="2.5" fill="none" strokeLinecap="round">
-                          <line x1="320" y1="95" x2="335" y2="90" />
-                          <line x1="320" y1="95" x2="330" y2="100" />
-                        </g>
-
-                        {/* RUEDA DELANTERA */}
-                        <g>
-                          <circle cx="320" cy="220" r="45" fill="none" stroke="#334155" strokeWidth="5" />
-                          <circle cx="320" cy="220" r="40" fill="none" stroke="#1e293b" strokeWidth="1" />
-                          <circle cx="320" cy="220" r="35" fill="none" stroke="#475569" strokeWidth="0.5" strokeDasharray="2 4" />
-                          {/* Tacos delantera */}
-                          {Array.from({ length: 14 }).map((_, i) => {
-                            const angle = (i * (360 / 14) * Math.PI) / 180;
-                            return <line key={i} x1={320 + 45 * Math.cos(angle)} y1={220 + 45 * Math.sin(angle)} x2={320 + 42 * Math.cos(angle)} y2={220 + 42 * Math.sin(angle)} stroke="#52525b" strokeWidth="2.5" strokeLinecap="round" />;
-                          })}
-                          {/* Radios delantera */}
-                          {Array.from({ length: 10 }).map((_, i) => {
-                            const angle = (i * 36 * Math.PI) / 180;
-                            return <line key={i} x1={320 + 8 * Math.cos(angle)} y1={220 + 8 * Math.sin(angle)} x2={320 + 38 * Math.cos(angle)} y2={220 + 38 * Math.sin(angle)} stroke="#64748b" strokeWidth="0.7" />;
-                          })}
-                          <circle cx="320" cy="220" r="8" fill="none" stroke="#52525b" strokeWidth="1.5" />
-                          <circle cx="320" cy="220" r="3" fill="#71717a" />
-                          {/* Disco de freno delantero */}
-                          <circle cx="320" cy="220" r="12" fill="none" stroke="#a1a1aa" strokeWidth="0.5" strokeDasharray="2 3" />
-                          {/* Caja de presión delantera */}
-                          <rect x="270" y="240" width="100" height="50" rx="10" fill="#0f172a" stroke="#f97316" strokeWidth="1.5" opacity="0.95" />
-                          <text x="320" y="258" textAnchor="middle" fill="#f97316" fontSize="9" fontWeight="bold" fontFamily="system-ui" letterSpacing="1">DELANTERA</text>
-                          <text x="320" y="278" textAnchor="middle" fill="#f97316" fontSize="26" fontWeight="900" fontFamily="system-ui">{r.recommendedFrontBar.toFixed(1)}</text>
-                          <text x="352" y="278" textAnchor="start" fill="#94a3b8" fontSize="10" fontWeight="bold" fontFamily="system-ui">bar</text>
-                          <text x="320" y="289" textAnchor="middle" fill="#64748b" fontSize="8" fontFamily="system-ui">{Math.round(r.recommendedFrontPsi)} PSI</text>
-                        </g>
-
-                        {/* SUSPENSION DELANTERA */}
-                        <g stroke="#f97316" strokeWidth="3" fill="none" strokeLinecap="round">
-                          <line x1="318" y1="125" x2="318" y2="155" />
-                          <line x1="322" y1="125" x2="322" y2="155" />
-                          {/* Botella horquilla */}
-                          <rect x="310" y="125" width="20" height="30" rx="4" fill="#f97316" opacity="0.15" stroke="#f97316" strokeWidth="1.5" />
-                          <line x1="315" y1="132" x2="325" y2="132" stroke="#f97316" strokeWidth="1" opacity="0.5" />
-                          <line x1="315" y1="138" x2="325" y2="138" stroke="#f97316" strokeWidth="1" opacity="0.5" />
-                        </g>
-
-                        {/* LEYENDA PRESION ACTUAL */}
-                        <text x="200" y="185" textAnchor="middle" fill="#64748b" fontSize="8" fontFamily="system-ui">
-                          <tspan x="200" dy="0">Actual: {r.currentFrontBar.toFixed(1)} / {r.currentRearBar.toFixed(1)} bar</tspan>
-                        </text>
-                      </svg>
+                    {/* PRESION RECOMENDADA - NUMEROS GRANDES */}
+                    <div className="flex items-center justify-center gap-3 md:gap-6 mt-6">
+                      <div>
+                        <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-1 font-bold">Delantera</p>
+                        <p className="text-6xl md:text-7xl font-black text-orange-500 leading-none tracking-tighter">{r.recommendedFrontBar.toFixed(1)}</p>
+                        <p className="text-xs text-slate-400 mt-1"><span className="text-sm font-bold text-white">{Math.round(r.recommendedFrontPsi)}</span> PSI</p>
+                        <p className="text-[9px] text-slate-600 mt-0.5">({r.currentFrontBar.toFixed(1)} actual)</p>
+                      </div>
+                      <div className="w-px h-20 bg-white/10 hidden sm:block" />
+                      <div>
+                        <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-1 font-bold">Trasera</p>
+                        <p className="text-6xl md:text-7xl font-black text-orange-500 leading-none tracking-tighter">{r.recommendedRearBar.toFixed(1)}</p>
+                        <p className="text-xs text-slate-400 mt-1"><span className="text-sm font-bold text-white">{Math.round(r.recommendedRearPsi)}</span> PSI</p>
+                        <p className="text-[9px] text-slate-600 mt-0.5">({r.currentRearBar.toFixed(1)} actual)</p>
+                      </div>
                     </div>
 
                     <p className="text-[11px] text-slate-500 leading-relaxed max-w-lg mx-auto">{r.reason}</p>
