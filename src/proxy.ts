@@ -5,10 +5,6 @@ import { isProtectedRoute } from '@/lib/auth/guards';
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (!isProtectedRoute(pathname)) {
-    return NextResponse.next({ request });
-  }
-
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -30,9 +26,11 @@ export async function proxy(request: NextRequest) {
     },
   );
 
+  // Always refresh session on every request to keep auth cookies in sync
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) {
+  // Protect routes that require auth
+  if (isProtectedRoute(pathname) && !user) {
     const url = request.nextUrl.clone();
     url.pathname = '/auth';
     return NextResponse.redirect(url);
