@@ -479,18 +479,17 @@ export default function AlertaPresionPage() {
                     <div className="absolute top-1/2 left-0 right-0 h-px bg-white/10" />
                   </div>
                   <div className="flex items-center gap-4 mt-2 pt-2 border-t border-white/5">
-                    {/* Left: clock + luz total + amanecer */}
+                    {/* Left: clock + amanecer + luz total */}
                     <div className="flex-shrink-0">
                       <div className="flex items-center gap-2">
                         <span className="text-base md:text-lg font-bold text-white font-mono tracking-wider bg-slate-950/80 px-3 py-1 rounded-lg border border-white/5">{clockTime}</span>
                         <span className="text-[10px] text-slate-500 uppercase font-semibold">CEST</span>
-                        <span className="ml-1.5 text-[9px] text-slate-500 uppercase tracking-wider">Luz</span>
-                        <span className="font-bold text-white text-sm">{daylight ? `${Math.round(daylight.sunsetHour - daylight.sunriseHour)}h` : '—'}</span>
+                        <span className="ml-1.5 text-[9px] text-slate-500 uppercase tracking-wider">Amanecer</span>
+                        <span className="font-bold text-white text-sm">{daylight ? `${Math.floor(daylight.sunriseHour)}:${String(Math.round((daylight.sunriseHour % 1) * 60)).padStart(2,'0')}` : '—'}</span>
                       </div>
                       <div className="flex items-center gap-1 mt-0.5">
-                        <span className="text-[7px]">🌅</span>
-                        <span className="text-[10px] text-slate-500 uppercase tracking-wider">Amanecer</span>
-                        <span className="font-bold text-white text-xs">{daylight ? `${Math.floor(daylight.sunriseHour)}:${String(Math.round((daylight.sunriseHour % 1) * 60)).padStart(2,'0')}` : '—'}</span>
+                        <span className="text-[9px] text-slate-500 uppercase tracking-wider">Luz total</span>
+                        <span className="font-bold text-white text-xs">{daylight ? `${Math.round(daylight.sunsetHour - daylight.sunriseHour)}h` : '—'}</span>
                       </div>
                     </div>
 
@@ -513,10 +512,10 @@ export default function AlertaPresionPage() {
                       </div> : <div className="h-8 flex items-center justify-center"><span className="text-[10px] text-slate-500">—</span></div>}
                     </div>
 
-                    {/* Right: sol restante */}
+                    {/* Right: atardecer */}
                     <div className="flex-shrink-0 text-right">
-                      <p className="text-[9px] text-slate-500 uppercase tracking-wider">Restante</p>
-                      <p className="text-lg md:text-xl font-bold text-yellow-400">{daylight?.sunset || '—'}</p>
+                      <p className="text-[9px] text-slate-500 uppercase tracking-wider">Atardecer</p>
+                      <p className="text-lg md:text-xl font-bold text-orange-400">{daylight ? `${Math.floor(daylight.sunsetHour)}:${String(Math.round((daylight.sunsetHour % 1) * 60)).padStart(2,'0')}` : '—'}</p>
                     </div>
                   </div>
                 </div>
