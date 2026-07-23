@@ -307,7 +307,27 @@ export default function AlertaPresionPage() {
                   <div className="w-px h-20 bg-white/5 flex-shrink-0" />
                   <div className="text-center flex-1 min-w-[90px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Viento</p><div className="flex items-baseline justify-center gap-2"><span className="text-5xl md:text-6xl font-black text-emerald-400 leading-none">{windKmh ?? '—'}</span><span className="text-xl text-emerald-400/70 font-black">km/h</span></div><p className="text-[8px] text-slate-500 mt-0.5">Racha —</p></div>
                   <div className="w-px h-20 bg-white/5 flex-shrink-0" />
-                  <div className="text-center flex-1 min-w-[100px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Sol restante</p><div className="flex items-baseline justify-center gap-2"><span className="text-5xl md:text-6xl font-black text-yellow-400 leading-none">{daylight?.sunset.split('h')[0] || '—'}</span><span className="text-xl text-yellow-400/70 font-black">{daylight?.sunset.includes('h') ? 'h' : ''}</span></div><p className="text-[8px] text-slate-500 mt-0.5">{daylight?.sunset || '—'}</p></div>
+                  <div className="text-center flex-1 min-w-[120px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1">Sol restante</p>
+                    <div className="relative w-20 h-12 mx-auto">
+                      {/* SVG arco del sol */}
+                      <svg viewBox="0 0 80 48" className="w-full h-full">
+                        {/* Arco del cielo */}
+                        <path d="M 4 44 Q 40 2 76 44" fill="none" stroke="rgba(250,204,21,0.15)" strokeWidth="3" strokeLinecap="round" />
+                        {/* Arco del sol - parte recorrida */}
+                        <path d="M 4 44 Q 40 2 76 44" fill="none" stroke="url(#sunGrad)" strokeWidth="3" strokeLinecap="round" strokeDasharray={`${(daylight?.hours ?? 0) / 12 * 100} 200`} />
+                        <defs><linearGradient id="sunGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="#facc15" /><stop offset="100%" stopColor="#f97316" /></linearGradient></defs>
+                        {/* Posición del sol */}
+                        <circle cx={4 + (76-4) * Math.max(0,Math.min(1, (12 - (daylight?.hours ?? 0)) / 12))} cy={44 - 28 - 20 * Math.sin(Math.PI * Math.max(0,Math.min(1, (12 - (daylight?.hours ?? 0)) / 12)))} r="5" fill="#facc15" filter="url(#sunGlow)" />
+                        <defs><filter id="sunGlow"><feGaussianBlur stdDeviation="2" result="blur" /><feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge></filter></defs>
+                        {/* Horizonte */}
+                        <line x1="0" y1="44" x2="80" y2="44" stroke="rgba(250,204,21,0.3)" strokeWidth="1" />
+                      </svg>
+                      <div className="absolute inset-0 flex items-center justify-center" style={{paddingTop:'8px'}}>
+                        <span className="text-lg md:text-xl font-black text-yellow-400 leading-none">{daylight?.sunset.split('h')[0] || '—'}</span>
+                      </div>
+                    </div>
+                    <p className="text-[7px] text-slate-500 mt-0.5">Anochece: {daylight?.sunset || '—'}</p>
+                  </div>
                   <div className="ml-auto text-right flex-shrink-0"><p className="text-[7px] text-slate-500">{weatherSource}</p>{altitudeAdjusted && <p className="text-[7px] text-orange-400/70">Ajustado por altitud</p>}</div>
                 </div>
               </div>}
