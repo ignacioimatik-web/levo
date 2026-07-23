@@ -271,7 +271,7 @@ export default function AlertaPresionPage() {
     <div className="min-h-screen bg-slate-950">
       {/* HEADER */}
       <div className="border-b border-white/5 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="max-w-[1200px] mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-red-600 rounded-xl flex items-center justify-center shadow-lg shadow-orange-500/20"><Gauge className="text-white w-5 h-5" /></div>
             <div><h1 className="text-lg font-black text-white tracking-tight">Alerta Presión</h1><p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Ajusta temperatura y humedad a tu ruta</p></div>
@@ -280,7 +280,7 @@ export default function AlertaPresionPage() {
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-6 py-8">
+      <div className="max-w-[1200px] mx-auto px-6 py-8">
         <style>{`.fade-in { animation: fi 0.35s ease-out both; } @keyframes fi { 0% { opacity:0; transform:translateY(10px); } 100% { opacity:1; transform:translateY(0); } } .animate-pulse-slow { animation: pulse-slow 2s ease-in-out infinite; } @keyframes pulse-slow { 0%, 100% { opacity: 1; transform: translateY(-50%) scale(1); } 50% { opacity: 0.7; transform: translateY(-50%) scale(1.15); } }`}</style>
 
         {!user ? (
