@@ -48,7 +48,6 @@ export default function Meteo() {
   const [now, setNow] = useState<NowData | null>(null);
   const [forecast, setForecast] = useState<ForecastDay[]>([]);
   const [currentMapStyle, setCurrentMapStyle] = useState('mapbox://styles/mapbox/satellite-streets-v12');
-  const [showExtra, setShowExtra] = useState(false);
   const [clockTime, setClockTime] = useState('');
   const [mapView, setMapView] = useState({ lat: 40.6406, lng: -0.2727, bearing: 0, pitch: 68 });
 
@@ -107,7 +106,6 @@ export default function Meteo() {
         setForecast(data.forecast || []);
         setMapPoint({ lat, lng });
         setWeatherLoaded(true);
-        setShowExtra(!!(data.now?.precipitationMm && data.now.precipitationMm > 0));
       }
     } catch {
       setError('Error de conexión');
@@ -266,16 +264,10 @@ export default function Meteo() {
                   </div>
                 </div>
                 <div className="w-px h-16 bg-white/5 flex-shrink-0" />
-                <button onClick={() => setShowExtra(!showExtra)} className="flex items-center gap-0.5 flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity">
-                  {showExtra ? <>
-                    <div className="text-center min-w-[40px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1">Lluvia</p><span className="text-4xl md:text-5xl font-black text-cyan-400 leading-none">{now?.precipitationMm != null ? now.precipitationMm.toFixed(1) : '—'}</span></div>
-                    <div className="w-px h-12 bg-white/5 mx-2" />
-                    <div className="text-center min-w-[50px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1">UV</p><span className={`text-4xl md:text-5xl font-black leading-none ${(now?.uvMax ?? 0) > 7 ? 'text-red-400' : (now?.uvMax ?? 0) > 4 ? 'text-yellow-400' : 'text-slate-300'}`}>{now?.uvMax ?? '—'}</span></div>
-                  </> : <>
-                    <div className="text-center min-w-[40px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1 text-cyan-400/60">💧</p><span className="text-lg font-bold text-cyan-400/60 leading-none">{now?.precipitationMm != null && now.precipitationMm > 0 ? now.precipitationMm.toFixed(1) : '⋯'}</span></div>
-                    <div className="text-center min-w-[40px] ml-1"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1 text-yellow-300/60">☀️</p><span className="text-lg font-bold text-yellow-300/60 leading-none">{now?.uvMax ?? '⋯'}</span></div>
-                  </>}
-                </button>
+                <div className="text-center flex-shrink-0 min-w-[50px]">
+                  <p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1">Lluvia</p>
+                  <span className="text-4xl md:text-5xl font-black text-cyan-400 leading-none">{now?.precipitationMm != null ? now.precipitationMm.toFixed(1) : '—'}</span>
+                </div>
                 <div className="w-px h-16 bg-white/5 flex-shrink-0" />
                 <div className="text-center flex-shrink-0 min-w-[60px]">
                   <p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1">Viento</p>
