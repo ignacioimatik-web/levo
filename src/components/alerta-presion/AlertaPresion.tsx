@@ -57,6 +57,7 @@ export default function AlertaPresionPage() {
   const [windAnimFrame, setWindAnimFrame] = useState(0);
   const [stationMarkers, setStationMarkers] = useState<any[]>([]);
   const [stationsLoading, setStationsLoading] = useState(false);
+  const [frameSize, setFrameSize] = useState<string>('S3');
 
   const [adjustTemp, setAdjustTemp] = useState(0);
   const [adjustHumidity, setAdjustHumidity] = useState(0);
@@ -88,6 +89,14 @@ export default function AlertaPresionPage() {
 
   const effectiveTemp = baseTemp != null ? baseTemp + adjustTemp : 20;
   const effectiveHumidity = baseHumidity != null ? Math.max(10, Math.min(100, baseHumidity + adjustHumidity)) : 60;
+
+  const frameSizeAdjustKg = (() => {
+    const adjust: Record<string, number> = { 'S1': -1.2, 'S2': -0.6, 'S3': 0, 'S4': 0.6, 'S5': 1.2, 'S6': 1.8 };
+    return adjust[frameSize] ?? 0;
+  })();
+
+  const adjustedBikeKg = Math.round((profile.bikeWeightKg + frameSizeAdjustKg) * 10) / 10;
+  const totalWeightKg = Math.round((profile.riderWeightKg + adjustedBikeKg) * 10) / 10;
 
   const windDirText = (deg: number | null): string => {
     if (deg == null) return '—';
@@ -325,14 +334,33 @@ export default function AlertaPresionPage() {
                   {profileLoaded && <button onClick={handleSaveProfile} disabled={saving} className={`mt-5 px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider whitespace-nowrap ${saveStatus === 'saved' ? 'bg-green-500/20 text-green-400 border border-green-500/30' : selectedProfileId ? 'bg-blue-500/10 text-blue-400 border border-blue-500/25 hover:bg-blue-500/20' : 'bg-orange-500/10 text-orange-400 border border-orange-500/25 hover:bg-orange-500/20'}`}>{saving ? 'Guardando...' : saveStatus === 'saved' ? '✓ Guardado' : selectedProfileId ? 'Actualizar' : 'Guardar nuevo'}</button>}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="bg-slate-800/30 border border-white/5 rounded-xl p-3 col-span-1 md:col-span-2 lg:col-span-1">
+                    <p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-2">Peso total (ciclista + bici)</p>
+                    <div className="text-center">
+                      <span className="text-3xl md:text-4xl font-black text-white leading-none">{totalWeightKg}</span>
+                      <span className="text-lg text-white/70 font-black ml-1">kg</span>
+                    </div>
+                    <p className="text-[8px] text-slate-500 mt-1 text-center">{profile.riderWeightKg} kg · {adjustedBikeKg} kg <span className="text-slate-600">(talla {frameSize})</span></p>
+                  </div>
                   <div><label className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">Peso ciclista (kg)</label>
                     <select value={profile.riderWeightKg} onChange={e => setProfile(p => ({ ...p, riderWeightKg: Number(e.target.value) }))} className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer">
                       {Array.from({ length: 33 }, (_, i) => 68 + i).map(o => <option key={o} value={o}>{o}</option>)}
                     </select></div>
-                  <div><label className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">Peso bicicleta (kg)</label>
-                    <select value={profile.bikeWeightKg} onChange={e => setProfile(p => ({ ...p, bikeWeightKg: Number(e.target.value) }))} className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer">
-                      {Array.from({ length: 15 }, (_, i) => 11 + i).map(o => <option key={o} value={o}>{o}</option>)}
-                    </select></div>
+                  <div><label className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">Bicicleta (kg)</label>
+                    <div className="flex gap-2">
+                      <select value={profile.bikeWeightKg} onChange={e => setProfile(p => ({ ...p, bikeWeightKg: Number(e.target.value) }))} className="flex-1 bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer">
+                        {Array.from({ length: 15 }, (_, i) => 11 + i).map(o => <option key={o} value={o}>{o}</option>)}
+                      </select>
+                      <select value={frameSize} onChange={e => setFrameSize(e.target.value)} className="w-20 bg-slate-950 border border-white/5 rounded-lg px-2 py-2 text-sm text-white focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer">
+                        <option value="S1">S1</option>
+                        <option value="S2">S2</option>
+                        <option value="S3">S3</option>
+                        <option value="S4">S4</option>
+                        <option value="S5">S5</option>
+                        <option value="S6">S6</option>
+                      </select>
+                    </div>
+                    <p className="text-[7px] text-slate-600 mt-0.5">Talla Specialized S1 → S6</p></div>
                   <div><label className="text-[10px] text-slate-500 uppercase tracking-widest font-bold block mb-1">Modelo bicicleta</label>
                     <select value={profile.bikeModel} onChange={e => { const m = e.target.value; const spec = BIKE_MODELS.find(x => x.name === m); if (spec) setProfile({ ...profile, bikeModel: m, bikeWeightKg: spec.weightKg, wheelFront: spec.wheelFront, wheelRear: spec.wheelRear, tireWidthFrontInch: spec.tireWidthFrontInch, tireWidthRearInch: spec.tireWidthRearInch, tireModelFront: spec.tireModelFront, tireModelRear: spec.tireModelRear, tubeless: spec.tubeless }); else setProfile(p => ({ ...p, bikeModel: m })); }} className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer">
                       {BIKE_MODELS.map(m => <option key={m.name} value={m.name}>{m.name} ({m.year})</option>)}
