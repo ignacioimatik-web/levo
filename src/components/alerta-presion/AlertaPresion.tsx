@@ -183,7 +183,12 @@ export default function AlertaPresionPage() {
 
   const selectProfile = (p: any) => {
     setSelectedProfileId(p.id); setProfileName(p.profile_name || 'Mi perfil');
-    setProfile({ riderWeightKg: Number(p.rider_weight_kg) || 75, bikeWeightKg: Number(p.bike_weight_kg) || 20, bikeModel: p.bike_model || '', wheelFront: p.wheel_front || '27.5', wheelRear: p.wheel_rear || '27.5', tireModelFront: p.tire_model_front || '', tireModelRear: p.tire_model_rear || '', tireWidthFrontInch: p.tire_width_front_inch || 2.3, tireWidthRearInch: p.tire_width_rear_inch || 2.3, initialPressureFrontBar: p.initial_pressure_front_bar || 1.8, initialPressureRearBar: p.initial_pressure_rear_bar || 2.0, tubeless: p.tubeless ?? true, rimWidthMm: p.rim_width_mm ?? 30, ridingStyle: p.riding_style || 'moderado', riderExperience: p.rider_experience || 'intermedio', terrainTypes: Array.isArray(p.terrain_types) ? p.terrain_types : [], groundCondition: p.ground_condition || 'mixto', casingType: p.casing_type || 'estandar' });
+    // Auto-upgrade old default values to new defaults
+    const upgradeOld: Record<string, string> = { 'moderado': 'agresivo', 'intermedio': 'avanzado', 'estandar': 'reforzada' };
+    const ridingStyle = upgradeOld[p.riding_style] || p.riding_style || 'agresivo';
+    const riderExperience = upgradeOld[p.rider_experience] || p.rider_experience || 'avanzado';
+    const casingType = upgradeOld[p.casing_type] || p.casing_type || 'reforzada';
+    setProfile({ riderWeightKg: Number(p.rider_weight_kg) || 75, bikeWeightKg: Number(p.bike_weight_kg) || 20, bikeModel: p.bike_model || '', wheelFront: p.wheel_front || '27.5', wheelRear: p.wheel_rear || '27.5', tireModelFront: p.tire_model_front || '', tireModelRear: p.tire_model_rear || '', tireWidthFrontInch: p.tire_width_front_inch || 2.3, tireWidthRearInch: p.tire_width_rear_inch || 2.3, initialPressureFrontBar: p.initial_pressure_front_bar || 1.8, initialPressureRearBar: p.initial_pressure_rear_bar || 2.0, tubeless: p.tubeless ?? true, rimWidthMm: p.rim_width_mm ?? 30, ridingStyle, riderExperience, terrainTypes: Array.isArray(p.terrain_types) && p.terrain_types.length > 0 ? p.terrain_types : (['mixto', 'duro'] as string[]), groundCondition: p.ground_condition || 'mixto', casingType });
   };
 
   useEffect(() => { if (user) loadProfiles(); else { setProfileLoaded(true); setSavedProfiles([]); } }, [user, loadProfiles]);
