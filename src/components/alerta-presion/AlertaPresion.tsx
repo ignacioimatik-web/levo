@@ -427,23 +427,43 @@ export default function AlertaPresionPage() {
                   <div className="w-px h-16 bg-white/5 flex-shrink-0" />
                   <div className="text-center flex-shrink-0 min-w-[60px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1">Viento</p><div className="flex items-baseline justify-center gap-1"><span className="text-4xl md:text-5xl font-black text-emerald-400 leading-none">{windKmh ?? '—'}</span><span className="text-sm md:text-base text-emerald-400/70 font-black">km/h</span></div></div>
                   <div className="w-px h-16 bg-white/5 flex-shrink-0" />
-                  <div className="text-center flex-shrink-0 min-w-[80px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1">Dirección</p>
-                    {windDirectionDeg != null ? <><div className="flex items-center justify-center gap-1"><div className="relative w-12 h-12 flex-shrink-0">
-                      <svg viewBox="0 0 100 100" className="w-full h-full" fill="none">
-                        <circle cx="50" cy="50" r="44" stroke="#334155" strokeWidth="1" />
-                        <line x1="50" y1="6" x2="50" y2="94" stroke="#334155" strokeWidth="0.5" />
-                        <line x1="6" y1="50" x2="94" y2="50" stroke="#334155" strokeWidth="0.5" />
-                        <text x="50" y="11" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#f87171">N</text>
-                        <text x="94" y="54" textAnchor="end" fontSize="7" fill="#475569">E</text>
-                        <text x="50" y="93" textAnchor="middle" fontSize="7" fill="#475569">S</text>
-                        <text x="6" y="54" textAnchor="start" fontSize="7" fill="#475569">O</text>
-                        <g transform={`rotate(${windAngle} 50 50)`} style={{ transition: 'none' }}>
-                          <polygon points="50,14 46,55 50,60 54,55" fill="#34d399" opacity="0.85" />
-                        </g>
-                        <circle cx="50" cy="50" r="3.5" fill="#1e293b" stroke="#34d399" strokeWidth="1.5" />
-                      </svg>
+                  <div className="text-center flex-shrink-0 min-w-[90px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1">Dirección</p>
+                    {windDirectionDeg != null ? <div className="flex items-center justify-center gap-1">
+                      <div className="relative w-14 h-14 flex-shrink-0">
+                        <svg viewBox="0 0 100 100" className="w-full h-full" fill="none">
+                          {/* Wind barb - shaft rotates to wind direction */}
+                          <g transform={`rotate(${windDirectionDeg} 50 50)`}>
+                            {/* Shaft */}
+                            <line x1="50" y1="85" x2="50" y2="12" stroke="#34d399" strokeWidth="2.5" strokeLinecap="round" />
+                            {/* Barbs on left side */}
+                            {(() => {
+                              const spd = windKmh ?? 0;
+                              const parts = [];
+                              let rem = spd;
+                              // Pennant ~93+ km/h (50 knots)
+                              while (rem >= 93) { parts.push('p'); rem -= 93; }
+                              // Full barb ~18.5+ km/h (10 knots)
+                              while (rem >= 18.5) { parts.push('f'); rem -= 18.5; }
+                              // Half barb ~9+ km/h (5 knots)
+                              if (rem >= 9) parts.push('h');
+                              return parts.map((t, i) => {
+                                const yPos = 78 - i * 14;
+                                if (t === 'p') return <polygon key={i} points={`${50},${yPos} ${50},${yPos-14} ${32},${yPos-7}`} fill="#34d399" opacity="0.9" />;
+                                if (t === 'f') return <polyline key={i} points={`${50},${yPos} ${28},${yPos-5} ${28},${yPos-8}`} stroke="#34d399" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />;
+                                if (t === 'h') return <line key={i} x1="50" y1={yPos} x2="34" y2={yPos-4} stroke="#34d399" strokeWidth="2" strokeLinecap="round" />;
+                                return null;
+                              });
+                            })()}
+                            {/* Arrow tip at the end of shaft */}
+                            <polygon points="50,14 46,22 54,22" fill="#34d399" opacity="0.9" />
+                          </g>
+                        </svg>
+                      </div>
+                      <div className="text-left">
+                        <span className="text-[10px] font-bold text-emerald-400 block">{windDirText(windDirectionDeg)}</span>
+                        <span className="text-[7px] text-slate-500">{windKmh ?? 0} km/h</span>
+                      </div>
                     </div>
-                    <span className="text-[10px] font-bold text-emerald-400">{windDirText(windDirectionDeg)}</span></div></>
                     : <span className="text-4xl md:text-5xl font-black text-slate-600 leading-none">—</span>}
                   </div>
                 </div>
