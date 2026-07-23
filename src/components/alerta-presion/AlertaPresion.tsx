@@ -349,14 +349,26 @@ export default function AlertaPresionPage() {
                     </div>
                     <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm md:text-base font-bold text-white font-mono tracking-wider bg-slate-950/80 px-2.5 py-1 rounded-lg border border-white/5">{clockTime}</span>
-                        <span className="text-[9px] text-slate-500 uppercase font-semibold">CEST</span>
+                        <span className="text-base md:text-lg font-bold text-white font-mono tracking-wider bg-slate-950/80 px-3 py-1 rounded-lg border border-white/5">{clockTime}</span>
+                        <span className="text-[10px] text-slate-500 uppercase font-semibold">CEST</span>
                       </div>
-                      <div className="flex items-center gap-3 text-sm md:text-base text-slate-400">
-                        <span className="font-medium">☀️ {daylight ? `${Math.round(daylight.sunsetHour - daylight.sunriseHour)}h` : '—'}</span>
-                        <span className="font-medium">🌅 {daylight ? `${Math.floor(daylight.sunriseHour)}:${String(Math.round((daylight.sunriseHour % 1) * 60)).padStart(2,'0')}` : '—'}</span>
-                        <span className="font-medium">🌇 {daylight ? `${Math.floor(daylight.sunsetHour)}:${String(Math.round((daylight.sunsetHour % 1) * 60)).padStart(2,'0')}` : '—'}</span>
-                        <span className="text-yellow-400 font-bold text-sm md:text-base">{daylight?.sunset || '—'}</span>
+                      <div className="flex items-center gap-4 text-sm md:text-base">
+                        <div className="text-right">
+                          <p className="text-[9px] text-slate-500 uppercase tracking-wider">Luz total</p>
+                          <p className="font-bold text-white">{daylight ? `${Math.round(daylight.sunsetHour - daylight.sunriseHour)}h` : '—'}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[9px] text-slate-500 uppercase tracking-wider">Amanecer</p>
+                          <p className="font-bold text-white">{daylight ? `${Math.floor(daylight.sunriseHour)}:${String(Math.round((daylight.sunriseHour % 1) * 60)).padStart(2,'0')}` : '—'}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[9px] text-slate-500 uppercase tracking-wider">Atardecer</p>
+                          <p className="font-bold text-white">{daylight ? `${Math.floor(daylight.sunsetHour)}:${String(Math.round((daylight.sunsetHour % 1) * 60)).padStart(2,'0')}` : '—'}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[9px] text-slate-500 uppercase tracking-wider">Restante</p>
+                          <p className="font-bold text-yellow-400">{daylight?.sunset || '—'}</p>
+                        </div>
                       </div>
                     </div>
                   </div>
