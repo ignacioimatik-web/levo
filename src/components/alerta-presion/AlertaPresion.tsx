@@ -310,65 +310,66 @@ export default function AlertaPresionPage() {
             {/* PASO 2: MAPA + AJUSTES */}
             {step === 2 && <div className="fade-in space-y-4">
               {/* BARRA DATOS + AJUSTES */}
-              {weatherLoaded && <div className="bg-slate-900/60 border border-white/5 rounded-xl p-5">
+              {weatherLoaded && <div className="bg-slate-900/60 border border-white/5 rounded-xl p-5 space-y-4">
                 <div className="flex items-center flex-wrap gap-4 md:gap-6">
                   <div className="text-center flex-shrink-0 min-w-[90px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Temperatura</p><div className="flex items-baseline justify-center gap-2"><span className="text-5xl md:text-6xl font-black text-orange-500 leading-none">{effectiveTemp}</span><span className="text-xl text-orange-500/70 font-black">°C</span></div><p className="text-[8px] text-slate-500 mt-0.5">Base {baseTemp}°</p></div>
                   <div className="w-px h-20 bg-white/5 flex-shrink-0" />
                   <div className="text-center flex-shrink-0 min-w-[90px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Humedad</p><div className="flex items-baseline justify-center gap-2"><span className="text-5xl md:text-6xl font-black text-blue-400 leading-none">{effectiveHumidity}</span><span className="text-xl text-blue-400/70 font-black">%</span></div><p className="text-[8px] text-slate-500 mt-0.5">Base {baseHumidity}%</p></div>
                   <div className="w-px h-20 bg-white/5 flex-shrink-0" />
                   <div className="text-center flex-shrink-0 min-w-[80px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Viento</p><div className="flex items-baseline justify-center gap-2"><span className="text-5xl md:text-6xl font-black text-emerald-400 leading-none">{windKmh ?? '—'}</span><span className="text-xl text-emerald-400/70 font-black">km/h</span></div><p className="text-[8px] text-slate-500 mt-0.5">Racha —</p></div>
-                  <div className="w-px h-20 bg-white/5 flex-shrink-0" />
-                  <div className="flex-1 min-w-[220px]">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-[9px] text-slate-500 uppercase tracking-widest font-bold">Sol restante</span>
-                      <span className="text-[7px] text-slate-600 truncate max-w-[120px]">{weatherSource}</span>
-                    </div>
-                    <div className="relative h-14 rounded-xl overflow-hidden bg-slate-900/80 border border-white/5">
-                      <div className="absolute inset-0" style={{
-                        background: daylight ? `linear-gradient(to right, 
-                          #0c0a3e 0%, 
-                          #1e1b4b ${Math.max(0, (daylight.sunriseHour - 1) / 24 * 100)}%, 
-                          #f97316 ${Math.max(0, (daylight.sunriseHour) / 24 * 100)}%, 
-                          #facc15 ${Math.max(0, (daylight.sunriseHour + 1) / 24 * 100)}%,
-                          #fff7ed ${Math.max(0, (daylight.sunriseHour + 3) / 24 * 100)}%, 
-                          #fff7ed ${Math.min(100, (daylight.sunsetHour - 3) / 24 * 100)}%, 
-                          #facc15 ${Math.min(100, (daylight.sunsetHour - 1) / 24 * 100)}%, 
-                          #f97316 ${Math.min(100, daylight.sunsetHour / 24 * 100)}%, 
-                          #1e1b4b ${Math.min(100, (daylight.sunsetHour + 1) / 24 * 100)}%, 
-                          #0c0a3e 100%)`
-                        : '#0c0a3e',
-                        opacity: 0.65
-                      }} />
-                      {daylight && <div className="absolute top-1/2 -translate-y-1/2 transition-all duration-1000" style={{ left: `${Math.max(2, Math.min(96, (daylight.currentHour - daylight.sunriseHour) / (daylight.sunsetHour - daylight.sunriseHour) * 100))}%` }}>
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${daylight.hours > 0 ? 'bg-yellow-400/20 shadow-lg shadow-yellow-400/30' : 'bg-slate-500/10'}`}>
-                          <div className={`w-6 h-6 rounded-full ${daylight.hours > 0 ? 'bg-gradient-to-br from-yellow-300 to-orange-500 shadow-lg shadow-yellow-400/50' : 'bg-slate-600'}`} />
-                        </div>
-                      </div>}
-                      {daylight && daylight.hours <= 0 && <div className="absolute inset-0 flex items-center justify-center"><span className="text-xs text-slate-500 font-bold tracking-widest uppercase">🌙 Noche</span></div>}
-                      <div className="absolute top-1/2 left-0 right-0 h-px bg-white/10" />
-                    </div>
-                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5">
-                      <div className="flex items-center gap-2">
-                        <span className="text-base md:text-lg font-bold text-white font-mono tracking-wider bg-slate-950/80 px-3 py-1 rounded-lg border border-white/5">{clockTime}</span>
-                        <span className="text-[10px] text-slate-500 uppercase font-semibold">CEST</span>
+                </div>
+
+                {/* SOL — barra gradiente + reloj + datos */}
+                <div className="border-t border-white/5 pt-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[9px] text-slate-500 uppercase tracking-widest font-bold">Sol restante</span>
+                    <span className="text-[7px] text-slate-600 truncate max-w-[120px]">{weatherSource}</span>
+                  </div>
+                  <div className="relative h-14 rounded-xl overflow-hidden bg-slate-900/80 border border-white/5">
+                    <div className="absolute inset-0" style={{
+                      background: daylight ? `linear-gradient(to right, 
+                        #0c0a3e 0%, 
+                        #1e1b4b ${Math.max(0, (daylight.sunriseHour - 1) / 24 * 100)}%, 
+                        #f97316 ${Math.max(0, (daylight.sunriseHour) / 24 * 100)}%, 
+                        #facc15 ${Math.max(0, (daylight.sunriseHour + 1) / 24 * 100)}%,
+                        #fff7ed ${Math.max(0, (daylight.sunriseHour + 3) / 24 * 100)}%, 
+                        #fff7ed ${Math.min(100, (daylight.sunsetHour - 3) / 24 * 100)}%, 
+                        #facc15 ${Math.min(100, (daylight.sunsetHour - 1) / 24 * 100)}%, 
+                        #f97316 ${Math.min(100, daylight.sunsetHour / 24 * 100)}%, 
+                        #1e1b4b ${Math.min(100, (daylight.sunsetHour + 1) / 24 * 100)}%, 
+                        #0c0a3e 100%)`
+                      : '#0c0a3e',
+                      opacity: 0.65
+                    }} />
+                    {daylight && <div className="absolute top-1/2 -translate-y-1/2 transition-all duration-1000" style={{ left: `${Math.max(2, Math.min(96, (daylight.currentHour - daylight.sunriseHour) / (daylight.sunsetHour - daylight.sunriseHour) * 100))}%` }}>
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${daylight.hours > 0 ? 'bg-yellow-400/20 shadow-lg shadow-yellow-400/30' : 'bg-slate-500/10'}`}>
+                        <div className={`w-6 h-6 rounded-full ${daylight.hours > 0 ? 'bg-gradient-to-br from-yellow-300 to-orange-500 shadow-lg shadow-yellow-400/50' : 'bg-slate-600'}`} />
                       </div>
-                      <div className="flex items-center gap-4 text-sm md:text-base">
-                        <div className="text-right">
-                          <p className="text-[9px] text-slate-500 uppercase tracking-wider">Luz total</p>
-                          <p className="font-bold text-white">{daylight ? `${Math.round(daylight.sunsetHour - daylight.sunriseHour)}h` : '—'}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-[9px] text-slate-500 uppercase tracking-wider">Amanecer</p>
-                          <p className="font-bold text-white">{daylight ? `${Math.floor(daylight.sunriseHour)}:${String(Math.round((daylight.sunriseHour % 1) * 60)).padStart(2,'0')}` : '—'}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-[9px] text-slate-500 uppercase tracking-wider">Atardecer</p>
-                          <p className="font-bold text-white">{daylight ? `${Math.floor(daylight.sunsetHour)}:${String(Math.round((daylight.sunsetHour % 1) * 60)).padStart(2,'0')}` : '—'}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-[9px] text-slate-500 uppercase tracking-wider">Restante</p>
-                          <p className="font-bold text-yellow-400">{daylight?.sunset || '—'}</p>
-                        </div>
+                    </div>}
+                    {daylight && daylight.hours <= 0 && <div className="absolute inset-0 flex items-center justify-center"><span className="text-xs text-slate-500 font-bold tracking-widest uppercase">🌙 Noche</span></div>}
+                    <div className="absolute top-1/2 left-0 right-0 h-px bg-white/10" />
+                  </div>
+                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base md:text-lg font-bold text-white font-mono tracking-wider bg-slate-950/80 px-3 py-1 rounded-lg border border-white/5">{clockTime}</span>
+                      <span className="text-[10px] text-slate-500 uppercase font-semibold">CEST</span>
+                    </div>
+                    <div className="flex items-center gap-4 text-sm md:text-base">
+                      <div className="text-right">
+                        <p className="text-[9px] text-slate-500 uppercase tracking-wider">Luz total</p>
+                        <p className="font-bold text-white">{daylight ? `${Math.round(daylight.sunsetHour - daylight.sunriseHour)}h` : '—'}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[9px] text-slate-500 uppercase tracking-wider">Amanecer</p>
+                        <p className="font-bold text-white">{daylight ? `${Math.floor(daylight.sunriseHour)}:${String(Math.round((daylight.sunriseHour % 1) * 60)).padStart(2,'0')}` : '—'}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[9px] text-slate-500 uppercase tracking-wider">Atardecer</p>
+                        <p className="font-bold text-white">{daylight ? `${Math.floor(daylight.sunsetHour)}:${String(Math.round((daylight.sunsetHour % 1) * 60)).padStart(2,'0')}` : '—'}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[9px] text-slate-500 uppercase tracking-wider">Restante</p>
+                        <p className="font-bold text-yellow-400">{daylight?.sunset || '—'}</p>
                       </div>
                     </div>
                   </div>
