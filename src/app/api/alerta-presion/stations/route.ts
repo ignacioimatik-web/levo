@@ -28,12 +28,53 @@ interface AemetObservation {
 }
 
 function parseAemetCoord(value: string): number | null {
-  const m = value.trim().toUpperCase().match(/^(\d{2,3})(\d{2})(\d{2})([NSEW])$/);
-  if (!m) return null;
-  const deg = Number(m[1]), min = Number(m[2]), sec = Number(m[3]), hemi = m[4];
-  let decimal = deg + min / 60 + sec / 3600;
-  if (hemi === 'S' || hemi === 'W') decimal *= -1;
-  return decimal;
+  if (!value || typeof value !== 'string') return null;
+  const v = value.trim().toUpperCase();
+
+  // Plain decimal (no hemisphere suffix)
+  const dec = parseFloat(v);
+  if (!isNaN(dec) && v.indexOf('N') === -1 && v.indexOf('S') === -1 && v.indexOf('E') === -1 && v.indexOf('W') === -1) {
+    return Math.round(dec * 10000) / 10000;
+  }
+
+  let m: RegExpMatchArray | null;
+
+  // DD.ddddN — decimal degrees with hemisphere
+  m = v.match(/^(\d{2,3}\.\d+)([NSEW])$/);
+  if (m) {
+    let decimal = parseFloat(m[1]);
+    if (m[2] === 'S' || m[2] === 'W') decimal *= -1;
+    return Math.round(decimal * 10000) / 10000;
+  }
+
+  // DDMMSS.ssN / DDMMSSN — sexagesimal with seconds, possibly fractional
+  m = v.match(/^(\d{2,3})(\d{2})(\d{2}(?:\.\d+)?)([NSEW])$/);
+  if (m) {
+    const deg = Number(m[1]), min = Number(m[2]), sec = Number(m[3]);
+    let decimal = deg + min / 60 + sec / 3600;
+    if (m[4] === 'S' || m[4] === 'W') decimal *= -1;
+    return decimal;
+  }
+
+  // DDMM.mmmN — sexagesimal with fractional minutes
+  m = v.match(/^(\d{2,3})(\d{2}\.\d+)([NSEW])$/);
+  if (m) {
+    const deg = Number(m[1]), min = Number(m[2]);
+    let decimal = deg + min / 60;
+    if (m[3] === 'S' || m[3] === 'W') decimal *= -1;
+    return decimal;
+  }
+
+  // DDMMN — sexagesimal, whole minutes only (no seconds)
+  m = v.match(/^(\d{2,3})(\d{2})([NSEW])$/);
+  if (m) {
+    const deg = Number(m[1]), min = Number(m[2]);
+    let decimal = deg + min / 60;
+    if (m[3] === 'S' || m[3] === 'W') decimal *= -1;
+    return decimal;
+  }
+
+  return null;
 }
 
 function toNumber(value: unknown): number | undefined {

@@ -62,6 +62,7 @@ const navItems: ({ label: string; href: string } | { label: string; items: Dropd
   { label: 'Top Tracks', href: '/top-tracks' },
   { label: 'Forfait', href: '/forfait' },
   { label: 'Alerta Presión', href: '/alerta-presion' },
+  { label: 'Meteo', href: '/meteo' },
 ];
 
 const socialIconClass = "w-4 h-4 text-slate-400 hover:text-orange-500 transition-colors";

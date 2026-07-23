@@ -81,27 +81,50 @@ function parseAemetTimestamp(value?: string): number | null {
 function parseAemetCoord(value: string): number | null {
   if (!value || typeof value !== 'string') return null;
   const v = value.trim().toUpperCase();
-  // Try DDMMSSN (7-8 chars) and DDMMN (5-6 chars) formats
-  // Also try decimal format like "41.33"
+
+  // Plain decimal (no hemisphere suffix)
   const dec = parseFloat(v);
   if (!isNaN(dec) && v.indexOf('N') === -1 && v.indexOf('S') === -1 && v.indexOf('E') === -1 && v.indexOf('W') === -1) {
-    return dec;
+    return Math.round(dec * 10000) / 10000;
   }
-  // AEMET sexagesimal formats: DDMMSSN / DDDMMSSW or DDMM.N or DDDMM.W
-  let m = v.match(/^(\d{2,3})(\d{2})(\d{2})([NSEW])$/); // DDMMSS
+
+  let m: RegExpMatchArray | null;
+
+  // DD.ddddN — decimal degrees with hemisphere
+  m = v.match(/^(\d{2,3}\.\d+)([NSEW])$/);
+  if (m) {
+    let decimal = parseFloat(m[1]);
+    if (m[2] === 'S' || m[2] === 'W') decimal *= -1;
+    return Math.round(decimal * 10000) / 10000;
+  }
+
+  // DDMMSS.ssN / DDMMSSN — sexagesimal with seconds, possibly fractional
+  m = v.match(/^(\d{2,3})(\d{2})(\d{2}(?:\.\d+)?)([NSEW])$/);
   if (m) {
     const deg = Number(m[1]), min = Number(m[2]), sec = Number(m[3]);
     let decimal = deg + min / 60 + sec / 3600;
     if (m[4] === 'S' || m[4] === 'W') decimal *= -1;
     return Math.round(decimal * 10000) / 10000;
   }
-  m = v.match(/^(\d{2,3})(\d{2})([NSEW])$/); // DDMM (no seconds)
+
+  // DDMM.mmmN — sexagesimal with fractional minutes
+  m = v.match(/^(\d{2,3})(\d{2}\.\d+)([NSEW])$/);
   if (m) {
     const deg = Number(m[1]), min = Number(m[2]);
     let decimal = deg + min / 60;
     if (m[3] === 'S' || m[3] === 'W') decimal *= -1;
     return Math.round(decimal * 10000) / 10000;
   }
+
+  // DDMMN — sexagesimal, whole minutes only (no seconds)
+  m = v.match(/^(\d{2,3})(\d{2})([NSEW])$/);
+  if (m) {
+    const deg = Number(m[1]), min = Number(m[2]);
+    let decimal = deg + min / 60;
+    if (m[3] === 'S' || m[3] === 'W') decimal *= -1;
+    return Math.round(decimal * 10000) / 10000;
+  }
+
   return null;
 }
 
@@ -187,7 +210,9 @@ export async function getAemetNowForLocation(lat: number, lng: number): Promise<
   if (!parsed.length) return null;
   const nearest = parsed[0];
 
-  const candidates = parsed.slice(0, 3);
+  // Try up to 15 nearest stations to ensure we find real observation data
+  const CANDIDATE_LIMIT = 15;
+  const candidates = parsed.slice(0, CANDIDATE_LIMIT);
   const stationObs = await Promise.all(
     candidates.map(async (st) => {
       try {
@@ -204,11 +229,11 @@ export async function getAemetNowForLocation(lat: number, lng: number): Promise<
     })
   );
 
-  // Try nearest station first, fall back to any station with obs data
-  const nearestObs = stationObs.find((x) => x.station.indicativo === nearest.indicativo)?.obs;
-  const fallbackObs = stationObs.find((x) => x.obs)?.obs;
-  const obs = nearestObs ?? fallbackObs;
-  if (!obs) return null;
+  // Find the nearest station that actually has observation data
+  const bestMatch = stationObs.find((x) => x.obs);
+  if (!bestMatch) return null;
+  const obsStation = bestMatch.station;
+  const obs = bestMatch.obs!; // guaranteed by the find above
 
   const obsTs = parseAemetTimestamp(obs.fint);
   const dataAgeMin = obsTs ? Math.max(0, Math.round((Date.now() - obsTs) / 60000)) : undefined;
@@ -375,5 +400,103 @@ export async function getThunderstormProbability(lat: number, lng: number, provi
     return 0;
   } catch {
     return 0;
+  }
+}
+
+export interface AemetForecastDay {
+  date: string;
+  dayName: string;
+  tempMax: number;
+  tempMin: number;
+  feelsLikeMax?: number;
+  feelsLikeMin?: number;
+  humidityMax?: number;
+  humidityMin?: number;
+  precipitationProb: number;
+  stormProb: number;
+  windSpeedKmh: number;
+  windDirectionDeg?: number;
+  windDireccion?: string;
+  uvMax?: number;
+  skyDesc?: string;
+}
+
+export async function getAemetForecast(lat: number, lng: number, province?: string): Promise<AemetForecastDay[]> {
+  const apiKey = process.env.AEMET_API_KEY;
+  if (!apiKey) return [];
+
+  try {
+    let municipioCode = '';
+    if (province) {
+      const provNorm = province.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+      for (const [key, code] of Object.entries(PROVINCE_MUNICIPIO)) {
+        if (provNorm.includes(key) || key.includes(provNorm)) {
+          municipioCode = code;
+          break;
+        }
+      }
+    }
+    if (!municipioCode) return [];
+
+    const data = await fetchAemetData<any>(`/prediccion/especifica/municipio/diaria/${municipioCode}`, apiKey);
+    const days: any[] = data?.prediccion?.dia ?? [];
+    if (!days.length) return [];
+
+    const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    const today = new Date();
+
+    return days.slice(0, 3).map((d: any) => {
+      const dateObj = new Date(d.fecha + 'T00:00:00');
+      const diffDays = Math.round((dateObj.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      let dayName: string;
+      if (diffDays === 0) dayName = 'Hoy';
+      else if (diffDays === 1) dayName = 'Mañana';
+      else dayName = dayNames[dateObj.getDay()] || '';
+
+      const precipProbs: number[] = (d.probPrecipitacion ?? []).map((p: any) => Number(p) || 0);
+      const stormProbs: number[] = (d.probTormenta ?? []).map((p: any) => Number(p) || 0);
+
+      // Wind — take the period with highest speed
+      let windSpeed = 0;
+      let windDirDeg: number | undefined;
+      let windDirText: string | undefined;
+      if (Array.isArray(d.viento)) {
+        for (const v of d.viento) {
+          const spd = Number(v.velocidad) || 0;
+          if (spd > windSpeed) {
+            windSpeed = spd;
+            windDirText = v.direccion || undefined;
+          }
+        }
+      }
+      // Convert cardinal direction to degrees
+      const cardToDeg: Record<string, number> = { 'N': 0, 'NNE': 22.5, 'NE': 45, 'ENE': 67.5, 'E': 90, 'ESE': 112.5, 'SE': 135, 'SSE': 157.5, 'S': 180, 'SSW': 202.5, 'SW': 225, 'WSW': 247.5, 'W': 270, 'WNW': 292.5, 'NW': 315, 'NNW': 337.5 };
+      if (windDirText && cardToDeg[windDirText.toUpperCase()] !== undefined) {
+        windDirDeg = cardToDeg[windDirText.toUpperCase()];
+      }
+
+      // Sky description — pick first period's description
+      const skyDesc = Array.isArray(d.estadoCielo) ? (d.estadoCielo.find((s: any) => s.descripcion)?.descripcion || '') : '';
+
+      return {
+        date: d.fecha,
+        dayName,
+        tempMax: d.temperatura?.maxima ?? 0,
+        tempMin: d.temperatura?.minima ?? 0,
+        feelsLikeMax: d.sensTermica?.maxima,
+        feelsLikeMin: d.sensTermica?.minima,
+        humidityMax: d.humedad?.maxima,
+        humidityMin: d.humedad?.minima,
+        precipitationProb: precipProbs.length > 0 ? Math.max(...precipProbs) : 0,
+        stormProb: stormProbs.length > 0 ? Math.max(...stormProbs) : 0,
+        windSpeedKmh: windSpeed,
+        windDirectionDeg: windDirDeg,
+        windDireccion: windDirText,
+        uvMax: Number(d.uvMax) || 0,
+        skyDesc,
+      };
+    });
+  } catch {
+    return [];
   }
 }

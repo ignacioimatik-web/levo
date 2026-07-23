@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/browser';
 import type { User } from '@supabase/supabase-js';
 import type { BikeProfile, PressureRecommendation } from '@/lib/alerta-presion/types';
 import { calculatePressure } from '@/lib/alerta-presion/calculate';
-import { Loader2, Gauge, Thermometer, Droplets, Bike, AlertTriangle, TrendingDown, MapPin, Crosshair, Plus, Minus } from 'lucide-react';
+import { Loader2, Gauge, Thermometer, Droplets, Bike, AlertTriangle, TrendingDown, MapPin, Crosshair, Plus, Minus, Maximize2, Minimize2 } from 'lucide-react';
 import Link from 'next/link';
 import { BIKE_MODELS } from '@/lib/alerta-presion/bike-models';
 import type { BikeModelSpec } from '@/lib/alerta-presion/bike-models';
@@ -73,6 +73,7 @@ export default function AlertaPresionPage() {
   const [mapPoint, setMapPoint] = useState<{ lat: number; lng: number } | null>(null);
   const [step, setStep] = useState(1);
   const [currentMapStyle, setCurrentMapStyle] = useState('mapbox://styles/mapbox/satellite-streets-v12');
+  const [isMapFullscreen, setIsMapFullscreen] = useState(false);
   const [mapView, setMapView] = useState({ lat: 40.6406, lng: -0.2727, bearing: 0, pitch: 68 });
   const [clockTime, setClockTime] = useState('');
   useEffect(() => {
@@ -94,6 +95,16 @@ export default function AlertaPresionPage() {
     }, 30);
     return () => clearInterval(interval);
   }, []);
+
+  // Body scroll lock when map is fullscreen
+  useEffect(() => {
+    if (isMapFullscreen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [isMapFullscreen]);
 
   const effectiveTemp = baseTemp != null ? baseTemp + adjustTemp : 20;
   const effectiveHumidity = baseHumidity != null ? Math.max(10, Math.min(100, baseHumidity + adjustHumidity)) : 60;
@@ -573,7 +584,7 @@ export default function AlertaPresionPage() {
                       <p className="text-[10px] text-orange-400 uppercase tracking-widest font-bold flex items-center gap-2"><Crosshair className="w-3.5 h-3.5" /> Haz clic — datos AEMET con altitud{weatherLoaded && isDefaultData && <span className="ml-2 text-[9px] text-red-400 animate-pulse font-bold">⚠️ Zona sin estación — datos estimados</span>}</p>
                       <button onClick={() => setCurrentMapStyle(s => s.includes('satellite') ? 'mapbox://styles/mapbox/outdoors-v12' : 'mapbox://styles/mapbox/satellite-streets-v12')} className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-white/10 text-[9px] text-slate-300 font-bold transition-colors flex items-center gap-1.5">{currentMapStyle.includes('satellite') ? '🗺️' : '🛰️'} {currentMapStyle.includes('satellite') ? 'Topo' : 'Satélite'}</button>
                     </div>
-                    <div className="relative w-full h-[400px] lg:h-[500px] rounded-xl overflow-hidden border border-white/5">
+                    <div className={`relative w-full overflow-hidden border transition-all duration-300 ${isMapFullscreen ? 'fixed inset-0 z-[100] !rounded-none border-0' : 'h-[400px] lg:h-[500px] rounded-xl border-white/5'}`}>
                       <Map mapStyle={currentMapStyle} mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN} initialViewState={{ latitude:40.6406, longitude:-0.2727, zoom:11, pitch:68, bearing:0 }} onMoveEnd={e => setMapView({ lat: e.viewState.latitude, lng: e.viewState.longitude, bearing: e.viewState.bearing ?? 0, pitch: e.viewState.pitch ?? 78 })} terrain={{ source:'mapbox-dem', exaggeration:1.5 }} onClick={(e: MapMouseEvent) => { const m=e.target; let alt; try{ alt=m.queryTerrainElevation?.(e.lngLat)??undefined; }catch{} fetchWeather(e.lngLat.lat, e.lngLat.lng, alt); }} style={{ width:'100%', height:'100%' }}>
                         <Source id="mapbox-dem" type="raster-dem" url="mapbox://mapbox.mapbox-terrain-dem-v1" />
                         <NavigationControl position="top-right" />
@@ -589,6 +600,13 @@ export default function AlertaPresionPage() {
                         {stationsLoading && <div className="absolute top-2 left-2 z-10 bg-slate-950/90 border border-white/10 rounded-lg px-3 py-2 flex items-center gap-2 text-[10px] text-slate-300"><Loader2 className="w-3 h-3 animate-spin text-orange-400" /> Localizando estaciones...</div>}
                         {weatherLoading && <div className="absolute top-2 right-12 z-10 bg-slate-950/90 border border-white/10 rounded-lg px-3 py-2 flex items-center gap-2 text-[10px] text-slate-300"><Loader2 className="w-3 h-3 animate-spin text-orange-400" /> Consultando AEMET...</div>}
                       </Map>
+                      <button
+                        onClick={() => setIsMapFullscreen(!isMapFullscreen)}
+                        className={`absolute top-2 right-2 z-20 p-2 rounded-lg border transition-colors ${isMapFullscreen ? 'bg-slate-950/90 border-white/10 text-orange-400 hover:text-white' : 'bg-slate-950/80 border-white/10 text-slate-300 hover:text-white'}`}
+                        title={isMapFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+                      >
+                        {isMapFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                      </button>
                     </div>
                     <div className="flex items-center justify-between mt-2">
                       <p className="text-[9px] text-slate-600">{stationMarkers.length > 0 ? `Se muestran ${stationMarkers.length} estaciones.` : 'Haz clic en el mapa para obtener datos AEMET.'}{clickAltitude != null && <span className="ml-2 text-[8px] text-slate-500">Altitud: {Math.round(clickAltitude)} m</span>}</p>
