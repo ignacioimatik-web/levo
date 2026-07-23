@@ -10,16 +10,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Faltan datos: lat, lng' }, { status: 400 });
     }
 
-    const [now, forecast] = await Promise.all([
-      getAemetNowForLocation(lat, lng),
-      getAemetForecast(lat, lng),
-    ]);
+    // First get current weather (to obtain province for forecast)
+    const now = await getAemetNowForLocation(lat, lng);
 
-    // If now has a stationProvince, re-fetch forecast with it
-    let finalForecast = forecast;
-    if (now?.stationProvince && !forecast.length) {
-      finalForecast = await getAemetForecast(lat, lng, now.stationProvince);
-    }
+    // Then fetch forecast using the province from the nearest station
+    const forecast = await getAemetForecast(lat, lng, now?.stationProvince);
 
     const temperatureC = now?.weightedRouteTempC ?? now?.temperatureC ?? null;
     const humidityPct = now?.humidityPct ?? null;
@@ -40,7 +35,7 @@ export async function POST(request: NextRequest) {
         dataAgeMin: now.dataAgeMin,
         dataIsStale: now.dataIsStale,
       } : null,
-      forecast: finalForecast,
+      forecast,
       location: { lat, lng },
     });
   } catch (e) {

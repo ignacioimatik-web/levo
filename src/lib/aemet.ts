@@ -90,14 +90,6 @@ function parseAemetCoord(value: string): number | null {
 
   let m: RegExpMatchArray | null;
 
-  // DD.ddddN — decimal degrees with hemisphere
-  m = v.match(/^(\d{2,3}\.\d+)([NSEW])$/);
-  if (m) {
-    let decimal = parseFloat(m[1]);
-    if (m[2] === 'S' || m[2] === 'W') decimal *= -1;
-    return Math.round(decimal * 10000) / 10000;
-  }
-
   // DDMMSS.ssN / DDMMSSN — sexagesimal with seconds, possibly fractional
   m = v.match(/^(\d{2,3})(\d{2})(\d{2}(?:\.\d+)?)([NSEW])$/);
   if (m) {
@@ -107,7 +99,7 @@ function parseAemetCoord(value: string): number | null {
     return Math.round(decimal * 10000) / 10000;
   }
 
-  // DDMM.mmmN — sexagesimal with fractional minutes
+  // DDMM.mmmN — sexagesimal with fractional minutes (4+ digits before decimal)
   m = v.match(/^(\d{2,3})(\d{2}\.\d+)([NSEW])$/);
   if (m) {
     const deg = Number(m[1]), min = Number(m[2]);
@@ -122,6 +114,15 @@ function parseAemetCoord(value: string): number | null {
     const deg = Number(m[1]), min = Number(m[2]);
     let decimal = deg + min / 60;
     if (m[3] === 'S' || m[3] === 'W') decimal *= -1;
+    return Math.round(decimal * 10000) / 10000;
+  }
+
+  // DD.ddddN — decimal degrees with hemisphere (2-3 digits, last resort)
+  m = v.match(/^(\d{2,3}\.\d+)([NSEW])$/);
+  if (m) {
+    let decimal = parseFloat(m[1]);
+    if (decimal > 180) return null; // sanity check — not a valid coord
+    if (m[2] === 'S' || m[2] === 'W') decimal *= -1;
     return Math.round(decimal * 10000) / 10000;
   }
 

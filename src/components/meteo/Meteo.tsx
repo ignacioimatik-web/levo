@@ -182,9 +182,10 @@ export default function Meteo() {
         {weatherLoading && <div className="flex items-center gap-2 text-[11px] text-slate-400 bg-slate-800/30 rounded-xl px-4 py-6 mb-4"><Loader2 className="w-4 h-4 animate-spin" /> Consultando AEMET...</div>}
         {!weatherLoaded && !weatherLoading && <div className="text-[11px] text-slate-500 bg-slate-800/30 rounded-xl px-4 py-6 text-center">Haz clic en el mapa para obtener la previsión y datos actuales.</div>}
 
-        {weatherLoaded && forecast.length > 0 && (
+        {weatherLoaded && (
           <div className="fade-in space-y-6">
             {/* 3-DAY FORECAST */}
+            {forecast.length > 0 && (
             <div className="bg-slate-900/20 border border-cyan-500/20 rounded-2xl p-5">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-8 h-8 rounded-lg bg-cyan-500/20 flex items-center justify-center"><span className="text-sm">📅</span></div>
@@ -231,6 +232,7 @@ export default function Meteo() {
                 ))}
               </div>
             </div>
+            )}
 
             {/* CURRENT WEATHER BLOCK */}
             <div className="bg-slate-900/60 border border-white/5 rounded-xl p-5 space-y-4">
