@@ -79,16 +79,30 @@ function parseAemetTimestamp(value?: string): number | null {
 }
 
 function parseAemetCoord(value: string): number | null {
-  // Common AEMET format: DDMMSSN / DDDMMSSW
-  const m = value.trim().toUpperCase().match(/^(\d{2,3})(\d{2})(\d{2})([NSEW])$/);
-  if (!m) return null;
-  const deg = Number(m[1]);
-  const min = Number(m[2]);
-  const sec = Number(m[3]);
-  const hemi = m[4];
-  let decimal = deg + min / 60 + sec / 3600;
-  if (hemi === 'S' || hemi === 'W') decimal *= -1;
-  return decimal;
+  if (!value || typeof value !== 'string') return null;
+  const v = value.trim().toUpperCase();
+  // Try DDMMSSN (7-8 chars) and DDMMN (5-6 chars) formats
+  // Also try decimal format like "41.33"
+  const dec = parseFloat(v);
+  if (!isNaN(dec) && v.indexOf('N') === -1 && v.indexOf('S') === -1 && v.indexOf('E') === -1 && v.indexOf('W') === -1) {
+    return dec;
+  }
+  // AEMET sexagesimal formats: DDMMSSN / DDDMMSSW or DDMM.N or DDDMM.W
+  let m = v.match(/^(\d{2,3})(\d{2})(\d{2})([NSEW])$/); // DDMMSS
+  if (m) {
+    const deg = Number(m[1]), min = Number(m[2]), sec = Number(m[3]);
+    let decimal = deg + min / 60 + sec / 3600;
+    if (m[4] === 'S' || m[4] === 'W') decimal *= -1;
+    return Math.round(decimal * 10000) / 10000;
+  }
+  m = v.match(/^(\d{2,3})(\d{2})([NSEW])$/); // DDMM (no seconds)
+  if (m) {
+    const deg = Number(m[1]), min = Number(m[2]);
+    let decimal = deg + min / 60;
+    if (m[3] === 'S' || m[3] === 'W') decimal *= -1;
+    return Math.round(decimal * 10000) / 10000;
+  }
+  return null;
 }
 
 async function fetchAemetData<T>(path: string, apiKey: string): Promise<T> {
@@ -190,7 +204,10 @@ export async function getAemetNowForLocation(lat: number, lng: number): Promise<
     })
   );
 
-  const obs = stationObs.find((x) => x.station.indicativo === nearest.indicativo)?.obs;
+  // Try nearest station first, fall back to any station with obs data
+  const nearestObs = stationObs.find((x) => x.station.indicativo === nearest.indicativo)?.obs;
+  const fallbackObs = stationObs.find((x) => x.obs)?.obs;
+  const obs = nearestObs ?? fallbackObs;
   if (!obs) return null;
 
   const obsTs = parseAemetTimestamp(obs.fint);
