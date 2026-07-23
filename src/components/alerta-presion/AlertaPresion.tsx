@@ -19,8 +19,8 @@ const DEFAULT_PROFILE: BikeProfile = {
   tireWidthFrontInch: 2.3, tireWidthRearInch: 2.3,
   initialPressureFrontBar: 1.8, initialPressureRearBar: 2.0,
   tubeless: true, hasInsert: false, rimWidthMm: 30,
-  ridingStyle: 'moderado' as const, riderExperience: 'intermedio' as const,
-  terrainTypes: [] as string[], groundCondition: 'mixto' as const, casingType: 'estandar' as const,
+  ridingStyle: 'agresivo' as const, riderExperience: 'avanzado' as const,
+  terrainTypes: ['mixto', 'duro'] as string[], groundCondition: 'mixto' as const, casingType: 'reforzada' as const,
 };
 
 const ELEVATION_PRESETS = [
