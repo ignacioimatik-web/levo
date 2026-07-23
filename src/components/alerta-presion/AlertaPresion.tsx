@@ -50,6 +50,9 @@ export default function AlertaPresionPage() {
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [clickAltitude, setClickAltitude] = useState<number | null>(null);
   const [windKmh, setWindKmh] = useState<number | null>(null);
+  const [gustKmh, setGustKmh] = useState<number | null>(null);
+  const [uvIndex, setUvIndex] = useState<number | null>(null);
+  const [windDirectionDeg, setWindDirectionDeg] = useState<number | null>(null);
   const [stationMarkers, setStationMarkers] = useState<any[]>([]);
   const [stationsLoading, setStationsLoading] = useState(false);
 
@@ -72,6 +75,21 @@ export default function AlertaPresionPage() {
 
   const effectiveTemp = baseTemp != null ? baseTemp + adjustTemp : 20;
   const effectiveHumidity = baseHumidity != null ? Math.max(10, Math.min(100, baseHumidity + adjustHumidity)) : 60;
+
+  const windDirText = (deg: number | null): string => {
+    if (deg == null) return '—';
+    const dirs = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSO', 'SO', 'OSO', 'O', 'ONO', 'NO', 'NNO'];
+    return dirs[Math.round(deg / 22.5) % 16];
+  };
+
+  const feelsLike = (() => {
+    if (baseTemp == null || windKmh == null || windKmh < 1) return null;
+    if (baseTemp <= 10 && windKmh > 4.8) {
+      const wc = 13.12 + 0.6215 * baseTemp - 11.37 * Math.pow(windKmh, 0.16) + 0.3965 * baseTemp * Math.pow(windKmh, 0.16);
+      return Math.round(wc * 10) / 10;
+    }
+    return null;
+  })();
 
   const getRecommendation = useCallback(() => {
     if (baseTemp == null || baseHumidity == null) return null;
@@ -131,7 +149,11 @@ export default function AlertaPresionPage() {
             if (Math.abs(temp - (data.weather.temperatureC ?? 20)) >= 0.5) { setAltitudeAdjusted(true); source += ` (ajustado: ${data.weather.stationAltitude}m → ${Math.round(altitude)}m)`; }
           }
         }
-        setBaseTemp(temp); setBaseHumidity(data.weather.humidityPct ?? 60); setWindKmh(data.weather.windKmh ?? null); setWeatherSource(source);
+        setBaseTemp(temp); setBaseHumidity(data.weather.humidityPct ?? 60); setWindKmh(data.weather.windKmh ?? null);
+        setGustKmh(data.weather.maxWindKmh ?? null);
+        setUvIndex(data.weather.uvMax ?? null);
+        setWindDirectionDeg(data.weather.windDirectionDeg ?? null);
+        setWeatherSource(source);
         setWeatherLoaded(true); setMapPoint({ lat, lng }); setClickAltitude(altitude || null);
         setAdjustTemp(0); setAdjustHumidity(0); setSelectedPreset(null);
       } else { setError('No se pudieron obtener datos meteorológicos'); }
@@ -226,19 +248,9 @@ export default function AlertaPresionPage() {
             <Link href="/auth" className="inline-block px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold transition-colors">Iniciar sesión / Registrarse</Link>
           </div>
         ) : (
-          <div className="space-y-6">
-            {/* STEPPER */}
-            <div className="flex items-center justify-center gap-3 mb-4">
-              {[1, 2, 3].map(i => (
-                <div key={i} className="flex items-center gap-3">
-                  <button onClick={() => i <= step && setStep(i)} className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all ${stepClass(i)}`}>
-                    <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold ${circleClass(i)}`}>{step > i ? '✓' : i}</span>
-                    <span className="text-[10px] font-bold uppercase tracking-widest">{i === 1 ? 'Perfil' : i === 2 ? 'Zona' : 'Resultado'}</span>
-                  </button>
-                  {i < 3 && <div className="w-8 h-px bg-white/10" />}
-                </div>
-              ))}
-            </div>
+          <div className="flex gap-6 items-start">
+            {/* LEFT: step content */}
+            <div className="flex-1 min-w-0 space-y-6">
 
             {/* PASO 1: PERFIL */}
             {step === 1 && <div className="fade-in space-y-4">
@@ -312,11 +324,11 @@ export default function AlertaPresionPage() {
               {/* BARRA DATOS + AJUSTES */}
               {weatherLoaded && <div className="bg-slate-900/60 border border-white/5 rounded-xl p-5 space-y-4">
                 <div className="flex items-center flex-wrap gap-4 md:gap-6">
-                  <div className="text-center flex-shrink-0 min-w-[90px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Temperatura</p><div className="flex items-baseline justify-center gap-2"><span className="text-5xl md:text-6xl font-black text-orange-500 leading-none">{effectiveTemp}</span><span className="text-xl text-orange-500/70 font-black">°C</span></div><p className="text-[8px] text-slate-500 mt-0.5">Base {baseTemp}°</p></div>
-                  <div className="w-px h-20 bg-white/5 flex-shrink-0" />
-                  <div className="text-center flex-shrink-0 min-w-[90px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Humedad</p><div className="flex items-baseline justify-center gap-2"><span className="text-5xl md:text-6xl font-black text-blue-400 leading-none">{effectiveHumidity}</span><span className="text-xl text-blue-400/70 font-black">%</span></div><p className="text-[8px] text-slate-500 mt-0.5">Base {baseHumidity}%</p></div>
-                  <div className="w-px h-20 bg-white/5 flex-shrink-0" />
-                  <div className="text-center flex-shrink-0 min-w-[80px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Viento</p><div className="flex items-baseline justify-center gap-2"><span className="text-5xl md:text-6xl font-black text-emerald-400 leading-none">{windKmh ?? '—'}</span><span className="text-xl text-emerald-400/70 font-black">km/h</span></div><p className="text-[8px] text-slate-500 mt-0.5">Racha —</p></div>
+                  <div className="text-center flex-shrink-0 min-w-[90px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Temperatura</p><div className="flex items-baseline justify-center gap-2"><span className="text-5xl md:text-6xl font-black text-orange-500 leading-none">{effectiveTemp}</span><span className="text-xl text-orange-500/70 font-black">°C</span></div><p className="text-[8px] text-slate-500 mt-0.5">Base {baseTemp}°</p>{feelsLike != null && <p className="text-[9px] text-slate-400 mt-1">Sensación {feelsLike}°</p>}</div>
+                  <div className="w-px h-24 bg-white/5 flex-shrink-0" />
+                  <div className="text-center flex-shrink-0 min-w-[90px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Humedad</p><div className="flex items-baseline justify-center gap-2"><span className="text-5xl md:text-6xl font-black text-blue-400 leading-none">{effectiveHumidity}</span><span className="text-xl text-blue-400/70 font-black">%</span></div><p className="text-[8px] text-slate-500 mt-0.5">Base {baseHumidity}%</p>{uvIndex != null && <p className="text-[9px] text-slate-400 mt-1">UV {uvIndex}</p>}</div>
+                  <div className="w-px h-24 bg-white/5 flex-shrink-0" />
+                  <div className="text-center flex-shrink-0 min-w-[90px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Viento</p><div className="flex items-baseline justify-center gap-2"><span className="text-5xl md:text-6xl font-black text-emerald-400 leading-none">{windKmh ?? '—'}</span><span className="text-xl text-emerald-400/70 font-black">km/h</span></div><p className="text-[8px] text-slate-500 mt-0.5">Ráf. {gustKmh ?? '—'} km/h · {windDirText(windDirectionDeg)}</p></div>
                 </div>
 
                 {/* SOL — barra gradiente + reloj + datos */}
@@ -415,9 +427,7 @@ export default function AlertaPresionPage() {
               {/* PERFILES RAPIDOS + BOTONES */}
               {!weatherLoaded && !weatherLoading && <div className="text-[11px] text-slate-500 bg-slate-800/30 rounded-xl px-4 py-6 text-center">Haz clic en el mapa para obtener datos base.</div>}
               {weatherLoading && <div className="flex items-center gap-2 text-[11px] text-slate-400 bg-slate-800/30 rounded-xl px-4 py-6"><Loader2 className="w-4 h-4 animate-spin" /> Consultando AEMET...</div>}
-              {weatherLoaded && <>
-                <div className="flex justify-center"><div className="grid grid-cols-3 gap-3 w-full">{ELEVATION_PRESETS.map(p => <button key={p.label} onClick={()=>applyPreset(p.label)} className={`text-center px-3 py-2.5 rounded-xl border transition-all text-[10px] ${selectedPreset===p.label?'border-orange-500 bg-orange-500/10 text-white':'border-white/10 bg-slate-900/60 text-slate-400 hover:border-orange-500/50'}`}><span className="text-base mr-1">{p.icon}</span><span className="font-bold text-xs block mb-0.5">{p.label}</span><span className="text-[9px] text-slate-500">{p.deltaTemp>0?'+':''}{p.deltaTemp}°C · {p.deltaHumidity>0?'+':''}{p.deltaHumidity}% HR</span></button>)}</div></div>
-              </>}
+              {weatherLoaded && <></>}
               {error && <div className="p-2 bg-red-500/10 border border-red-500/20 rounded-lg text-[11px] text-red-400">{error}</div>}
 
               {/* NAVEGACION */}
@@ -474,6 +484,26 @@ export default function AlertaPresionPage() {
               </div>;
             })()}
           </div>
+          {/* RIGHT SIDEBAR: stepper + presets */}
+          <div className="flex-shrink-0 w-28 space-y-3 sticky top-24">
+            <div className="bg-slate-900/40 border border-white/5 rounded-xl p-2 space-y-1.5">
+              {[1, 2, 3].map(i => (
+                <button key={i} onClick={() => i <= step && setStep(i)} className={`flex items-center gap-2 w-full px-2.5 py-2 rounded-lg border transition-all ${stepClass(i)}`}>
+                  <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0 ${circleClass(i)}`}>{step > i ? '✓' : i}</span>
+                  <span className="text-[9px] font-bold uppercase tracking-widest">{i === 1 ? 'Perfil' : i === 2 ? 'Zona' : 'Resultado'}</span>
+                </button>
+              ))}
+            </div>
+            {step === 2 && weatherLoaded && <div className="bg-slate-900/40 border border-white/5 rounded-xl p-2 space-y-1">
+              {ELEVATION_PRESETS.map(p => (
+                <button key={p.label} onClick={()=>applyPreset(p.label)} className={`w-full text-left px-2.5 py-2 rounded-lg border transition-all text-[10px] ${selectedPreset===p.label?'border-orange-500 bg-orange-500/10 text-white':'border-white/10 bg-slate-900/60 text-slate-400 hover:border-orange-500/50'}`}>
+                  <span className="font-bold text-[11px] block leading-tight">{p.icon} {p.label}</span>
+                  <span className="text-[8px] text-slate-500">{p.deltaTemp>0?'+':''}{p.deltaTemp}°C · {p.deltaHumidity>0?'+':''}{p.deltaHumidity}% HR</span>
+                </button>
+              ))}
+            </div>}
+          </div>
+        </div>
         )}
       </div>
     </div>

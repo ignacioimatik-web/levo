@@ -34,6 +34,9 @@ export async function POST(request: NextRequest) {
         temperatureC,
         humidityPct,
         windKmh: weather?.windKmh ?? null,
+        maxWindKmh: weather?.maxWindKmh ?? null,
+        uvMax: weather?.uvMax ?? null,
+        windDirectionDeg: weather?.windDirectionDeg ?? null,
       },
     });
   } catch (e) {

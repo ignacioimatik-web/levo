@@ -47,6 +47,7 @@ export interface AemetNow {
   precipitationMm?: number;
   visibilityM?: number;
   uvMax?: number;
+  windDirectionDeg?: number;
   riskLevel: 'green' | 'yellow' | 'red';
   routeNowLabel: string;
   routeNowMessage: string;
@@ -238,6 +239,7 @@ export async function getAemetNowForLocation(lat: number, lng: number): Promise<
     precipitationMm: toNumber(obs.prec),
     visibilityM: toNumber(obs.vis),
     uvMax: toNumber(obs.uvMax),
+    windDirectionDeg: toNumber(obs.dv),
     ...score,
     routeNowMessage: staleMessage ? `${score.routeNowMessage} ${staleMessage}` : score.routeNowMessage,
     nearbyStations: stationObs.map(({ station, obs: o }) => ({
