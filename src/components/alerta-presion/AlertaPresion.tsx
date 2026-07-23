@@ -470,7 +470,7 @@ export default function AlertaPresionPage() {
                       : '#0c0a3e',
                       opacity: 0.65
                     }} />
-                    {daylight && <div className="absolute top-1/2 -translate-y-1/2 transition-all duration-1000" style={{ left: `${Math.max(2, Math.min(96, (daylight.currentHour - daylight.sunriseHour) / (daylight.sunsetHour - daylight.sunriseHour) * 100))}%` }}>
+                    {daylight && <div className="absolute top-1/2 -translate-y-1/2 transition-all duration-1000" style={{ left: `${Math.max(2, Math.min(96, daylight.currentHour / 24 * 100))}%` }}>
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center ${daylight.hours > 0 ? 'bg-yellow-400/20 shadow-lg shadow-yellow-400/30' : 'bg-slate-500/10'}`}>
                         <div className={`w-6 h-6 rounded-full ${daylight.hours > 0 ? 'bg-gradient-to-br from-yellow-300 to-orange-500 shadow-lg shadow-yellow-400/50' : 'bg-slate-600'}`} />
                       </div>
