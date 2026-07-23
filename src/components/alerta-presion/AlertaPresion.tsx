@@ -53,6 +53,7 @@ export default function AlertaPresionPage() {
   const [gustKmh, setGustKmh] = useState<number | null>(null);
   const [uvIndex, setUvIndex] = useState<number | null>(null);
   const [windDirectionDeg, setWindDirectionDeg] = useState<number | null>(null);
+  const [precipitationMm, setPrecipitationMm] = useState<number | null>(null);
   const [isDefaultData, setIsDefaultData] = useState(false);
   const [windAnimFrame, setWindAnimFrame] = useState(0);
   const [stationMarkers, setStationMarkers] = useState<any[]>([]);
@@ -205,6 +206,7 @@ export default function AlertaPresionPage() {
         setGustKmh(data.weather.maxWindKmh ?? null);
         setUvIndex(data.weather.uvMax ?? null);
         setWindDirectionDeg(data.weather.windDirectionDeg ?? null);
+        setPrecipitationMm(data.weather.precipitationMm ?? null);
         setIsDefaultData(data.weather.isDefaultData ?? false);
         setWeatherSource(source);
         setWeatherLoaded(true); setMapPoint({ lat, lng }); setClickAltitude(altitude || null);
@@ -405,11 +407,13 @@ export default function AlertaPresionPage() {
               {/* BARRA DATOS + AJUSTES */}
               {weatherLoaded && <div className="bg-slate-900/60 border border-white/5 rounded-xl p-5 space-y-4">
                 <div className="flex items-center flex-wrap gap-4 md:gap-6">
-                  <div className="text-center flex-shrink-0 min-w-[130px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Temperatura</p><div className="flex items-baseline justify-center gap-3"><div><p className="text-[7px] text-slate-600 uppercase mb-0.5">Real</p><div className="flex items-baseline justify-center gap-1"><span className="text-5xl md:text-6xl font-black text-orange-500 leading-none">{effectiveTemp}</span><span className="text-xl text-orange-500/70 font-black">°C</span></div></div><div><p className="text-[7px] text-slate-600 uppercase mb-0.5">Sensac.</p><div className="flex items-baseline justify-center gap-1"><span className="text-5xl md:text-6xl font-black text-orange-400 leading-none">{feelsLike ?? '—'}</span><span className="text-xl text-orange-400/70 font-black">°C</span></div></div></div><p className="text-[8px] text-slate-500 mt-1">Base {baseTemp}°</p></div>
+                  <div className="text-center flex-shrink-0 min-w-[100px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Temperatura</p><div className="flex items-baseline justify-center gap-0.5"><div className="flex items-baseline justify-center gap-0.5"><span className="text-5xl md:text-6xl font-black text-orange-500 leading-none">{effectiveTemp}</span><span className="text-sm md:text-base text-orange-500/70 font-black">°C</span></div><span className="text-slate-600 text-lg mx-0.5">/</span><div className="flex items-baseline justify-center gap-0.5"><span className="text-5xl md:text-6xl font-black text-orange-400/80 leading-none">{feelsLike ?? '—'}</span><span className="text-sm md:text-base text-orange-400/60 font-black">°C</span></div></div><p className="text-[8px] text-slate-500 mt-0.5">Base {baseTemp}° · Sensac.</p></div>
                   <div className="w-px h-28 bg-white/5 flex-shrink-0" />
                   <div className="text-center flex-shrink-0 min-w-[90px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Humedad</p><div className="flex items-baseline justify-center gap-2"><span className="text-5xl md:text-6xl font-black text-blue-400 leading-none">{effectiveHumidity}</span><span className="text-xl text-blue-400/70 font-black">%</span></div><p className="text-[8px] text-slate-500 mt-0.5">Base {baseHumidity}%</p></div>
                   <div className="w-px h-28 bg-white/5 flex-shrink-0" />
                   <div className="text-center flex-shrink-0 min-w-[90px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Viento</p><div className="flex items-baseline justify-center gap-2"><span className="text-5xl md:text-6xl font-black text-emerald-400 leading-none">{windKmh ?? '—'}</span><span className="text-xl text-emerald-400/70 font-black">km/h</span></div><p className="text-[8px] text-slate-500 mt-0.5">Ráf. {gustKmh ?? '—'} km/h</p></div>
+                  <div className="w-px h-28 bg-white/5 flex-shrink-0" />
+                  <div className="text-center flex-shrink-0 min-w-[70px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Lluvia</p><span className="text-5xl md:text-6xl font-black text-cyan-400 leading-none">{precipitationMm != null ? precipitationMm.toFixed(1) : '—'}</span><p className="text-[8px] text-slate-500 mt-0.5">mm</p></div>
                   <div className="w-px h-28 bg-white/5 flex-shrink-0" />
                   <div className="text-center flex-shrink-0 min-w-[110px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Dirección</p>
                     {windDirectionDeg != null ? <><div className="relative w-20 h-20 mx-auto">

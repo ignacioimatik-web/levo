@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
         maxWindKmh: weather?.maxWindKmh ?? null,
         uvMax: weather?.uvMax ?? null,
         windDirectionDeg: weather?.windDirectionDeg ?? null,
+        precipitationMm: weather?.precipitationMm ?? null,
       },
     });
   } catch (e) {
