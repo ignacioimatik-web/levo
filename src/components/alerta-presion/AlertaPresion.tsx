@@ -301,43 +301,36 @@ export default function AlertaPresionPage() {
               {/* BARRA DATOS + AJUSTES */}
               {weatherLoaded && <div className="bg-slate-900/60 border border-white/5 rounded-xl p-5">
                 <div className="flex items-center flex-wrap gap-4 md:gap-6">
-                  <div className="text-center flex-1 min-w-[100px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Temperatura</p><div className="flex items-baseline justify-center gap-2"><span className="text-5xl md:text-6xl font-black text-orange-500 leading-none">{effectiveTemp}</span><span className="text-xl text-orange-500/70 font-black">°C</span></div><p className="text-[8px] text-slate-500 mt-0.5">Base {baseTemp}°</p></div>
+                  <div className="text-center flex-shrink-0 min-w-[90px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Temperatura</p><div className="flex items-baseline justify-center gap-2"><span className="text-5xl md:text-6xl font-black text-orange-500 leading-none">{effectiveTemp}</span><span className="text-xl text-orange-500/70 font-black">°C</span></div><p className="text-[8px] text-slate-500 mt-0.5">Base {baseTemp}°</p></div>
                   <div className="w-px h-20 bg-white/5 flex-shrink-0" />
-                  <div className="text-center flex-1 min-w-[100px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Humedad</p><div className="flex items-baseline justify-center gap-2"><span className="text-5xl md:text-6xl font-black text-blue-400 leading-none">{effectiveHumidity}</span><span className="text-xl text-blue-400/70 font-black">%</span></div><p className="text-[8px] text-slate-500 mt-0.5">Base {baseHumidity}%</p></div>
+                  <div className="text-center flex-shrink-0 min-w-[90px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Humedad</p><div className="flex items-baseline justify-center gap-2"><span className="text-5xl md:text-6xl font-black text-blue-400 leading-none">{effectiveHumidity}</span><span className="text-xl text-blue-400/70 font-black">%</span></div><p className="text-[8px] text-slate-500 mt-0.5">Base {baseHumidity}%</p></div>
                   <div className="w-px h-20 bg-white/5 flex-shrink-0" />
-                  <div className="text-center flex-1 min-w-[90px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Viento</p><div className="flex items-baseline justify-center gap-2"><span className="text-5xl md:text-6xl font-black text-emerald-400 leading-none">{windKmh ?? '—'}</span><span className="text-xl text-emerald-400/70 font-black">km/h</span></div><p className="text-[8px] text-slate-500 mt-0.5">Racha —</p></div>
+                  <div className="text-center flex-shrink-0 min-w-[80px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Viento</p><div className="flex items-baseline justify-center gap-2"><span className="text-5xl md:text-6xl font-black text-emerald-400 leading-none">{windKmh ?? '—'}</span><span className="text-xl text-emerald-400/70 font-black">km/h</span></div><p className="text-[8px] text-slate-500 mt-0.5">Racha —</p></div>
                   <div className="w-px h-20 bg-white/5 flex-shrink-0" />
-                  <div className="flex-1 min-w-[200px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-2">Sol restante</p>
+                  <div className="flex-1 min-w-[220px]">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[9px] text-slate-500 uppercase tracking-widest font-bold">Sol restante</span>
+                      <span className="text-[7px] text-slate-600 truncate max-w-[120px]">{weatherSource}</span>
+                    </div>
                     <div className="relative h-14 rounded-xl overflow-hidden bg-slate-900/80 border border-white/5">
-                      {/* Gradiente día/noche */}
                       <div className="absolute inset-0" style={{
                         background: `linear-gradient(to right, #0c0a3e 0%, #1e1b4b ${Math.max(0, (12 - (daylight?.hours ?? 12) - 6) / 12 * 50)}%, #facc15 ${Math.max(0, (12 - (daylight?.hours ?? 12) - 3) / 12 * 50)}%, #fff7ed ${Math.max(0, (12 - (daylight?.hours ?? 12)) / 12 * 50)}%, #facc15 ${Math.min(100, (12 - (daylight?.hours ?? 12)) / 12 * 50 + 25)}%, #1e1b4b ${Math.min(100, (12 - (daylight?.hours ?? 12)) / 12 * 50 + 45)}%, #0c0a3e 100%)`,
                         opacity: 0.6
                       }} />
-                      {/* Posición del sol */}
                       {daylight && <div className="absolute top-1/2 -translate-y-1/2 transition-all duration-1000" style={{ left: `${Math.max(5, Math.min(90, (12 - daylight.hours) / 12 * 100))}%` }}>
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center ${daylight.hours > 0 ? 'bg-yellow-400/20 shadow-lg shadow-yellow-400/30' : 'bg-slate-500/10'}`}>
                           <div className={`w-6 h-6 rounded-full ${daylight.hours > 0 ? 'bg-gradient-to-br from-yellow-300 to-orange-500 shadow-lg shadow-yellow-400/50' : 'bg-slate-600'}`} />
                         </div>
                       </div>}
-                      {/* Indicador noche */}
-                      {daylight && daylight.hours <= 0 && <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-xs text-slate-500 font-bold tracking-widest uppercase">🌙 Noche</span>
-                      </div>}
-                      {/* Horizonte */}
+                      {daylight && daylight.hours <= 0 && <div className="absolute inset-0 flex items-center justify-center"><span className="text-xs text-slate-500 font-bold tracking-widest uppercase">🌙 Noche</span></div>}
                       <div className="absolute top-1/2 left-0 right-0 h-px bg-white/10" />
                     </div>
-                    <div className="flex items-center justify-between mt-1.5">
-                      <span className="text-[7px] text-slate-600">🌅 {(() => {
-                        if (!daylight) return '—';
-                        const h = Math.round(12 - daylight.hours);
-                        return `${h}h`;
-                      })()}</span>
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-[7px] text-slate-600">🌅 {(() => { if (!daylight) return '—'; return `${Math.round(12 - daylight.hours)}h`; })()}</span>
                       <span className="text-sm font-black text-yellow-400">{daylight?.sunset || '—'}</span>
                       <span className="text-[7px] text-slate-600">🌇 {daylight?.sunset || '—'}</span>
                     </div>
                   </div>
-                  <div className="ml-auto text-right flex-shrink-0"><p className="text-[7px] text-slate-500">{weatherSource}</p>{altitudeAdjusted && <p className="text-[7px] text-orange-400/70">Ajustado por altitud</p>}</div>
                 </div>
               </div>}
 
