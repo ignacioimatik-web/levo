@@ -307,26 +307,35 @@ export default function AlertaPresionPage() {
                   <div className="w-px h-20 bg-white/5 flex-shrink-0" />
                   <div className="text-center flex-1 min-w-[90px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Viento</p><div className="flex items-baseline justify-center gap-2"><span className="text-5xl md:text-6xl font-black text-emerald-400 leading-none">{windKmh ?? '—'}</span><span className="text-xl text-emerald-400/70 font-black">km/h</span></div><p className="text-[8px] text-slate-500 mt-0.5">Racha —</p></div>
                   <div className="w-px h-20 bg-white/5 flex-shrink-0" />
-                  <div className="text-center flex-1 min-w-[120px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1">Sol restante</p>
-                    <div className="relative w-20 h-12 mx-auto">
-                      {/* SVG arco del sol */}
-                      <svg viewBox="0 0 80 48" className="w-full h-full">
-                        {/* Arco del cielo */}
-                        <path d="M 4 44 Q 40 2 76 44" fill="none" stroke="rgba(250,204,21,0.15)" strokeWidth="3" strokeLinecap="round" />
-                        {/* Arco del sol - parte recorrida */}
-                        <path d="M 4 44 Q 40 2 76 44" fill="none" stroke="url(#sunGrad)" strokeWidth="3" strokeLinecap="round" strokeDasharray={`${(daylight?.hours ?? 0) / 12 * 100} 200`} />
-                        <defs><linearGradient id="sunGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="#facc15" /><stop offset="100%" stopColor="#f97316" /></linearGradient></defs>
+                  <div className="text-center flex-1 min-w-[140px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-2">Sol restante</p>
+                    <div className="relative w-24 h-16 mx-auto">
+                      <svg viewBox="0 0 100 60" className="w-full h-full">
+                        <defs>
+                          <linearGradient id="sunGrad" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stopColor="#f97316" /><stop offset="100%" stopColor="#facc15" /></linearGradient>
+                          <radialGradient id="sunDot"><stop offset="0%" stopColor="#fff" /><stop offset="40%" stopColor="#facc15" /><stop offset="100%" stopColor="#f97316" /></radialGradient>
+                          <filter id="sunGlow"><feGaussianBlur stdDeviation="3" /><feMerge><feMergeNode /><feMergeNode in="SourceGraphic" /></feMerge></filter>
+                          <linearGradient id="skyGrad" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stopColor="rgba(251,146,60,0.08)" /><stop offset="100%" stopColor="rgba(250,204,21,0.02)" /></linearGradient>
+                        </defs>
+                        {/* Fondo cielo */}
+                        <rect x="2" y="4" width="96" height="52" rx="26" fill="url(#skyGrad)" />
+                        {/* Arco del horizonte */}
+                        <path d="M 6 52 Q 50 6 94 52" fill="none" stroke="rgba(250,204,21,0.12)" strokeWidth="4" strokeLinecap="round" />
+                        {/* Arco sol restante - parte iluminada */}
+                        <path d="M 6 52 Q 50 6 94 52" fill="none" stroke="url(#sunGrad)" strokeWidth="4" strokeLinecap="round" strokeDasharray={`${Math.max(5, (daylight?.hours ?? 0) / 12 * 120)} 200`} />
                         {/* Posición del sol */}
-                        <circle cx={4 + (76-4) * Math.max(0,Math.min(1, (12 - (daylight?.hours ?? 0)) / 12))} cy={44 - 28 - 20 * Math.sin(Math.PI * Math.max(0,Math.min(1, (12 - (daylight?.hours ?? 0)) / 12)))} r="5" fill="#facc15" filter="url(#sunGlow)" />
-                        <defs><filter id="sunGlow"><feGaussianBlur stdDeviation="2" result="blur" /><feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge></filter></defs>
-                        {/* Horizonte */}
-                        <line x1="0" y1="44" x2="80" y2="44" stroke="rgba(250,204,21,0.3)" strokeWidth="1" />
+                        {daylight && <circle cx={6 + 88 * Math.max(0.05, Math.min(0.95, (12 - daylight.hours) / 12))} cy={52 - 44 * Math.sin(Math.PI * Math.max(0.05, Math.min(0.95, (12 - daylight.hours) / 12)))} r="7" fill="url(#sunDot)" filter="url(#sunGlow)" />}
+                        {/* Etiquetas orto/ocaso */}
+                        <text x="8" y="56" fill="rgba(250,204,21,0.3)" fontSize="5" fontFamily="sans-serif">🌅</text>
+                        <text x="85" y="56" fill="rgba(250,204,21,0.3)" fontSize="5" fontFamily="sans-serif">🌇</text>
                       </svg>
-                      <div className="absolute inset-0 flex items-center justify-center" style={{paddingTop:'8px'}}>
-                        <span className="text-lg md:text-xl font-black text-yellow-400 leading-none">{daylight?.sunset.split('h')[0] || '—'}</span>
+                      <div className="absolute -inset-x-2 top-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none">
+                        <div className="bg-slate-950/70 px-2 py-0.5 rounded-lg text-center">
+                          <span className="text-xl md:text-2xl font-black text-yellow-400 leading-none">{daylight?.sunset.split('h')[0] || '—'}</span>
+                          <span className="text-sm text-yellow-400/70 font-black ml-0.5">{daylight?.sunset.includes('h') ? 'h' : ''}</span>
+                        </div>
                       </div>
                     </div>
-                    <p className="text-[7px] text-slate-500 mt-0.5">Anochece: {daylight?.sunset || '—'}</p>
+                    <p className="text-[7px] text-slate-500 mt-1">Ocaso: {daylight?.sunset || '—'}</p>
                   </div>
                   <div className="ml-auto text-right flex-shrink-0"><p className="text-[7px] text-slate-500">{weatherSource}</p>{altitudeAdjusted && <p className="text-[7px] text-orange-400/70">Ajustado por altitud</p>}</div>
                 </div>
