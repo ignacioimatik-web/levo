@@ -55,6 +55,11 @@ export default function AlertaPresionPage() {
   const [windDirectionDeg, setWindDirectionDeg] = useState<number | null>(null);
   const [precipitationMm, setPrecipitationMm] = useState<number | null>(null);
   const [stormProb, setStormProb] = useState<number | null>(null);
+  const [showExtra, setShowExtra] = useState(true);
+  const hasRainData = precipitationMm != null && precipitationMm > 0;
+  const hasStormData = stormProb != null && stormProb > 0;
+  const extraAuto = hasRainData || hasStormData;
+  useEffect(() => { if (extraAuto) setShowExtra(true); }, [extraAuto]);
   const [alerts, setAlerts] = useState<{ nivel: number; tipo: string; descripcion: string }[]>([]);
   const [isDefaultData, setIsDefaultData] = useState(false);
   const [windAnimFrame, setWindAnimFrame] = useState(0);
@@ -421,9 +426,17 @@ export default function AlertaPresionPage() {
                   <div className="w-px h-16 bg-white/5 flex-shrink-0" />
                   <div className="text-center flex-shrink-0 min-w-[60px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1">Humedad</p><div className="flex items-baseline justify-center gap-1"><span className="text-4xl md:text-5xl font-black text-blue-400 leading-none">{effectiveHumidity}</span><span className="text-sm md:text-base text-blue-400/70 font-black">%</span></div></div>
                   <div className="w-px h-16 bg-white/5 flex-shrink-0" />
-                  <div className="text-center flex-shrink-0 min-w-[50px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1">Lluvia</p><span className="text-4xl md:text-5xl font-black text-cyan-400 leading-none">{precipitationMm != null ? precipitationMm.toFixed(1) : '—'}</span></div>
-                  <div className="w-px h-16 bg-white/5 flex-shrink-0" />
-                  <div className="text-center flex-shrink-0 min-w-[60px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1">Tormentas</p><span className="text-4xl md:text-5xl font-black text-yellow-300 leading-none">{stormProb != null ? `${stormProb}%` : '—'}</span></div>
+                  {/* Lluvia + Tormentas colapsables */}
+                  <button onClick={() => setShowExtra(!showExtra)} className="flex items-center gap-0.5 flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity">
+                    {showExtra ? <>
+                      <div className="text-center min-w-[40px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1">Lluvia</p><span className="text-4xl md:text-5xl font-black text-cyan-400 leading-none">{precipitationMm != null ? precipitationMm.toFixed(1) : '—'}</span></div>
+                      <div className="w-px h-12 bg-white/5 mx-2" />
+                      <div className="text-center min-w-[50px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1">Tormentas</p><span className="text-4xl md:text-5xl font-black text-yellow-300 leading-none">{stormProb != null ? `${stormProb}%` : '—'}</span></div>
+                    </> : <>
+                      <div className="text-center min-w-[40px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1 text-cyan-400/60">💧</p><span className="text-lg font-bold text-cyan-400/60 leading-none">{precipitationMm != null && precipitationMm > 0 ? precipitationMm.toFixed(1) : '⋯'}</span></div>
+                      <div className="text-center min-w-[40px] ml-1"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1 text-yellow-300/60">⛈️</p><span className="text-lg font-bold text-yellow-300/60 leading-none">{stormProb != null && stormProb > 0 ? `${stormProb}%` : '⋯'}</span></div>
+                    </>}
+                  </button>
                   <div className="w-px h-16 bg-white/5 flex-shrink-0" />
                   <div className="text-center flex-shrink-0 min-w-[60px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1">Viento</p><div className="flex items-baseline justify-center gap-1"><span className="text-4xl md:text-5xl font-black text-emerald-400 leading-none">{windKmh ?? '—'}</span><span className="text-sm md:text-base text-emerald-400/70 font-black">km/h</span></div></div>
                   <div className="w-px h-16 bg-white/5 flex-shrink-0" />
