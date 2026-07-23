@@ -14,6 +14,7 @@ export async function POST(request: NextRequest) {
 
     // Fetch real-time weather from AEMET
     const weather = await getAemetNowForLocation(lat, lng);
+    const isDefaultData = !weather || !weather.stationName;
 
     const temperatureC = weather?.weightedRouteTempC ?? weather?.temperatureC ?? 20;
     const humidityPct = weather?.humidityPct ?? 50;
@@ -28,6 +29,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       recommendation: result,
       weather: {
+        isDefaultData,
         stationName: weather?.stationName ?? null,
         stationDistanceKm: weather?.stationDistanceKm ?? null,
         stationAltitude: weather?.stationAltitude ?? null,

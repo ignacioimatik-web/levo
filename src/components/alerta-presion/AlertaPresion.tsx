@@ -53,6 +53,7 @@ export default function AlertaPresionPage() {
   const [gustKmh, setGustKmh] = useState<number | null>(null);
   const [uvIndex, setUvIndex] = useState<number | null>(null);
   const [windDirectionDeg, setWindDirectionDeg] = useState<number | null>(null);
+  const [isDefaultData, setIsDefaultData] = useState(false);
   const [windAnimFrame, setWindAnimFrame] = useState(0);
   const [stationMarkers, setStationMarkers] = useState<any[]>([]);
   const [stationsLoading, setStationsLoading] = useState(false);
@@ -194,6 +195,7 @@ export default function AlertaPresionPage() {
         setGustKmh(data.weather.maxWindKmh ?? null);
         setUvIndex(data.weather.uvMax ?? null);
         setWindDirectionDeg(data.weather.windDirectionDeg ?? null);
+        setIsDefaultData(data.weather.isDefaultData ?? false);
         setWeatherSource(source);
         setWeatherLoaded(true); setMapPoint({ lat, lng }); setClickAltitude(altitude || null);
         setAdjustTemp(0); setAdjustHumidity(0); setSelectedPreset(null);
@@ -484,7 +486,7 @@ export default function AlertaPresionPage() {
                   </summary>
                   <div className="mt-4">
                     <div className="flex items-center justify-between mb-3">
-                      <p className="text-[10px] text-orange-400 uppercase tracking-widest font-bold flex items-center gap-2"><Crosshair className="w-3.5 h-3.5" /> Haz clic — datos AEMET con altitud</p>
+                      <p className="text-[10px] text-orange-400 uppercase tracking-widest font-bold flex items-center gap-2"><Crosshair className="w-3.5 h-3.5" /> Haz clic — datos AEMET con altitud{weatherLoaded && isDefaultData && <span className="ml-2 text-[9px] text-red-400 animate-pulse font-bold">⚠️ Zona sin estación — datos estimados</span>}</p>
                       <button onClick={() => setCurrentMapStyle(s => s.includes('satellite') ? 'mapbox://styles/mapbox/outdoors-v12' : 'mapbox://styles/mapbox/satellite-streets-v12')} className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-white/10 text-[9px] text-slate-300 font-bold transition-colors flex items-center gap-1.5">{currentMapStyle.includes('satellite') ? '🗺️' : '🛰️'} {currentMapStyle.includes('satellite') ? 'Topo' : 'Satélite'}</button>
                     </div>
                     <div className="relative w-full h-[400px] lg:h-[500px] rounded-xl overflow-hidden border border-white/5">
