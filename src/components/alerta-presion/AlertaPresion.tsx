@@ -174,6 +174,16 @@ export default function AlertaPresionPage() {
     return { hours: remaining, sunset: `${h}h ${m}m`, sunriseHour, sunsetHour, currentHour };
   }
   const daylight = mapPoint ? getRemainingDaylight(mapPoint.lat, mapPoint.lng) : null;
+  const [clockTime, setClockTime] = useState('');
+  useEffect(() => {
+    const update = () => {
+      const now = new Date();
+      setClockTime(now.toLocaleTimeString('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const Select = ({ value, onChange, options }: { value: number; onChange: (v: number) => void; options: number[] }) => (
     <select value={value} onChange={e => onChange(Number(e.target.value))} className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer">
@@ -337,10 +347,17 @@ export default function AlertaPresionPage() {
                       {daylight && daylight.hours <= 0 && <div className="absolute inset-0 flex items-center justify-center"><span className="text-xs text-slate-500 font-bold tracking-widest uppercase">🌙 Noche</span></div>}
                       <div className="absolute top-1/2 left-0 right-0 h-px bg-white/10" />
                     </div>
-                    <div className="flex items-center justify-between mt-1">
-                      <span className="text-[7px] text-slate-600">🌅 {daylight ? `${Math.floor(daylight.sunriseHour)}:${String(Math.round((daylight.sunriseHour % 1) * 60)).padStart(2,'0')}` : '—'}</span>
-                      <span className="text-sm font-black text-yellow-400">{daylight?.sunset || '—'}</span>
-                      <span className="text-[7px] text-slate-600">🌇 {daylight ? `${Math.floor(daylight.sunsetHour)}:${String(Math.round((daylight.sunsetHour % 1) * 60)).padStart(2,'0')}` : '—'}</span>
+                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-white font-mono tracking-wider bg-slate-950/80 px-2 py-0.5 rounded-lg border border-white/5">{clockTime}</span>
+                        <span className="text-[7px] text-slate-600 uppercase">CEST</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-[8px] text-slate-500">
+                        <span>☀️ {daylight ? `${Math.round(daylight.sunsetHour - daylight.sunriseHour)}h` : '—'}</span>
+                        <span>🌅 {daylight ? `${Math.floor(daylight.sunriseHour)}:${String(Math.round((daylight.sunriseHour % 1) * 60)).padStart(2,'0')}` : '—'}</span>
+                        <span>🌇 {daylight ? `${Math.floor(daylight.sunsetHour)}:${String(Math.round((daylight.sunsetHour % 1) * 60)).padStart(2,'0')}` : '—'}</span>
+                        <span className="text-yellow-400 font-bold">{daylight?.sunset || '—'}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
