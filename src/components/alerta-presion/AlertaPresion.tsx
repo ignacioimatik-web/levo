@@ -58,6 +58,7 @@ export default function AlertaPresionPage() {
   const [mapPoint, setMapPoint] = useState<{ lat: number; lng: number } | null>(null);
   const [step, setStep] = useState(1);
   const [currentMapStyle, setCurrentMapStyle] = useState('mapbox://styles/mapbox/satellite-streets-v12');
+  const [animPhase, setAnimPhase] = useState<'base' | 'eff'>('eff');
 
   const effectiveTemp = baseTemp != null ? baseTemp + adjustTemp : 20;
   const effectiveHumidity = baseHumidity != null ? Math.max(10, Math.min(100, baseHumidity + adjustHumidity)) : 60;
@@ -133,6 +134,13 @@ export default function AlertaPresionPage() {
     else { const p = ELEVATION_PRESETS.find(x => x.label === presetLabel); if (p) { setSelectedPreset(presetLabel); setAdjustTemp(p.deltaTemp); setAdjustHumidity(p.deltaHumidity); } }
   };
 
+  // Animation cycling base ↔ effective
+  useEffect(() => {
+    if (!weatherLoaded) return;
+    const interval = setInterval(() => setAnimPhase(p => p === 'eff' ? 'base' : 'eff'), 2000);
+    return () => clearInterval(interval);
+  }, [weatherLoaded]);
+
   const handleSaveProfile = async () => {
     setSaving(true); setSaveStatus('idle');
     try {
@@ -155,6 +163,10 @@ export default function AlertaPresionPage() {
   if (authLoading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center"><Loader2 className="w-8 h-8 text-orange-500 animate-spin" /></div>;
 
   const recommendation = weatherLoaded ? getRecommendation() : null;
+  const animTemp = weatherLoaded ? (animPhase === 'eff' ? effectiveTemp : baseTemp) : 0;
+  const animHum = weatherLoaded ? (animPhase === 'eff' ? effectiveHumidity : baseHumidity) : 0;
+  const warming = (baseTemp != null && effectiveTemp != null && effectiveTemp > baseTemp);
+  const humidUp = (baseHumidity != null && effectiveHumidity != null && effectiveHumidity > baseHumidity);
 
   const Select = ({ value, onChange, options }: { value: number; onChange: (v: number) => void; options: number[] }) => (
     <select value={value} onChange={e => onChange(Number(e.target.value))} className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer">
@@ -283,11 +295,11 @@ export default function AlertaPresionPage() {
               {/* BARRA DATOS + AJUSTES */}
               {weatherLoaded && <div className="bg-slate-900/60 border border-white/5 rounded-xl p-5">
                 <div className="flex items-center flex-wrap gap-4 md:gap-6">
-                  <div className="text-center flex-1 min-w-[100px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Temperatura</p><div className="flex items-baseline justify-center gap-2"><span className="text-5xl md:text-6xl font-black text-orange-500">{effectiveTemp}</span><span className="text-xl text-orange-500/70 font-black">°C</span></div></div>
-                  <div className="text-center flex-1 min-w-[80px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Base</p><div className="flex items-baseline justify-center gap-2"><span className="text-5xl md:text-6xl font-black text-white">{baseTemp}</span><span className="text-xl text-white/70 font-black">°C</span></div></div>
+                  <div className="text-center flex-1 min-w-[100px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Temperatura</p><div className="flex items-baseline justify-center gap-2 transition-all duration-1000 ease-in-out"><span className={`text-5xl md:text-6xl font-black leading-none tracking-tight transition-all duration-1000 ease-in-out ${animPhase === 'eff' ? (warming ? 'text-orange-500' : 'text-blue-400') : 'text-slate-400'}`}>{animTemp}</span><span className={`text-xl font-black transition-all duration-1000 ease-in-out ${animPhase === 'eff' ? (warming ? 'text-orange-500/70' : 'text-blue-400/70') : 'text-slate-400/70'}`}>°C</span></div><div className="flex items-center justify-center gap-1 mt-0.5"><span className={`inline-block w-2 h-2 rounded-full transition-all duration-1000 ${animPhase === 'eff' ? (warming ? 'bg-orange-500 shadow-lg shadow-orange-500/50' : 'bg-blue-400 shadow-lg shadow-blue-400/50') : 'bg-slate-600'}`} /><span className="text-[7px] text-slate-600 uppercase tracking-wider font-bold">{animPhase === 'eff' ? 'Recomendada' : 'Base'}</span></div></div>
+                  <div className="text-center flex-1 min-w-[80px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Base</p><div className="flex items-baseline justify-center gap-2"><span className={`text-5xl md:text-6xl font-black leading-none tracking-tight transition-all duration-1000 ${animPhase === 'base' ? (warming ? 'text-orange-500' : 'text-blue-400') : 'text-white'}`}>{animPhase === 'base' ? animTemp : baseTemp}</span><span className={`text-xl font-black transition-all duration-1000 ${animPhase === 'base' ? (warming ? 'text-orange-500/70' : 'text-blue-400/70') : 'text-white/70'}`}>°C</span></div></div>
                   <div className="w-px h-24 bg-white/5 flex-shrink-0" />
-                  <div className="text-center flex-1 min-w-[100px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Humedad</p><div className="flex items-baseline justify-center gap-2"><span className="text-5xl md:text-6xl font-black text-blue-400">{effectiveHumidity}</span><span className="text-xl text-blue-400/70 font-black">%</span></div></div>
-                  <div className="text-center flex-1 min-w-[80px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Base</p><div className="flex items-baseline justify-center gap-2"><span className="text-5xl md:text-6xl font-black text-white">{baseHumidity}</span><span className="text-xl text-white/70 font-black">%</span></div></div>
+                  <div className="text-center flex-1 min-w-[100px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Humedad</p><div className="flex items-baseline justify-center gap-2 transition-all duration-1000 ease-in-out"><span className={`text-5xl md:text-6xl font-black leading-none tracking-tight transition-all duration-1000 ease-in-out ${animPhase === 'eff' ? (humidUp ? 'text-blue-400' : 'text-yellow-400') : 'text-slate-400'}`}>{animHum}</span><span className={`text-xl font-black transition-all duration-1000 ease-in-out ${animPhase === 'eff' ? (humidUp ? 'text-blue-400/70' : 'text-yellow-400/70') : 'text-slate-400/70'}`}>%</span></div><div className="flex items-center justify-center gap-1 mt-0.5"><span className={`inline-block w-2 h-2 rounded-full transition-all duration-1000 ${animPhase === 'eff' ? (humidUp ? 'bg-blue-400 shadow-lg shadow-blue-400/50' : 'bg-yellow-400 shadow-lg shadow-yellow-400/50') : 'bg-slate-600'}`} /><span className="text-[7px] text-slate-600 uppercase tracking-wider font-bold">{animPhase === 'eff' ? 'Recomendada' : 'Base'}</span></div></div>
+                  <div className="text-center flex-1 min-w-[80px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Base</p><div className="flex items-baseline justify-center gap-2"><span className={`text-5xl md:text-6xl font-black leading-none tracking-tight transition-all duration-1000 ${animPhase === 'base' ? (humidUp ? 'text-blue-400' : 'text-yellow-400') : 'text-white'}`}>{animPhase === 'base' ? animHum : baseHumidity}</span><span className={`text-xl font-black transition-all duration-1000 ${animPhase === 'base' ? (humidUp ? 'text-blue-400/70' : 'text-yellow-400/70') : 'text-white/70'}`}>%</span></div></div>
                   <div className="ml-auto text-right flex-shrink-0"><p className="text-[7px] text-slate-500">{weatherSource}</p>{altitudeAdjusted && <p className="text-[7px] text-orange-400/70">Ajustado por altitud</p>}</div>
                 </div>
               </div>}
