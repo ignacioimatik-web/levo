@@ -292,8 +292,8 @@ export default function Meteo() {
                 </div>
               </div>
 
-              {/* SOL */}
-              <div className="border-t border-white/5 pt-4">
+              {/* SOL — solo visible cuando hay luz diurna */}
+              {daylight && daylight.hours > 0 && <div className="border-t border-white/5 pt-4">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[9px] text-slate-500 uppercase tracking-widest font-bold">Sol restante</span>
                   <span className="text-[7px] text-slate-600 truncate max-w-[120px]">{now?.stationName ?? ''}</span>
@@ -356,7 +356,7 @@ export default function Meteo() {
                     <p className="text-lg md:text-xl font-bold text-orange-400">{daylight ? `${Math.floor(daylight.sunsetHour)}:${String(Math.round((daylight.sunsetHour % 1) * 60)).padStart(2,'0')}` : '—'}</p>
                   </div>
                 </div>
-              </div>
+              </div>}
             </div>
           </div>
         )}
