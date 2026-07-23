@@ -65,7 +65,7 @@ export default function AlertaPresionPage() {
   const [mapPoint, setMapPoint] = useState<{ lat: number; lng: number } | null>(null);
   const [step, setStep] = useState(1);
   const [currentMapStyle, setCurrentMapStyle] = useState('mapbox://styles/mapbox/satellite-streets-v12');
-  const [mapCenter, setMapCenter] = useState({ lat: 40.62, lng: -0.125 });
+  const [mapView, setMapView] = useState({ lat: 40.62, lng: -0.125, bearing: 0, pitch: 78 });
   const [clockTime, setClockTime] = useState('');
   useEffect(() => {
     const update = () => {
@@ -525,7 +525,7 @@ export default function AlertaPresionPage() {
                       <button onClick={() => setCurrentMapStyle(s => s.includes('satellite') ? 'mapbox://styles/mapbox/outdoors-v12' : 'mapbox://styles/mapbox/satellite-streets-v12')} className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-white/10 text-[9px] text-slate-300 font-bold transition-colors flex items-center gap-1.5">{currentMapStyle.includes('satellite') ? '🗺️' : '🛰️'} {currentMapStyle.includes('satellite') ? 'Topo' : 'Satélite'}</button>
                     </div>
                     <div className="relative w-full h-[400px] lg:h-[500px] rounded-xl overflow-hidden border border-white/5">
-                      <Map mapStyle={currentMapStyle} mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN} initialViewState={{ latitude:40.62, longitude:-0.125, zoom:11, pitch:78 }} onMoveEnd={e => setMapCenter({ lat: e.viewState.latitude, lng: e.viewState.longitude })} terrain={{ source:'mapbox-dem', exaggeration:1.5 }} onClick={(e: MapMouseEvent) => { const m=e.target; let alt; try{ alt=m.queryTerrainElevation?.(e.lngLat)??undefined; }catch{} fetchWeather(e.lngLat.lat, e.lngLat.lng, alt); }} style={{ width:'100%', height:'100%' }}>
+                      <Map mapStyle={currentMapStyle} mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN} initialViewState={{ latitude:40.62, longitude:-0.125, zoom:11, pitch:78, bearing:0 }} onMoveEnd={e => setMapView({ lat: e.viewState.latitude, lng: e.viewState.longitude, bearing: e.viewState.bearing ?? 0, pitch: e.viewState.pitch ?? 78 })} terrain={{ source:'mapbox-dem', exaggeration:1.5 }} onClick={(e: MapMouseEvent) => { const m=e.target; let alt; try{ alt=m.queryTerrainElevation?.(e.lngLat)??undefined; }catch{} fetchWeather(e.lngLat.lat, e.lngLat.lng, alt); }} style={{ width:'100%', height:'100%' }}>
                         <Source id="mapbox-dem" type="raster-dem" url="mapbox://mapbox.mapbox-terrain-dem-v1" />
                         <NavigationControl position="top-right" />
                         {mapPoint && <Marker latitude={mapPoint.lat} longitude={mapPoint.lng} color="#f97316" scale={0.9} />}
@@ -545,7 +545,8 @@ export default function AlertaPresionPage() {
                       <p className="text-[9px] text-slate-600">{stationMarkers.length > 0 ? `Se muestran ${stationMarkers.length} estaciones.` : 'Haz clic en el mapa para obtener datos AEMET.'}{clickAltitude != null && <span className="ml-2 text-[8px] text-slate-500">Altitud: {Math.round(clickAltitude)} m</span>}</p>
                       <div className="flex items-center gap-2 bg-slate-900/60 border border-white/5 rounded-lg px-2.5 py-1.5 select-all cursor-pointer">
                         <span className="text-[7px] text-slate-500 uppercase tracking-wider font-bold">Centro</span>
-                        <span className="text-[9px] font-mono text-slate-300">{Math.abs(mapCenter.lat).toFixed(4)}°{mapCenter.lat >= 0 ? 'N' : 'S'}, {Math.abs(mapCenter.lng).toFixed(4)}°{mapCenter.lng >= 0 ? 'E' : 'O'}</span>
+                        <span className="text-[9px] font-mono text-slate-300">{Math.abs(mapView.lat).toFixed(4)}°{mapView.lat >= 0 ? 'N' : 'S'}, {Math.abs(mapView.lng).toFixed(4)}°{mapView.lng >= 0 ? 'E' : 'O'}</span>
+                        <span className="text-[7px] text-slate-600">🧭 {Math.round(mapView.bearing)}° · 📐 {Math.round(mapView.pitch)}°</span>
                       </div>
                     </div>
                   </div>
