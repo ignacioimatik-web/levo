@@ -307,35 +307,35 @@ export default function AlertaPresionPage() {
                   <div className="w-px h-20 bg-white/5 flex-shrink-0" />
                   <div className="text-center flex-1 min-w-[90px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Viento</p><div className="flex items-baseline justify-center gap-2"><span className="text-5xl md:text-6xl font-black text-emerald-400 leading-none">{windKmh ?? '—'}</span><span className="text-xl text-emerald-400/70 font-black">km/h</span></div><p className="text-[8px] text-slate-500 mt-0.5">Racha —</p></div>
                   <div className="w-px h-20 bg-white/5 flex-shrink-0" />
-                  <div className="text-center flex-1 min-w-[200px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-2">Sol restante</p>
-                    <div className="relative w-40 h-28 mx-auto">
-                      <svg viewBox="0 0 100 60" className="w-full h-full">
-                        <defs>
-                          <linearGradient id="sunGrad" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stopColor="#f97316" /><stop offset="100%" stopColor="#facc15" /></linearGradient>
-                          <radialGradient id="sunDot"><stop offset="0%" stopColor="#fff" /><stop offset="40%" stopColor="#facc15" /><stop offset="100%" stopColor="#f97316" /></radialGradient>
-                          <filter id="sunGlow"><feGaussianBlur stdDeviation="4" /><feMerge><feMergeNode /><feMergeNode in="SourceGraphic" /></feMerge></filter>
-                          <linearGradient id="skyGrad" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stopColor="rgba(251,146,60,0.12)" /><stop offset="100%" stopColor="rgba(250,204,21,0.03)" /></linearGradient>
-                        </defs>
-                        {/* Fondo cielo */}
-                        <rect x="2" y="4" width="96" height="52" rx="26" fill="url(#skyGrad)" />
-                        {/* Arco completo */}
-                        <path d="M 6 52 Q 50 6 94 52" fill="none" stroke="rgba(250,204,21,0.08)" strokeWidth="5" strokeLinecap="round" />
-                        {/* Arco iluminado (recorrido) */}
-                        <path d="M 6 52 Q 50 6 94 52" fill="none" stroke="url(#sunGrad)" strokeWidth="5" strokeLinecap="round" strokeDasharray={`${Math.max(5, (daylight?.hours ?? 0) / 12 * 120)} 200`} />
-                        {/* Posición del sol */}
-                        {daylight && <circle cx={6 + 88 * Math.max(0.05, Math.min(0.95, (12 - daylight.hours) / 12))} cy={52 - 44 * Math.sin(Math.PI * Math.max(0.05, Math.min(0.95, (12 - daylight.hours) / 12)))} r="8" fill="url(#sunDot)" filter="url(#sunGlow)" />}
-                        {/* Etiquetas orto/ocaso */}
-                        <text x="6" y="58" fill="rgba(250,204,21,0.4)" fontSize="7" fontFamily="sans-serif">🌅</text>
-                        <text x="86" y="58" fill="rgba(250,204,21,0.4)" fontSize="7" fontFamily="sans-serif">🌇</text>
-                      </svg>
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div className="bg-slate-950/80 px-3 py-1 rounded-xl text-center shadow-lg">
-                          <span className="text-3xl md:text-4xl font-black text-yellow-400 leading-none">{daylight?.sunset.split('h')[0] || '—'}</span>
-                          <span className="text-base text-yellow-400/70 font-black ml-1">{daylight?.sunset.includes('h') ? 'h' : ''}</span>
+                  <div className="flex-1 min-w-[200px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-2">Sol restante</p>
+                    <div className="relative h-14 rounded-xl overflow-hidden bg-slate-900/80 border border-white/5">
+                      {/* Gradiente día/noche */}
+                      <div className="absolute inset-0" style={{
+                        background: `linear-gradient(to right, #0c0a3e 0%, #1e1b4b ${Math.max(0, (12 - (daylight?.hours ?? 12) - 6) / 12 * 50)}%, #facc15 ${Math.max(0, (12 - (daylight?.hours ?? 12) - 3) / 12 * 50)}%, #fff7ed ${Math.max(0, (12 - (daylight?.hours ?? 12)) / 12 * 50)}%, #facc15 ${Math.min(100, (12 - (daylight?.hours ?? 12)) / 12 * 50 + 25)}%, #1e1b4b ${Math.min(100, (12 - (daylight?.hours ?? 12)) / 12 * 50 + 45)}%, #0c0a3e 100%)`,
+                        opacity: 0.6
+                      }} />
+                      {/* Posición del sol */}
+                      {daylight && <div className="absolute top-1/2 -translate-y-1/2 transition-all duration-1000" style={{ left: `${Math.max(5, Math.min(90, (12 - daylight.hours) / 12 * 100))}%` }}>
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${daylight.hours > 0 ? 'bg-yellow-400/20 shadow-lg shadow-yellow-400/30' : 'bg-slate-500/10'}`}>
+                          <div className={`w-6 h-6 rounded-full ${daylight.hours > 0 ? 'bg-gradient-to-br from-yellow-300 to-orange-500 shadow-lg shadow-yellow-400/50' : 'bg-slate-600'}`} />
                         </div>
-                      </div>
+                      </div>}
+                      {/* Indicador noche */}
+                      {daylight && daylight.hours <= 0 && <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-xs text-slate-500 font-bold tracking-widest uppercase">🌙 Noche</span>
+                      </div>}
+                      {/* Horizonte */}
+                      <div className="absolute top-1/2 left-0 right-0 h-px bg-white/10" />
                     </div>
-                    <p className="text-[8px] text-slate-500 mt-1">Ocaso: {daylight?.sunset || '—'}</p>
+                    <div className="flex items-center justify-between mt-1.5">
+                      <span className="text-[7px] text-slate-600">🌅 {(() => {
+                        if (!daylight) return '—';
+                        const h = Math.round(12 - daylight.hours);
+                        return `${h}h`;
+                      })()}</span>
+                      <span className="text-sm font-black text-yellow-400">{daylight?.sunset || '—'}</span>
+                      <span className="text-[7px] text-slate-600">🌇 {daylight?.sunset || '—'}</span>
+                    </div>
                   </div>
                   <div className="ml-auto text-right flex-shrink-0"><p className="text-[7px] text-slate-500">{weatherSource}</p>{altitudeAdjusted && <p className="text-[7px] text-orange-400/70">Ajustado por altitud</p>}</div>
                 </div>
