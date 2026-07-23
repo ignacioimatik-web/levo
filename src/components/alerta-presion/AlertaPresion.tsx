@@ -165,7 +165,7 @@ export default function AlertaPresionPage() {
 
   const selectProfile = (p: any) => {
     setSelectedProfileId(p.id); setProfileName(p.profile_name || 'Mi perfil');
-    setProfile({ riderWeightKg: p.rider_weight_kg, bikeWeightKg: p.bike_weight_kg, bikeModel: p.bike_model || '', wheelFront: p.wheel_front || '27.5', wheelRear: p.wheel_rear || '27.5', tireModelFront: p.tire_model_front || '', tireModelRear: p.tire_model_rear || '', tireWidthFrontInch: p.tire_width_front_inch || 2.3, tireWidthRearInch: p.tire_width_rear_inch || 2.3, initialPressureFrontBar: p.initial_pressure_front_bar || 1.8, initialPressureRearBar: p.initial_pressure_rear_bar || 2.0, tubeless: p.tubeless ?? true, rimWidthMm: p.rim_width_mm ?? 30, ridingStyle: p.riding_style || 'moderado', riderExperience: p.rider_experience || 'intermedio', terrainTypes: Array.isArray(p.terrain_types) ? p.terrain_types : [], groundCondition: p.ground_condition || 'mixto', casingType: p.casing_type || 'estandar' });
+    setProfile({ riderWeightKg: Number(p.rider_weight_kg) || 75, bikeWeightKg: Number(p.bike_weight_kg) || 20, bikeModel: p.bike_model || '', wheelFront: p.wheel_front || '27.5', wheelRear: p.wheel_rear || '27.5', tireModelFront: p.tire_model_front || '', tireModelRear: p.tire_model_rear || '', tireWidthFrontInch: p.tire_width_front_inch || 2.3, tireWidthRearInch: p.tire_width_rear_inch || 2.3, initialPressureFrontBar: p.initial_pressure_front_bar || 1.8, initialPressureRearBar: p.initial_pressure_rear_bar || 2.0, tubeless: p.tubeless ?? true, rimWidthMm: p.rim_width_mm ?? 30, ridingStyle: p.riding_style || 'moderado', riderExperience: p.rider_experience || 'intermedio', terrainTypes: Array.isArray(p.terrain_types) ? p.terrain_types : [], groundCondition: p.ground_condition || 'mixto', casingType: p.casing_type || 'estandar' });
   };
 
   useEffect(() => { if (user) loadProfiles(); else { setProfileLoaded(true); setSavedProfiles([]); } }, [user, loadProfiles]);
@@ -250,11 +250,14 @@ export default function AlertaPresionPage() {
   }
   const daylight = mapPoint ? getRemainingDaylight(mapPoint.lat, mapPoint.lng) : null;
 
-  const Select = ({ value, onChange, options }: { value: number; onChange: (v: number) => void; options: number[] }) => (
-    <select value={value} onChange={e => onChange(Number(e.target.value))} className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer">
+  const Select = ({ value, onChange, options }: { value: number; onChange: (v: number) => void; options: number[] }) => {
+    const safeValue = typeof value === 'number' && !isNaN(value) ? value : (options[0] ?? 0);
+    return (
+    <select value={safeValue} onChange={e => onChange(Number(e.target.value))} className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer">
       {options.map(o => <option key={o} value={o}>{o}</option>)}
     </select>
-  );
+    );
+  };
 
   const stepClass = (i: number) => {
     if (step === i) return 'bg-orange-500/10 border-orange-500 text-orange-400';
