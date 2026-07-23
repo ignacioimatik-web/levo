@@ -57,7 +57,7 @@ export default function AlertaPresionPage() {
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
   const [mapPoint, setMapPoint] = useState<{ lat: number; lng: number } | null>(null);
   const [step, setStep] = useState(1);
-  const [currentMapStyle, setCurrentMapStyle] = useState('mapbox://styles/mapbox/outdoors-v12');
+  const [currentMapStyle, setCurrentMapStyle] = useState('mapbox://styles/mapbox/satellite-streets-v12');
 
   const effectiveTemp = baseTemp != null ? baseTemp + adjustTemp : 20;
   const effectiveHumidity = baseHumidity != null ? Math.max(10, Math.min(100, baseHumidity + adjustHumidity)) : 60;
@@ -304,10 +304,10 @@ export default function AlertaPresionPage() {
                   <div className="mt-4">
                     <div className="flex items-center justify-between mb-3">
                       <p className="text-[10px] text-orange-400 uppercase tracking-widest font-bold flex items-center gap-2"><Crosshair className="w-3.5 h-3.5" /> Haz clic — datos AEMET con altitud</p>
-                      <button onClick={() => setCurrentMapStyle(s => s.includes('satellite') ? 'mapbox://styles/mapbox/outdoors-v12' : 'mapbox://styles/mapbox/satellite-streets-v12')} className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-white/10 text-[9px] text-slate-300 font-bold transition-colors flex items-center gap-1.5">{currentMapStyle.includes('satellite') ? '🗺️' : '🛰️'} {currentMapStyle.includes('satellite') ? 'Relieve' : 'Satélite'}</button>
+                      <button onClick={() => setCurrentMapStyle(s => s.includes('satellite') ? 'mapbox://styles/mapbox/outdoors-v12' : 'mapbox://styles/mapbox/satellite-streets-v12')} className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-white/10 text-[9px] text-slate-300 font-bold transition-colors flex items-center gap-1.5">{currentMapStyle.includes('satellite') ? '🗺️' : '🛰️'} {currentMapStyle.includes('satellite') ? 'Topo' : 'Satélite'}</button>
                     </div>
                     <div className="relative w-full h-[400px] lg:h-[500px] rounded-xl overflow-hidden border border-white/5">
-                      <Map mapStyle={currentMapStyle} mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN} initialViewState={{ latitude:40.62, longitude:-0.125, zoom:11, pitch:65 }} onClick={(e: MapMouseEvent) => { const m=e.target; let alt; try{ alt=m.queryTerrainElevation?.(e.lngLat)??undefined; }catch{} fetchWeather(e.lngLat.lat, e.lngLat.lng, alt); }} style={{ width:'100%', height:'100%' }}>
+                      <Map mapStyle={currentMapStyle} mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN} initialViewState={{ latitude:40.62, longitude:-0.125, zoom:11, pitch:78 }} terrain={{ source: 'mapbox-raster', exaggeration: 1.3 }} onClick={(e: MapMouseEvent) => { const m=e.target; let alt; try{ alt=m.queryTerrainElevation?.(e.lngLat)??undefined; }catch{} fetchWeather(e.lngLat.lat, e.lngLat.lng, alt); }} style={{ width:'100%', height:'100%' }}>
                         <NavigationControl position="top-right" />
                         {mapPoint && <Marker latitude={mapPoint.lat} longitude={mapPoint.lng} color="#f97316" scale={0.9} />}
                         {stationMarkers.filter(s=>s.lat&&s.lng).map(st => (
