@@ -279,7 +279,7 @@ export default function AlertaPresionPage() {
       </div>
 
       <div className="max-w-6xl mx-auto px-6 py-8">
-        <style>{`.fade-in { animation: fi 0.35s ease-out both; } @keyframes fi { 0% { opacity:0; transform:translateY(10px); } 100% { opacity:1; transform:translateY(0); } }`}</style>
+        <style>{`.fade-in { animation: fi 0.35s ease-out both; } @keyframes fi { 0% { opacity:0; transform:translateY(10px); } 100% { opacity:1; transform:translateY(0); } } .animate-pulse-slow { animation: pulse-slow 2s ease-in-out infinite; } @keyframes pulse-slow { 0%, 100% { opacity: 1; transform: translateY(-50%) scale(1); } 50% { opacity: 0.7; transform: translateY(-50%) scale(1.15); } }`}</style>
 
         {!user ? (
           <div className="bg-slate-900/50 border border-white/5 rounded-2xl p-12 text-center">
@@ -429,28 +429,45 @@ export default function AlertaPresionPage() {
                     {daylight && daylight.hours <= 0 && <div className="absolute inset-0 flex items-center justify-center"><span className="text-xs text-slate-500 font-bold tracking-widest uppercase">🌙 Noche</span></div>}
                     <div className="absolute top-1/2 left-0 right-0 h-px bg-white/10" />
                   </div>
-                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-base md:text-lg font-bold text-white font-mono tracking-wider bg-slate-950/80 px-3 py-1 rounded-lg border border-white/5">{clockTime}</span>
-                      <span className="text-[10px] text-slate-500 uppercase font-semibold">CEST</span>
+                  <div className="flex items-center gap-4 mt-2 pt-2 border-t border-white/5">
+                    {/* Left: clock + luz total + amanecer */}
+                    <div className="flex-shrink-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-base md:text-lg font-bold text-white font-mono tracking-wider bg-slate-950/80 px-3 py-1 rounded-lg border border-white/5">{clockTime}</span>
+                        <span className="text-[10px] text-slate-500 uppercase font-semibold">CEST</span>
+                        <span className="ml-1.5 text-[9px] text-slate-500 uppercase tracking-wider">Luz</span>
+                        <span className="font-bold text-white text-sm">{daylight ? `${Math.round(daylight.sunsetHour - daylight.sunriseHour)}h` : '—'}</span>
+                      </div>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <span className="text-[7px]">🌅</span>
+                        <span className="text-[10px] text-slate-500 uppercase tracking-wider">Amanecer</span>
+                        <span className="font-bold text-white text-xs">{daylight ? `${Math.floor(daylight.sunriseHour)}:${String(Math.round((daylight.sunriseHour % 1) * 60)).padStart(2,'0')}` : '—'}</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-4 text-sm md:text-base">
-                      <div className="text-right">
-                        <p className="text-[9px] text-slate-500 uppercase tracking-wider">Luz total</p>
-                        <p className="font-bold text-white">{daylight ? `${Math.round(daylight.sunsetHour - daylight.sunriseHour)}h` : '—'}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-[9px] text-slate-500 uppercase tracking-wider">Amanecer</p>
-                        <p className="font-bold text-white">{daylight ? `${Math.floor(daylight.sunriseHour)}:${String(Math.round((daylight.sunriseHour % 1) * 60)).padStart(2,'0')}` : '—'}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-[9px] text-slate-500 uppercase tracking-wider">Atardecer</p>
-                        <p className="font-bold text-white">{daylight ? `${Math.floor(daylight.sunsetHour)}:${String(Math.round((daylight.sunsetHour % 1) * 60)).padStart(2,'0')}` : '—'}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-[9px] text-slate-500 uppercase tracking-wider">Restante</p>
-                        <p className="font-bold text-yellow-400">{daylight?.sunset || '—'}</p>
-                      </div>
+
+                    {/* Middle: progress bar amanecer → atardecer */}
+                    <div className="flex-1 min-w-0">
+                      {daylight ? <div className="relative">
+                        <div className="relative h-2 rounded-full bg-slate-700/40 overflow-hidden">
+                          <div className="absolute inset-y-0 left-0 rounded-full transition-all duration-1000" style={{
+                            width: `${Math.max(0, Math.min(100, ((daylight.currentHour - daylight.sunriseHour) / (daylight.sunsetHour - daylight.sunriseHour)) * 100))}%`,
+                            background: 'linear-gradient(to right, #f97316, #facc15, #fff7ed)'
+                          }} />
+                          <div className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-yellow-400 shadow-lg shadow-yellow-400/50 animate-pulse-slow" style={{
+                            left: `calc(${Math.max(0, Math.min(100, ((daylight.currentHour - daylight.sunriseHour) / (daylight.sunsetHour - daylight.sunriseHour)) * 100))}% - 7px)`
+                          }} />
+                        </div>
+                        <div className="flex justify-between text-[8px] text-slate-500 mt-0.5">
+                          <span className="text-orange-300">{Math.floor(daylight.sunriseHour)}:{String(Math.round((daylight.sunriseHour % 1) * 60)).padStart(2,'0')}</span>
+                          <span className="text-orange-300">{Math.floor(daylight.sunsetHour)}:{String(Math.round((daylight.sunsetHour % 1) * 60)).padStart(2,'0')}</span>
+                        </div>
+                      </div> : <div className="h-8 flex items-center justify-center"><span className="text-[10px] text-slate-500">—</span></div>}
+                    </div>
+
+                    {/* Right: sol restante */}
+                    <div className="flex-shrink-0 text-right">
+                      <p className="text-[9px] text-slate-500 uppercase tracking-wider">Restante</p>
+                      <p className="text-lg md:text-xl font-bold text-yellow-400">{daylight?.sunset || '—'}</p>
                     </div>
                   </div>
                 </div>
