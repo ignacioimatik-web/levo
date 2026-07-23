@@ -349,14 +349,14 @@ export default function AlertaPresionPage() {
                     </div>
                     <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-white font-mono tracking-wider bg-slate-950/80 px-2 py-0.5 rounded-lg border border-white/5">{clockTime}</span>
-                        <span className="text-[7px] text-slate-600 uppercase">CEST</span>
+                        <span className="text-sm md:text-base font-bold text-white font-mono tracking-wider bg-slate-950/80 px-2.5 py-1 rounded-lg border border-white/5">{clockTime}</span>
+                        <span className="text-[9px] text-slate-500 uppercase font-semibold">CEST</span>
                       </div>
-                      <div className="flex items-center gap-3 text-[8px] text-slate-500">
-                        <span>☀️ {daylight ? `${Math.round(daylight.sunsetHour - daylight.sunriseHour)}h` : '—'}</span>
-                        <span>🌅 {daylight ? `${Math.floor(daylight.sunriseHour)}:${String(Math.round((daylight.sunriseHour % 1) * 60)).padStart(2,'0')}` : '—'}</span>
-                        <span>🌇 {daylight ? `${Math.floor(daylight.sunsetHour)}:${String(Math.round((daylight.sunsetHour % 1) * 60)).padStart(2,'0')}` : '—'}</span>
-                        <span className="text-yellow-400 font-bold">{daylight?.sunset || '—'}</span>
+                      <div className="flex items-center gap-3 text-sm md:text-base text-slate-400">
+                        <span className="font-medium">☀️ {daylight ? `${Math.round(daylight.sunsetHour - daylight.sunriseHour)}h` : '—'}</span>
+                        <span className="font-medium">🌅 {daylight ? `${Math.floor(daylight.sunriseHour)}:${String(Math.round((daylight.sunriseHour % 1) * 60)).padStart(2,'0')}` : '—'}</span>
+                        <span className="font-medium">🌇 {daylight ? `${Math.floor(daylight.sunsetHour)}:${String(Math.round((daylight.sunsetHour % 1) * 60)).padStart(2,'0')}` : '—'}</span>
+                        <span className="text-yellow-400 font-bold text-sm md:text-base">{daylight?.sunset || '—'}</span>
                       </div>
                     </div>
                   </div>
