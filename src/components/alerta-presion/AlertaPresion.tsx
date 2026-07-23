@@ -55,7 +55,7 @@ export default function AlertaPresionPage() {
   const [windDirectionDeg, setWindDirectionDeg] = useState<number | null>(null);
   const [precipitationMm, setPrecipitationMm] = useState<number | null>(null);
   const [stormProb, setStormProb] = useState<number | null>(null);
-  const [showExtra, setShowExtra] = useState(true);
+  const [showExtra, setShowExtra] = useState(false);
   const hasRainData = precipitationMm != null && precipitationMm > 0;
   const hasStormData = stormProb != null && stormProb > 0;
   const extraAuto = hasRainData || hasStormData;
@@ -421,7 +421,7 @@ export default function AlertaPresionPage() {
             {step === 2 && <div className="fade-in space-y-4">
               {/* BARRA DATOS + AJUSTES */}
               {weatherLoaded && <div className="bg-slate-900/60 border border-white/5 rounded-xl p-5 space-y-4">
-                <div className="flex items-center flex-wrap gap-3 md:gap-4">
+                <div className="flex items-center gap-3 md:gap-4 overflow-x-auto pb-1">
                   <div className="text-center flex-shrink-0 min-w-[90px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1">Temperatura</p><div className="flex items-baseline justify-center gap-1"><span className="text-4xl md:text-5xl font-black text-orange-500 leading-none">{effectiveTemp}</span><span className="text-sm md:text-base text-orange-500/70 font-black">°C</span><span className="text-slate-500 text-base mx-0.5">/</span><span className="text-4xl md:text-5xl font-black text-orange-400/80 leading-none">{feelsLike ?? '—'}</span><span className="text-sm md:text-base text-orange-400/60 font-black">°C</span></div></div>
                   <div className="w-px h-16 bg-white/5 flex-shrink-0" />
                   <div className="text-center flex-shrink-0 min-w-[60px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1">Humedad</p><div className="flex items-baseline justify-center gap-1"><span className="text-4xl md:text-5xl font-black text-blue-400 leading-none">{effectiveHumidity}</span><span className="text-sm md:text-base text-blue-400/70 font-black">%</span></div></div>
