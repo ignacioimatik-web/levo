@@ -53,6 +53,7 @@ export default function AlertaPresionPage() {
   const [gustKmh, setGustKmh] = useState<number | null>(null);
   const [uvIndex, setUvIndex] = useState<number | null>(null);
   const [windDirectionDeg, setWindDirectionDeg] = useState<number | null>(null);
+  const [windAnimFrame, setWindAnimFrame] = useState(0);
   const [stationMarkers, setStationMarkers] = useState<any[]>([]);
   const [stationsLoading, setStationsLoading] = useState(false);
 
@@ -73,6 +74,16 @@ export default function AlertaPresionPage() {
     return () => clearInterval(interval);
   }, []);
 
+  // Wind compass oscillation
+  useEffect(() => {
+    let frame = 0;
+    const interval = setInterval(() => {
+      frame = (frame + 1) % 360;
+      setWindAnimFrame(frame);
+    }, 30);
+    return () => clearInterval(interval);
+  }, []);
+
   const effectiveTemp = baseTemp != null ? baseTemp + adjustTemp : 20;
   const effectiveHumidity = baseHumidity != null ? Math.max(10, Math.min(100, baseHumidity + adjustHumidity)) : 60;
 
@@ -83,13 +94,22 @@ export default function AlertaPresionPage() {
   };
 
   const feelsLike = (() => {
-    if (baseTemp == null || windKmh == null || windKmh < 1) return null;
-    if (baseTemp <= 10 && windKmh > 4.8) {
+    if (baseTemp == null) return null;
+    if (windKmh != null && windKmh > 0.5) {
       const wc = 13.12 + 0.6215 * baseTemp - 11.37 * Math.pow(windKmh, 0.16) + 0.3965 * baseTemp * Math.pow(windKmh, 0.16);
       return Math.round(wc * 10) / 10;
     }
-    return null;
+    return baseTemp;
   })();
+
+  const uvColor = (uv: number | null): string => {
+    if (uv == null) return 'text-slate-400';
+    if (uv <= 2) return 'text-green-400';
+    if (uv <= 5) return 'text-yellow-400';
+    if (uv <= 7) return 'text-orange-400';
+    if (uv <= 10) return 'text-red-400';
+    return 'text-purple-400';
+  };
 
   const getRecommendation = useCallback(() => {
     if (baseTemp == null || baseHumidity == null) return null;
@@ -324,11 +344,34 @@ export default function AlertaPresionPage() {
               {/* BARRA DATOS + AJUSTES */}
               {weatherLoaded && <div className="bg-slate-900/60 border border-white/5 rounded-xl p-5 space-y-4">
                 <div className="flex items-center flex-wrap gap-4 md:gap-6">
-                  <div className="text-center flex-shrink-0 min-w-[90px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Temperatura</p><div className="flex items-baseline justify-center gap-2"><span className="text-5xl md:text-6xl font-black text-orange-500 leading-none">{effectiveTemp}</span><span className="text-xl text-orange-500/70 font-black">°C</span></div><p className="text-[8px] text-slate-500 mt-0.5">Base {baseTemp}°</p>{feelsLike != null && <p className="text-[9px] text-slate-400 mt-1">Sensación {feelsLike}°</p>}</div>
-                  <div className="w-px h-24 bg-white/5 flex-shrink-0" />
-                  <div className="text-center flex-shrink-0 min-w-[90px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Humedad</p><div className="flex items-baseline justify-center gap-2"><span className="text-5xl md:text-6xl font-black text-blue-400 leading-none">{effectiveHumidity}</span><span className="text-xl text-blue-400/70 font-black">%</span></div><p className="text-[8px] text-slate-500 mt-0.5">Base {baseHumidity}%</p>{uvIndex != null && <p className="text-[9px] text-slate-400 mt-1">UV {uvIndex}</p>}</div>
-                  <div className="w-px h-24 bg-white/5 flex-shrink-0" />
-                  <div className="text-center flex-shrink-0 min-w-[90px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Viento</p><div className="flex items-baseline justify-center gap-2"><span className="text-5xl md:text-6xl font-black text-emerald-400 leading-none">{windKmh ?? '—'}</span><span className="text-xl text-emerald-400/70 font-black">km/h</span></div><p className="text-[8px] text-slate-500 mt-0.5">Ráf. {gustKmh ?? '—'} km/h · {windDirText(windDirectionDeg)}</p></div>
+                  <div className="text-center flex-shrink-0 min-w-[90px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Temperatura</p><div className="flex items-baseline justify-center gap-2"><span className="text-5xl md:text-6xl font-black text-orange-500 leading-none">{effectiveTemp}</span><span className="text-xl text-orange-500/70 font-black">°C</span></div><p className="text-[8px] text-slate-500 mt-0.5">Base {baseTemp}°</p><p className="text-[9px] text-slate-400 mt-0.5">Sensación {feelsLike ?? '—'}°</p></div>
+                  <div className="w-px h-28 bg-white/5 flex-shrink-0" />
+                  <div className="text-center flex-shrink-0 min-w-[90px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Humedad</p><div className="flex items-baseline justify-center gap-2"><span className="text-5xl md:text-6xl font-black text-blue-400 leading-none">{effectiveHumidity}</span><span className="text-xl text-blue-400/70 font-black">%</span></div><p className="text-[8px] text-slate-500 mt-0.5">Base {baseHumidity}%</p>{uvIndex != null && <p className={`text-[9px] font-bold mt-0.5 ${uvColor(uvIndex)}`}>UV {uvIndex}</p>}</div>
+                  <div className="w-px h-28 bg-white/5 flex-shrink-0" />
+                  <div className="text-center flex-shrink-0 min-w-[100px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Viento</p><div className="flex items-baseline justify-center gap-2"><span className="text-5xl md:text-6xl font-black text-emerald-400 leading-none">{windKmh ?? '—'}</span><span className="text-xl text-emerald-400/70 font-black">km/h</span></div><p className="text-[8px] text-slate-500 mt-0.5">Ráf. {gustKmh ?? '—'} km/h</p>
+                    {windDirectionDeg != null && <div className="flex items-center justify-center gap-1 mt-0.5">
+                      <div className="relative w-9 h-9 flex-shrink-0">
+                        <svg viewBox="0 0 100 100" className="w-full h-full" fill="none">
+                          <circle cx="50" cy="50" r="44" stroke="#334155" strokeWidth="1" />
+                          <line x1="50" y1="6" x2="50" y2="94" stroke="#334155" strokeWidth="0.5" />
+                          <line x1="6" y1="50" x2="94" y2="50" stroke="#334155" strokeWidth="0.5" />
+                          <text x="50" y="11" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#f87171">N</text>
+                          <text x="94" y="54" textAnchor="end" fontSize="7" fill="#475569">E</text>
+                          <text x="50" y="93" textAnchor="middle" fontSize="7" fill="#475569">S</text>
+                          <text x="6" y="54" textAnchor="start" fontSize="7" fill="#475569">O</text>
+                          <text x="78" y="24" textAnchor="middle" fontSize="5.5" fill="#475569">NE</text>
+                          <text x="78" y="80" textAnchor="middle" fontSize="5.5" fill="#475569">SE</text>
+                          <text x="22" y="24" textAnchor="middle" fontSize="5.5" fill="#475569">NO</text>
+                          <text x="22" y="80" textAnchor="middle" fontSize="5.5" fill="#475569">SO</text>
+                          <g transform={`rotate(${windDirectionDeg + Math.sin(windAnimFrame * Math.PI / 180) * 6} 50 50)`}>
+                            <polygon points="50,14 46,55 50,60 54,55" fill="#34d399" opacity="0.85" />
+                          </g>
+                          <circle cx="50" cy="50" r="3.5" fill="#1e293b" stroke="#34d399" strokeWidth="1.5" />
+                        </svg>
+                      </div>
+                      <span className="text-[9px] font-bold text-emerald-400">{windDirText(windDirectionDeg)}</span>
+                    </div>}
+                  </div>
                 </div>
 
                 {/* SOL — barra gradiente + reloj + datos */}
