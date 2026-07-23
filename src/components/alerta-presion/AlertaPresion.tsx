@@ -281,18 +281,18 @@ export default function AlertaPresionPage() {
             {/* PASO 2: MAPA + AJUSTES */}
             {step === 2 && <div className="fade-in space-y-4">
               {/* BARRA DATOS + AJUSTES */}
-              {weatherLoaded && <div className="bg-slate-900/60 border border-white/5 rounded-xl p-4">
-                <div className="flex items-center flex-wrap gap-4 md:gap-6">
-                  <div className="text-center flex-shrink-0"><p className="text-[8px] text-slate-500 uppercase tracking-widest font-bold">Temperatura</p><div className="flex items-baseline gap-1.5"><span className="text-5xl md:text-6xl font-black text-orange-500">{effectiveTemp}</span><span className="text-lg text-orange-500/70 font-black">°C</span></div>{adjustTemp!==0 && <p className="text-[8px] text-slate-500">Base <span className="font-bold text-white">{baseTemp}°</span><span className={`font-bold ${adjustTemp>0?'text-red-400':'text-blue-400'}`}>({adjustTemp>0?'+':''}{adjustTemp}°)</span></p>}</div>
-                  <div className="w-px h-16 bg-white/5 flex-shrink-0" />
-                  <div className="text-center flex-shrink-0"><p className="text-[8px] text-slate-500 uppercase tracking-widest font-bold">Humedad</p><div className="flex items-baseline gap-1.5"><span className="text-5xl md:text-6xl font-black text-blue-400">{effectiveHumidity}</span><span className="text-lg text-blue-400/70 font-black">%</span></div>{adjustHumidity!==0 && <p className="text-[8px] text-slate-500">Base <span className="font-bold text-white">{baseHumidity}%</span><span className={`font-bold ${adjustHumidity>0?'text-blue-400':'text-yellow-400'}`}>({adjustHumidity>0?'+':''}{adjustHumidity}%)</span></p>}</div>
-                  <div className="w-px h-16 bg-white/5 flex-shrink-0" />
+              {weatherLoaded && <div className="bg-slate-900/60 border border-white/5 rounded-xl p-5">
+                <div className="flex items-center flex-wrap gap-4 md:gap-8">
+                  <div className="text-center flex-1 min-w-[120px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Temperatura</p><div className="flex items-baseline justify-center gap-2"><span className="text-5xl md:text-6xl font-black text-orange-500">{effectiveTemp}</span><span className="text-xl text-orange-500/70 font-black">°C</span></div>{adjustTemp!==0 && <p className="text-[8px] text-slate-500 mt-1">Base <span className="font-bold text-white">{baseTemp}°</span><span className={`font-bold ${adjustTemp>0?'text-red-400':'text-blue-400'}`}>({adjustTemp>0?'+':''}{adjustTemp}°)</span></p>}</div>
+                  <div className="w-px h-20 bg-white/5 flex-shrink-0" />
+                  <div className="text-center flex-1 min-w-[120px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Humedad</p><div className="flex items-baseline justify-center gap-2"><span className="text-5xl md:text-6xl font-black text-blue-400">{effectiveHumidity}</span><span className="text-xl text-blue-400/70 font-black">%</span></div>{adjustHumidity!==0 && <p className="text-[8px] text-slate-500 mt-1">Base <span className="font-bold text-white">{baseHumidity}%</span><span className={`font-bold ${adjustHumidity>0?'text-blue-400':'text-yellow-400'}`}>({adjustHumidity>0?'+':''}{adjustHumidity}%)</span></p>}</div>
+                  <div className="w-px h-20 bg-white/5 flex-shrink-0" />
                   <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
                     <p className="text-[8px] text-slate-500 uppercase tracking-widest font-bold mr-1">Ajustar</p>
-                    <button onClick={()=>setAdjustTemp(a=>a-1)} className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-white/10 text-[10px] text-slate-300 transition-colors font-bold">Temp -1°</button>
-                    <button onClick={()=>setAdjustTemp(a=>a+1)} className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-white/10 text-[10px] text-slate-300 transition-colors font-bold">Temp +1°</button>
-                    <button onClick={()=>setAdjustHumidity(a=>a-5)} className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-white/10 text-[10px] text-slate-300 transition-colors font-bold">HR -5%</button>
-                    <button onClick={()=>setAdjustHumidity(a=>a+5)} className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-white/10 text-[10px] text-slate-300 transition-colors font-bold">HR +5%</button>
+                    <button onClick={()=>setAdjustTemp(a=>a-1)} className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-white/10 text-[10px] text-slate-300 transition-colors font-bold">Temp -1°</button>
+                    <button onClick={()=>setAdjustTemp(a=>a+1)} className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-white/10 text-[10px] text-slate-300 transition-colors font-bold">Temp +1°</button>
+                    <button onClick={()=>setAdjustHumidity(a=>a-5)} className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-white/10 text-[10px] text-slate-300 transition-colors font-bold">HR -5%</button>
+                    <button onClick={()=>setAdjustHumidity(a=>a+5)} className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-white/10 text-[10px] text-slate-300 transition-colors font-bold">HR +5%</button>
                   </div>
                   <div className="ml-auto text-right flex-shrink-0"><p className="text-[7px] text-slate-500">{weatherSource}</p>{altitudeAdjusted && <p className="text-[7px] text-orange-400/70">Ajustado por altitud</p>}</div>
                 </div>
