@@ -485,20 +485,20 @@ export default function AlertaPresionPage() {
             })()}
           </div>
           {/* RIGHT SIDEBAR: stepper + presets */}
-          <div className="flex-shrink-0 w-28 space-y-3 sticky top-24">
-            <div className="bg-slate-900/40 border border-white/5 rounded-xl p-2 space-y-1.5">
+          <div className="flex-shrink-0 w-32 space-y-3 sticky top-24">
+            <div className="bg-slate-900/40 border border-white/5 rounded-xl p-3 space-y-2">
               {[1, 2, 3].map(i => (
-                <button key={i} onClick={() => i <= step && setStep(i)} className={`flex items-center gap-2 w-full px-2.5 py-2 rounded-lg border transition-all ${stepClass(i)}`}>
-                  <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0 ${circleClass(i)}`}>{step > i ? '✓' : i}</span>
-                  <span className="text-[9px] font-bold uppercase tracking-widest">{i === 1 ? 'Perfil' : i === 2 ? 'Zona' : 'Resultado'}</span>
+                <button key={i} onClick={() => i <= step && setStep(i)} className={`flex items-center gap-3 w-full px-3 py-4 rounded-xl border transition-all ${stepClass(i)}`}>
+                  <span className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${circleClass(i)}`}>{step > i ? '✓' : i}</span>
+                  <span className="text-xs font-bold uppercase tracking-widest">{i === 1 ? 'Perfil' : i === 2 ? 'Zona' : 'Resultado'}</span>
                 </button>
               ))}
             </div>
-            {step === 2 && weatherLoaded && <div className="bg-slate-900/40 border border-white/5 rounded-xl p-2 space-y-1">
+            {step === 2 && weatherLoaded && <div className="bg-slate-900/40 border border-white/5 rounded-xl p-3 space-y-2">
               {ELEVATION_PRESETS.map(p => (
-                <button key={p.label} onClick={()=>applyPreset(p.label)} className={`w-full text-left px-2.5 py-2 rounded-lg border transition-all text-[10px] ${selectedPreset===p.label?'border-orange-500 bg-orange-500/10 text-white':'border-white/10 bg-slate-900/60 text-slate-400 hover:border-orange-500/50'}`}>
-                  <span className="font-bold text-[11px] block leading-tight">{p.icon} {p.label}</span>
-                  <span className="text-[8px] text-slate-500">{p.deltaTemp>0?'+':''}{p.deltaTemp}°C · {p.deltaHumidity>0?'+':''}{p.deltaHumidity}% HR</span>
+                <button key={p.label} onClick={()=>applyPreset(p.label)} className={`w-full text-left px-3 py-3 rounded-xl border transition-all text-xs ${selectedPreset===p.label?'border-orange-500 bg-orange-500/10 text-white':'border-white/10 bg-slate-900/60 text-slate-400 hover:border-orange-500/50'}`}>
+                  <span className="font-bold text-sm block leading-tight">{p.icon} {p.label}</span>
+                  <span className="text-[10px] text-slate-500">{p.deltaTemp>0?'+':''}{p.deltaTemp}°C · {p.deltaHumidity>0?'+':''}{p.deltaHumidity}% HR</span>
                 </button>
               ))}
             </div>}
