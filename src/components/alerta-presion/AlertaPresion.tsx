@@ -54,6 +54,7 @@ export default function AlertaPresionPage() {
   const [uvIndex, setUvIndex] = useState<number | null>(null);
   const [windDirectionDeg, setWindDirectionDeg] = useState<number | null>(null);
   const [precipitationMm, setPrecipitationMm] = useState<number | null>(null);
+  const [alerts, setAlerts] = useState<{ nivel: number; tipo: string; descripcion: string }[]>([]);
   const [isDefaultData, setIsDefaultData] = useState(false);
   const [windAnimFrame, setWindAnimFrame] = useState(0);
   const [stationMarkers, setStationMarkers] = useState<any[]>([]);
@@ -209,6 +210,13 @@ export default function AlertaPresionPage() {
         setPrecipitationMm(data.weather.precipitationMm ?? null);
         setIsDefaultData(data.weather.isDefaultData ?? false);
         setWeatherSource(source);
+        // Fetch AEMET alerts for the province
+        const province = data.weather.stationProvince || '';
+        if (province && !data.weather.isDefaultData) {
+          fetch(`/api/alerta-presion/alerts?province=${encodeURIComponent(province)}`).then(r => r.json()).then(d => { if (d.alerts) setAlerts(d.alerts); }).catch(() => {});
+        } else {
+          setAlerts([]);
+        }
         setWeatherLoaded(true); setMapPoint({ lat, lng }); setClickAltitude(altitude || null);
         setAdjustTemp(0); setAdjustHumidity(0); setSelectedPreset(null);
       } else { setError('No se pudieron obtener datos meteorológicos'); }
@@ -633,6 +641,15 @@ export default function AlertaPresionPage() {
                   <span className="font-bold text-sm block leading-tight">{p.icon} {p.label}</span>
                   <span className="text-[10px] text-slate-500">{p.deltaTemp>0?'+':''}{p.deltaTemp}°C · {p.deltaHumidity>0?'+':''}{p.deltaHumidity}% HR</span>
                 </button>
+              ))}
+            </div>}
+            {alerts.length > 0 && <div className="bg-slate-900/40 border border-red-500/20 rounded-xl p-3 space-y-2">
+              <p className="text-[8px] text-red-400 uppercase tracking-widest font-bold flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" /> Alertas AEMET</p>
+              {alerts.map((a, i) => (
+                <div key={i} className={`px-2.5 py-2 rounded-lg border text-[9px] ${a.nivel >= 3 ? 'border-red-500/30 bg-red-500/10 text-red-300' : a.nivel === 2 ? 'border-orange-500/25 bg-orange-500/10 text-orange-300' : 'border-yellow-500/20 bg-yellow-500/10 text-yellow-300'}`}>
+                  <p className="font-bold">{a.tipo}</p>
+                  <p className="text-[8px] text-slate-400 mt-0.5">{a.descripcion}</p>
+                </div>
               ))}
             </div>}
           </div>

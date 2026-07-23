@@ -31,6 +31,13 @@ interface AemetObservation {
   uvMax?: number;
 }
 
+export interface AemetAlert {
+  nivel: number;
+  tipo: string;
+  descripcion: string;
+  provinciaNombre: string;
+}
+
 export interface AemetNow {
   stationCode: string;
   stationName: string;
@@ -253,4 +260,37 @@ export async function getAemetNowForLocation(lat: number, lng: number): Promise<
     temperatureRangeC,
     weightedRouteTempC,
   };
+}
+
+export async function getAemetAlertsForProvince(province: string): Promise<AemetAlert[]> {
+  const apiKey = process.env.AEMET_API_KEY;
+  if (!apiKey) return [];
+
+  try {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+
+    const data = await fetchAemetData<any[]>(`/avisos/fichero/${year}/${month}/${day}`, apiKey);
+
+    if (!Array.isArray(data)) return [];
+
+    // Normalize province name for matching
+    const provNorm = province.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+    return data
+      .filter((a: any) => {
+        const name = (a.provinciaNombre || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        return name.includes(provNorm) || provNorm.includes(name);
+      })
+      .map((a: any) => ({
+        nivel: Number(a.nivel) || 0,
+        tipo: a.tipo || '',
+        descripcion: a.descripcion || '',
+        provinciaNombre: a.provinciaNombre || '',
+      }));
+  } catch {
+    return [];
+  }
 }
