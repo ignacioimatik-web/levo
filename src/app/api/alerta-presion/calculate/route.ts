@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAemetNowForLocation } from '@/lib/aemet';
+import { getAemetNowForLocation, getThunderstormProbability } from '@/lib/aemet';
 import { calculatePressure } from '@/lib/alerta-presion/calculate';
 import type { BikeProfile, DescentInfo } from '@/lib/alerta-presion/types';
 
@@ -15,6 +15,11 @@ export async function POST(request: NextRequest) {
     // Fetch real-time weather from AEMET
     const weather = await getAemetNowForLocation(lat, lng);
     const isDefaultData = !weather || !weather.stationName;
+
+    // Fetch thunderstorm probability
+    const stormProb = await getThunderstormProbability(
+      lat, lng, weather?.stationProvince
+    );
 
     const temperatureC = weather?.weightedRouteTempC ?? weather?.temperatureC ?? 20;
     const humidityPct = weather?.humidityPct ?? 50;
@@ -41,6 +46,7 @@ export async function POST(request: NextRequest) {
         uvMax: weather?.uvMax ?? null,
         windDirectionDeg: weather?.windDirectionDeg ?? null,
         precipitationMm: weather?.precipitationMm ?? null,
+        thunderstormProb: stormProb,
       },
     });
   } catch (e) {

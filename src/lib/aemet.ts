@@ -311,3 +311,69 @@ export async function getAemetAlertsForProvince(province: string): Promise<Aemet
     return [];
   }
 }
+
+// Province → INE municipality code mapping for thunderstorm forecast
+const PROVINCE_MUNICIPIO: Record<string, string> = {
+  'barcelona': '08019',
+  'tarragona': '43148',
+  'lleida': '25120',
+  'girona': '17079',
+  'madrid': '28079',
+  'valencia': '46250',
+  'alicante': '03014',
+  'castellon': '12040',
+  'sevilla': '41091',
+  'malaga': '29067',
+  'murcia': '30030',
+  'zaragoza': '50297',
+  'bilbao': '48020',
+  'palmas': '35016',
+  'tenerife': '38038',
+  'pamplona': '31201',
+  'vitoria': '01059',
+  'santander': '39075',
+  'santiago': '15078',
+  'toledo': '45168',
+  'granada': '18087',
+  'cordoba': '14021',
+  'valladolid': '47186',
+  'huesca': '22125',
+  'teruel': '44216',
+};
+
+export async function getThunderstormProbability(lat: number, lng: number, province?: string): Promise<number> {
+  const apiKey = process.env.AEMET_API_KEY;
+  if (!apiKey) return 0;
+
+  try {
+    // Try to match by province first
+    let municipioCode = '';
+    if (province) {
+      const provNorm = province.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+      for (const [key, code] of Object.entries(PROVINCE_MUNICIPIO)) {
+        if (provNorm.includes(key) || key.includes(provNorm)) {
+          municipioCode = code;
+          break;
+        }
+      }
+    }
+
+    if (!municipioCode) return 0;
+
+    const data = await fetchAemetData<any>(`/prediccion/especifica/municipio/diaria/${municipioCode}`, apiKey);
+
+    // The response has a prediccion array with daily data
+    const today = data?.prediccion?.dia?.[0];
+    if (today) {
+      // probTormenta can be an array (hourly periods) or a single value
+      const prob = today.probTormenta;
+      if (Array.isArray(prob)) {
+        return Math.max(...prob.map((p: any) => Number(p) || 0));
+      }
+      return Number(prob) || 0;
+    }
+    return 0;
+  } catch {
+    return 0;
+  }
+}

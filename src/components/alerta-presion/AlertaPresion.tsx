@@ -54,6 +54,7 @@ export default function AlertaPresionPage() {
   const [uvIndex, setUvIndex] = useState<number | null>(null);
   const [windDirectionDeg, setWindDirectionDeg] = useState<number | null>(null);
   const [precipitationMm, setPrecipitationMm] = useState<number | null>(null);
+  const [stormProb, setStormProb] = useState<number | null>(null);
   const [alerts, setAlerts] = useState<{ nivel: number; tipo: string; descripcion: string }[]>([]);
   const [isDefaultData, setIsDefaultData] = useState(false);
   const [windAnimFrame, setWindAnimFrame] = useState(0);
@@ -208,6 +209,7 @@ export default function AlertaPresionPage() {
         setUvIndex(data.weather.uvMax ?? null);
         setWindDirectionDeg(data.weather.windDirectionDeg ?? null);
         setPrecipitationMm(data.weather.precipitationMm ?? null);
+        setStormProb(data.weather.thunderstormProb ?? null);
         setIsDefaultData(data.weather.isDefaultData ?? false);
         setWeatherSource(source);
         // Fetch AEMET alerts for the province
@@ -419,9 +421,11 @@ export default function AlertaPresionPage() {
                   <div className="w-px h-16 bg-white/5 flex-shrink-0" />
                   <div className="text-center flex-shrink-0 min-w-[60px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1">Humedad</p><div className="flex items-baseline justify-center gap-1"><span className="text-4xl md:text-5xl font-black text-blue-400 leading-none">{effectiveHumidity}</span><span className="text-sm md:text-base text-blue-400/70 font-black">%</span></div></div>
                   <div className="w-px h-16 bg-white/5 flex-shrink-0" />
-                  <div className="text-center flex-shrink-0 min-w-[60px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1">Viento</p><div className="flex items-baseline justify-center gap-1"><span className="text-4xl md:text-5xl font-black text-emerald-400 leading-none">{windKmh ?? '—'}</span><span className="text-sm md:text-base text-emerald-400/70 font-black">km/h</span></div></div>
-                  <div className="w-px h-16 bg-white/5 flex-shrink-0" />
                   <div className="text-center flex-shrink-0 min-w-[50px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1">Lluvia</p><span className="text-4xl md:text-5xl font-black text-cyan-400 leading-none">{precipitationMm != null ? precipitationMm.toFixed(1) : '—'}</span></div>
+                  <div className="w-px h-16 bg-white/5 flex-shrink-0" />
+                  <div className="text-center flex-shrink-0 min-w-[60px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1">Tormentas</p><span className="text-4xl md:text-5xl font-black text-yellow-300 leading-none">{stormProb != null ? `${stormProb}%` : '—'}</span></div>
+                  <div className="w-px h-16 bg-white/5 flex-shrink-0" />
+                  <div className="text-center flex-shrink-0 min-w-[60px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1">Viento</p><div className="flex items-baseline justify-center gap-1"><span className="text-4xl md:text-5xl font-black text-emerald-400 leading-none">{windKmh ?? '—'}</span><span className="text-sm md:text-base text-emerald-400/70 font-black">km/h</span></div></div>
                   <div className="w-px h-16 bg-white/5 flex-shrink-0" />
                   <div className="text-center flex-shrink-0 min-w-[80px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1">Dirección</p>
                     {windDirectionDeg != null ? <><div className="flex items-center justify-center gap-1"><div className="relative w-12 h-12 flex-shrink-0">
