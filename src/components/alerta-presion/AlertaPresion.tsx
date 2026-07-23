@@ -59,6 +59,16 @@ export default function AlertaPresionPage() {
   const [mapPoint, setMapPoint] = useState<{ lat: number; lng: number } | null>(null);
   const [step, setStep] = useState(1);
   const [currentMapStyle, setCurrentMapStyle] = useState('mapbox://styles/mapbox/satellite-streets-v12');
+  const [clockTime, setClockTime] = useState('');
+  useEffect(() => {
+    const update = () => {
+      const now = new Date();
+      setClockTime(now.toLocaleTimeString('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const effectiveTemp = baseTemp != null ? baseTemp + adjustTemp : 20;
   const effectiveHumidity = baseHumidity != null ? Math.max(10, Math.min(100, baseHumidity + adjustHumidity)) : 60;
@@ -174,16 +184,6 @@ export default function AlertaPresionPage() {
     return { hours: remaining, sunset: `${h}h ${m}m`, sunriseHour, sunsetHour, currentHour };
   }
   const daylight = mapPoint ? getRemainingDaylight(mapPoint.lat, mapPoint.lng) : null;
-  const [clockTime, setClockTime] = useState('');
-  useEffect(() => {
-    const update = () => {
-      const now = new Date();
-      setClockTime(now.toLocaleTimeString('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit', second: '2-digit' }));
-    };
-    update();
-    const interval = setInterval(update, 1000);
-    return () => clearInterval(interval);
-  }, []);
 
   const Select = ({ value, onChange, options }: { value: number; onChange: (v: number) => void; options: number[] }) => (
     <select value={value} onChange={e => onChange(Number(e.target.value))} className="w-full bg-slate-950 border border-white/5 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500/40 appearance-none cursor-pointer">
