@@ -9,7 +9,7 @@ import { Loader2, Gauge, Thermometer, Droplets, Bike, AlertTriangle, TrendingDow
 import Link from 'next/link';
 import { BIKE_MODELS } from '@/lib/alerta-presion/bike-models';
 import type { BikeModelSpec } from '@/lib/alerta-presion/bike-models';
-import { Map, Marker, Popup, NavigationControl } from 'react-map-gl/mapbox';
+import { Map, Marker, Popup, NavigationControl, Source } from 'react-map-gl/mapbox';
 import type { MapMouseEvent } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
@@ -319,7 +319,8 @@ export default function AlertaPresionPage() {
                       <button onClick={() => setCurrentMapStyle(s => s.includes('satellite') ? 'mapbox://styles/mapbox/outdoors-v12' : 'mapbox://styles/mapbox/satellite-streets-v12')} className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-white/10 text-[9px] text-slate-300 font-bold transition-colors flex items-center gap-1.5">{currentMapStyle.includes('satellite') ? '🗺️' : '🛰️'} {currentMapStyle.includes('satellite') ? 'Topo' : 'Satélite'}</button>
                     </div>
                     <div className="relative w-full h-[400px] lg:h-[500px] rounded-xl overflow-hidden border border-white/5">
-                      <Map mapStyle={currentMapStyle} mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN} initialViewState={{ latitude:40.62, longitude:-0.125, zoom:11, pitch:78 }} terrain={{ source: 'mapbox-raster', exaggeration: 1.3 }} onClick={(e: MapMouseEvent) => { const m=e.target; let alt; try{ alt=m.queryTerrainElevation?.(e.lngLat)??undefined; }catch{} fetchWeather(e.lngLat.lat, e.lngLat.lng, alt); }} style={{ width:'100%', height:'100%' }}>
+                      <Map mapStyle={currentMapStyle} mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN} initialViewState={{ latitude:40.62, longitude:-0.125, zoom:11, pitch:78 }} terrain={{ source:'mapbox-dem', exaggeration:1.5 }} onClick={(e: MapMouseEvent) => { const m=e.target; let alt; try{ alt=m.queryTerrainElevation?.(e.lngLat)??undefined; }catch{} fetchWeather(e.lngLat.lat, e.lngLat.lng, alt); }} style={{ width:'100%', height:'100%' }}>
+                        <Source id="mapbox-dem" type="raster-dem" url="mapbox://mapbox.mapbox-terrain-dem-v1" />
                         <NavigationControl position="top-right" />
                         {mapPoint && <Marker latitude={mapPoint.lat} longitude={mapPoint.lng} color="#f97316" scale={0.9} />}
                         {stationMarkers.filter(s=>s.lat&&s.lng).map(st => (
