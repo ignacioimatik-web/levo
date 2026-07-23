@@ -157,20 +157,21 @@ export default function AlertaPresionPage() {
 
   const recommendation = weatherLoaded ? getRecommendation() : null;
   // Remaining daylight calc
-  function getRemainingDaylight(lat: number, lng: number): { hours: number; sunset: string } {
+  function getRemainingDaylight(lat: number, lng: number): { hours: number; sunset: string; sunriseHour: number; sunsetHour: number; currentHour: number } {
     const now = new Date();
     const start = new Date(now.getFullYear(), 0, 0);
     const dayOfYear = Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
     const latRad = lat * Math.PI / 180;
-    const declination = 23.44 * Math.PI / 180 * Math.cos((2 * Math.PI / 365) * (dayOfYear + 10));
+    const declination = 23.44 * Math.PI / 180 * Math.cos((2 * Math.PI / 365) * (dayOfYear - 173));
     const cosHourAngle = -Math.tan(latRad) * Math.tan(declination);
     const hourAngle = Math.acos(Math.max(-1, Math.min(1, cosHourAngle)));
     const sunsetHour = 12 + hourAngle * 180 / Math.PI / 15;
-    const currentHour = now.getHours() + now.getMinutes() / 60;
+    const sunriseHour = 12 - hourAngle * 180 / Math.PI / 15;
+    const currentHour = now.getUTCHours() + now.getUTCMinutes() / 60;
     const remaining = Math.max(0, sunsetHour - currentHour);
     const h = Math.floor(remaining);
     const m = Math.round((remaining - h) * 60);
-    return { hours: remaining, sunset: `${h}h ${m}m` };
+    return { hours: remaining, sunset: `${h}h ${m}m`, sunriseHour, sunsetHour, currentHour };
   }
   const daylight = mapPoint ? getRemainingDaylight(mapPoint.lat, mapPoint.lng) : null;
 
@@ -314,10 +315,21 @@ export default function AlertaPresionPage() {
                     </div>
                     <div className="relative h-14 rounded-xl overflow-hidden bg-slate-900/80 border border-white/5">
                       <div className="absolute inset-0" style={{
-                        background: `linear-gradient(to right, #0c0a3e 0%, #1e1b4b ${Math.max(0, (12 - (daylight?.hours ?? 12) - 6) / 12 * 50)}%, #facc15 ${Math.max(0, (12 - (daylight?.hours ?? 12) - 3) / 12 * 50)}%, #fff7ed ${Math.max(0, (12 - (daylight?.hours ?? 12)) / 12 * 50)}%, #facc15 ${Math.min(100, (12 - (daylight?.hours ?? 12)) / 12 * 50 + 25)}%, #1e1b4b ${Math.min(100, (12 - (daylight?.hours ?? 12)) / 12 * 50 + 45)}%, #0c0a3e 100%)`,
-                        opacity: 0.6
+                        background: daylight ? `linear-gradient(to right, 
+                          #0c0a3e 0%, 
+                          #1e1b4b ${Math.max(0, (daylight.sunriseHour - 1) / 24 * 100)}%, 
+                          #f97316 ${Math.max(0, (daylight.sunriseHour) / 24 * 100)}%, 
+                          #facc15 ${Math.max(0, (daylight.sunriseHour + 1) / 24 * 100)}%,
+                          #fff7ed ${Math.max(0, (daylight.sunriseHour + 3) / 24 * 100)}%, 
+                          #fff7ed ${Math.min(100, (daylight.sunsetHour - 3) / 24 * 100)}%, 
+                          #facc15 ${Math.min(100, (daylight.sunsetHour - 1) / 24 * 100)}%, 
+                          #f97316 ${Math.min(100, daylight.sunsetHour / 24 * 100)}%, 
+                          #1e1b4b ${Math.min(100, (daylight.sunsetHour + 1) / 24 * 100)}%, 
+                          #0c0a3e 100%)`
+                        : '#0c0a3e',
+                        opacity: 0.65
                       }} />
-                      {daylight && <div className="absolute top-1/2 -translate-y-1/2 transition-all duration-1000" style={{ left: `${Math.max(5, Math.min(90, (12 - daylight.hours) / 12 * 100))}%` }}>
+                      {daylight && <div className="absolute top-1/2 -translate-y-1/2 transition-all duration-1000" style={{ left: `${Math.max(2, Math.min(96, (daylight.currentHour - daylight.sunriseHour) / (daylight.sunsetHour - daylight.sunriseHour) * 100))}%` }}>
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center ${daylight.hours > 0 ? 'bg-yellow-400/20 shadow-lg shadow-yellow-400/30' : 'bg-slate-500/10'}`}>
                           <div className={`w-6 h-6 rounded-full ${daylight.hours > 0 ? 'bg-gradient-to-br from-yellow-300 to-orange-500 shadow-lg shadow-yellow-400/50' : 'bg-slate-600'}`} />
                         </div>
@@ -326,9 +338,9 @@ export default function AlertaPresionPage() {
                       <div className="absolute top-1/2 left-0 right-0 h-px bg-white/10" />
                     </div>
                     <div className="flex items-center justify-between mt-1">
-                      <span className="text-[7px] text-slate-600">🌅 {(() => { if (!daylight) return '—'; return `${Math.round(12 - daylight.hours)}h`; })()}</span>
+                      <span className="text-[7px] text-slate-600">🌅 {daylight ? `${Math.floor(daylight.sunriseHour)}:${String(Math.round((daylight.sunriseHour % 1) * 60)).padStart(2,'0')}` : '—'}</span>
                       <span className="text-sm font-black text-yellow-400">{daylight?.sunset || '—'}</span>
-                      <span className="text-[7px] text-slate-600">🌇 {daylight?.sunset || '—'}</span>
+                      <span className="text-[7px] text-slate-600">🌇 {daylight ? `${Math.floor(daylight.sunsetHour)}:${String(Math.round((daylight.sunsetHour % 1) * 60)).padStart(2,'0')}` : '—'}</span>
                     </div>
                   </div>
                 </div>
