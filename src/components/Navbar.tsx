@@ -143,7 +143,7 @@ function UserMenu({ user, onSignOut, onNavigate }: {
         <div className="absolute top-full right-0 pt-2">
           <div className="w-48 bg-slate-900 border border-white/10 rounded-xl shadow-2xl py-2 space-y-1">
             <Link
-              href="/auth"
+              href="/account"
               onClick={() => { setOpen(false); onNavigate?.(); }}
               className="block px-4 py-2.5 text-xs font-bold text-slate-400 hover:text-orange-500 hover:bg-white/5 transition-colors"
             >
@@ -247,7 +247,7 @@ const Navbar = () => {
                 </div>
               ) : (
                 <Link
-              href="/account"
+              href="/auth"
                   onClick={closeMobile}
                   className="block text-sm font-bold text-slate-400 hover:text-orange-500 transition-colors"
                 >

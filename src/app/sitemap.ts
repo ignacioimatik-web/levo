@@ -3,7 +3,7 @@ import { routes } from '@/data/routes';
 import { demoTrails } from '@/data/trails';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://ignacioimatik-web.github.io/levo';
+  const baseUrl = 'https://gpxtour.vercel.app';
 
   const staticRoutes = [
     '', '/rutas', '/sectores', '/top-tracks', '/travesias',

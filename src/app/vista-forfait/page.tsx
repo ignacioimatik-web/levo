@@ -7,13 +7,13 @@ export const metadata = {
   openGraph: {
     title: 'Vista Forfait | E-nduro Ebiketracks',
     description: 'Explora las sendas del bike resort en 3D con Mapbox. Vista panorámica interactiva.',
-    images: [{ url: 'https://levo-seven.vercel.app/images/logo-enduro-ebiketracks.png', width: 1200, height: 630, alt: 'E-nduro Ebiketracks' }],
+    images: [{ url: 'https://gpxtour.vercel.app/images/logo-enduro-ebiketracks.png', width: 1200, height: 630, alt: 'E-nduro Ebiketracks' }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Vista Forfait | E-nduro Ebiketracks',
     description: 'Explora las sendas del bike resort en 3D con Mapbox.',
-    images: ['https://levo-seven.vercel.app/images/logo-enduro-ebiketracks.png'],
+    images: [{ url: 'https://gpxtour.vercel.app/images/logo-enduro-ebiketracks.png', width: 1200, height: 630, alt: 'E-nduro Ebiketracks' }],
   },
 };
 

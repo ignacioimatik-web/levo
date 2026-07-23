@@ -8,7 +8,7 @@ export const metadata = {
   openGraph: {
     title: 'Vista Forfait Earth Engine | E-nduro Ebiketracks',
     description: 'Mapa satelital con Google Earth Engine.',
-    images: [{ url: 'https://levo-seven.vercel.app/images/logo-enduro-ebiketracks.png', width: 1200, height: 630, alt: 'E-nduro Ebiketracks' }],
+    images: [{ url: 'https://gpxtour.vercel.app/images/logo-enduro-ebiketracks.png', width: 1200, height: 630, alt: 'E-nduro Ebiketracks' }],
   },
 };
 

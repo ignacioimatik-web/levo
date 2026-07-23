@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "es_ES",
-    url: "https://ignacioimatik-web.github.io/levo",
+    url: "https://gpxtour.vercel.app",
     siteName: "E-nduro Ebiketracks",
     title: "E-nduro Ebiketracks | Rutas MTB & Enduro",
     description: "Descubre las mejores rutas autoguiadas por GPS de MTB, Enduro y All-Mountain en Morella y Els Ports.",
