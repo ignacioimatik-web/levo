@@ -414,17 +414,17 @@ export default function AlertaPresionPage() {
             {step === 2 && <div className="fade-in space-y-4">
               {/* BARRA DATOS + AJUSTES */}
               {weatherLoaded && <div className="bg-slate-900/60 border border-white/5 rounded-xl p-5 space-y-4">
-                <div className="flex items-center flex-wrap gap-4 md:gap-6">
-                  <div className="text-center flex-shrink-0 min-w-[100px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Temperatura</p><div className="flex items-baseline justify-center gap-0.5"><div className="flex items-baseline justify-center gap-0.5"><span className="text-5xl md:text-6xl font-black text-orange-500 leading-none">{effectiveTemp}</span><span className="text-sm md:text-base text-orange-500/70 font-black">°C</span></div><span className="text-slate-600 text-lg mx-0.5">/</span><div className="flex items-baseline justify-center gap-0.5"><span className="text-5xl md:text-6xl font-black text-orange-400/80 leading-none">{feelsLike ?? '—'}</span><span className="text-sm md:text-base text-orange-400/60 font-black">°C</span></div></div></div>
-                  <div className="w-px h-28 bg-white/5 flex-shrink-0" />
-                  <div className="text-center flex-shrink-0 min-w-[90px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Humedad</p><div className="flex items-baseline justify-center gap-2"><span className="text-5xl md:text-6xl font-black text-blue-400 leading-none">{effectiveHumidity}</span><span className="text-xl text-blue-400/70 font-black">%</span></div><p className="text-[8px] text-slate-500 mt-0.5">Base {baseHumidity}%</p></div>
-                  <div className="w-px h-28 bg-white/5 flex-shrink-0" />
-                  <div className="text-center flex-shrink-0 min-w-[90px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Viento</p><div className="flex items-baseline justify-center gap-2"><span className="text-5xl md:text-6xl font-black text-emerald-400 leading-none">{windKmh ?? '—'}</span><span className="text-xl text-emerald-400/70 font-black">km/h</span></div><p className="text-[8px] text-slate-500 mt-0.5">Ráf. {gustKmh ?? '—'} km/h</p></div>
-                  <div className="w-px h-28 bg-white/5 flex-shrink-0" />
-                  <div className="text-center flex-shrink-0 min-w-[70px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Lluvia</p><span className="text-5xl md:text-6xl font-black text-cyan-400 leading-none">{precipitationMm != null ? precipitationMm.toFixed(1) : '—'}</span><p className="text-[8px] text-slate-500 mt-0.5">mm</p></div>
-                  <div className="w-px h-28 bg-white/5 flex-shrink-0" />
-                  <div className="text-center flex-shrink-0 min-w-[110px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Dirección</p>
-                    {windDirectionDeg != null ? <><div className="relative w-20 h-20 mx-auto">
+                <div className="flex items-center flex-wrap gap-3 md:gap-4">
+                  <div className="text-center flex-shrink-0 min-w-[70px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1">Térmica</p><div className="flex items-baseline justify-center gap-0.5"><span className="text-4xl md:text-5xl font-black text-orange-400 leading-none">{feelsLike ?? '—'}</span><span className="text-base md:text-lg text-orange-400/70 font-black">°C</span></div></div>
+                  <div className="w-px h-16 bg-white/5 flex-shrink-0" />
+                  <div className="text-center flex-shrink-0 min-w-[60px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1">Humedad</p><div className="flex items-baseline justify-center gap-1"><span className="text-4xl md:text-5xl font-black text-blue-400 leading-none">{effectiveHumidity}</span><span className="text-sm md:text-base text-blue-400/70 font-black">%</span></div></div>
+                  <div className="w-px h-16 bg-white/5 flex-shrink-0" />
+                  <div className="text-center flex-shrink-0 min-w-[60px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1">Viento</p><div className="flex items-baseline justify-center gap-1"><span className="text-4xl md:text-5xl font-black text-emerald-400 leading-none">{windKmh ?? '—'}</span><span className="text-sm md:text-base text-emerald-400/70 font-black">km/h</span></div></div>
+                  <div className="w-px h-16 bg-white/5 flex-shrink-0" />
+                  <div className="text-center flex-shrink-0 min-w-[50px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1">Lluvia</p><span className="text-4xl md:text-5xl font-black text-cyan-400 leading-none">{precipitationMm != null ? precipitationMm.toFixed(1) : '—'}</span></div>
+                  <div className="w-px h-16 bg-white/5 flex-shrink-0" />
+                  <div className="text-center flex-shrink-0 min-w-[80px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1">Dirección</p>
+                    {windDirectionDeg != null ? <><div className="flex items-center justify-center gap-1"><div className="relative w-12 h-12 flex-shrink-0">
                       <svg viewBox="0 0 100 100" className="w-full h-full" fill="none">
                         <circle cx="50" cy="50" r="44" stroke="#334155" strokeWidth="1" />
                         <line x1="50" y1="6" x2="50" y2="94" stroke="#334155" strokeWidth="0.5" />
@@ -433,18 +433,14 @@ export default function AlertaPresionPage() {
                         <text x="94" y="54" textAnchor="end" fontSize="7" fill="#475569">E</text>
                         <text x="50" y="93" textAnchor="middle" fontSize="7" fill="#475569">S</text>
                         <text x="6" y="54" textAnchor="start" fontSize="7" fill="#475569">O</text>
-                        <text x="78" y="24" textAnchor="middle" fontSize="5.5" fill="#475569">NE</text>
-                        <text x="78" y="80" textAnchor="middle" fontSize="5.5" fill="#475569">SE</text>
-                        <text x="22" y="24" textAnchor="middle" fontSize="5.5" fill="#475569">NO</text>
-                        <text x="22" y="80" textAnchor="middle" fontSize="5.5" fill="#475569">SO</text>
                         <g transform={`rotate(${windAngle} 50 50)`} style={{ transition: 'none' }}>
                           <polygon points="50,14 46,55 50,60 54,55" fill="#34d399" opacity="0.85" />
                         </g>
                         <circle cx="50" cy="50" r="3.5" fill="#1e293b" stroke="#34d399" strokeWidth="1.5" />
                       </svg>
                     </div>
-                    <span className="text-[10px] font-bold text-emerald-400 mt-1 block">{windDirText(windDirectionDeg)}</span></>
-                    : <span className="text-5xl md:text-6xl font-black text-slate-600 leading-none">—</span>}
+                    <span className="text-[10px] font-bold text-emerald-400">{windDirText(windDirectionDeg)}</span></div></>
+                    : <span className="text-4xl md:text-5xl font-black text-slate-600 leading-none">—</span>}
                   </div>
                 </div>
 
