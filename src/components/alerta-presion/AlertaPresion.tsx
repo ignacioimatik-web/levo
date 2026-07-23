@@ -170,7 +170,7 @@ export default function AlertaPresionPage() {
       if (userErr || !freshUser) { setProfileLoadError(userErr?.message || 'No autenticado'); setSavedProfiles([]); setProfileLoaded(true); return; }
       const { data, error } = await supabase.rpc('get_my_bike_profiles');
       if (error) { setProfileLoadError(`${error.message} (code: ${error.code})`); setSavedProfiles([]); }
-      else if (data && data.length > 0) { setSavedProfiles(data); selectProfile(data[0]); }
+      else if (data && data.length > 0) { setSavedProfiles(data); selectProfile(data[0]); setStep(2); }
       else { setSavedProfiles([]); setProfile({ ...DEFAULT_PROFILE }); setProfileName('Mi perfil'); setSelectedProfileId(null); }
       setProfileLoaded(true);
     } catch { setProfileLoaded(true); }
