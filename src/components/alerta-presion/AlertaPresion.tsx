@@ -248,7 +248,7 @@ export default function AlertaPresionPage() {
     <div className="min-h-screen bg-slate-950">
       {/* HEADER */}
       <div className="border-b border-white/5 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-red-600 rounded-xl flex items-center justify-center shadow-lg shadow-orange-500/20"><Gauge className="text-white w-5 h-5" /></div>
             <div><h1 className="text-lg font-black text-white tracking-tight">Alerta Presión</h1><p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Ajusta temperatura y humedad a tu ruta</p></div>
@@ -257,7 +257,7 @@ export default function AlertaPresionPage() {
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-6 py-8">
+      <div className="max-w-6xl mx-auto px-6 py-8">
         <style>{`.fade-in { animation: fi 0.35s ease-out both; } @keyframes fi { 0% { opacity:0; transform:translateY(10px); } 100% { opacity:1; transform:translateY(0); } }`}</style>
 
         {!user ? (
@@ -348,7 +348,7 @@ export default function AlertaPresionPage() {
                   <div className="w-px h-28 bg-white/5 flex-shrink-0" />
                   <div className="text-center flex-shrink-0 min-w-[90px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Humedad</p><div className="flex items-baseline justify-center gap-2"><span className="text-5xl md:text-6xl font-black text-blue-400 leading-none">{effectiveHumidity}</span><span className="text-xl text-blue-400/70 font-black">%</span></div><p className="text-[8px] text-slate-500 mt-0.5">Base {baseHumidity}%</p>{uvIndex != null && <p className={`text-[9px] font-bold mt-0.5 ${uvColor(uvIndex)}`}>UV {uvIndex}</p>}</div>
                   <div className="w-px h-28 bg-white/5 flex-shrink-0" />
-                  <div className="text-center flex-shrink-0 min-w-[100px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Viento</p><div className="flex items-baseline justify-center gap-2"><span className="text-5xl md:text-6xl font-black text-emerald-400 leading-none">{windKmh ?? '—'}</span><span className="text-xl text-emerald-400/70 font-black">km/h</span></div><p className="text-[8px] text-slate-500 mt-0.5">Ráf. {gustKmh ?? '—'} km/h</p>
+                  <div className="text-center flex-shrink-0 min-w-[110px]"><p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1.5">Viento</p><div className="flex items-baseline justify-center gap-2"><span className="text-5xl md:text-6xl font-black text-emerald-400 leading-none">{windKmh ?? '—'}</span><span className="text-xl text-emerald-400/70 font-black">km/h</span></div><p className="text-[8px] text-slate-500 mt-0.5">Ráf. {gustKmh ?? '—'} km/h</p>
                     {windDirectionDeg != null && <div className="flex items-center justify-center gap-1 mt-0.5">
                       <div className="relative w-9 h-9 flex-shrink-0">
                         <svg viewBox="0 0 100 100" className="w-full h-full" fill="none">
@@ -528,7 +528,7 @@ export default function AlertaPresionPage() {
             })()}
           </div>
           {/* RIGHT SIDEBAR: stepper + presets */}
-          <div className="flex-shrink-0 w-32 space-y-3 sticky top-24">
+          <div className="flex-shrink-0 w-40 space-y-3 sticky top-24">
             <div className="bg-slate-900/40 border border-white/5 rounded-xl p-3 space-y-2">
               {[1, 2, 3].map(i => (
                 <button key={i} onClick={() => i <= step && setStep(i)} className={`flex items-center gap-3 w-full px-3 py-4 rounded-xl border transition-all ${stepClass(i)}`}>
